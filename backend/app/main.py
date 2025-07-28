@@ -48,9 +48,14 @@ async def lifespan(app: FastAPI):
         from .services.realtime_service import realtime_service
         await realtime_service.start()
         
+        # 启动定时任务调度器
+        from .services.scheduler_service import scheduler_service
+        await scheduler_service.start()
+        
         print("✅ 应用启动成功")
         print(f"📊 数据库状态: {health}")
         print("📡 实时数据服务已启动")
+        print("⏰ 定时任务调度器已启动")
         
     except Exception as e:
         print(f"❌ 应用启动失败: {e}")
@@ -60,6 +65,10 @@ async def lifespan(app: FastAPI):
     
     # 关闭时执行
     try:
+        # 停止定时任务调度器
+        from .services.scheduler_service import scheduler_service
+        await scheduler_service.stop()
+        
         # 停止实时数据推送服务
         from .services.realtime_service import realtime_service
         await realtime_service.stop()

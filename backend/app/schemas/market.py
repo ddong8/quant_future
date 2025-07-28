@@ -176,3 +176,132 @@ class MarketDataStats(BaseModel):
     subscription_count: int
     cache_hit_rate: float
     last_update: str
+
+
+class HistoryKlineRequest(BaseModel):
+    """历史K线查询请求模型"""
+    symbol: str
+    period: int = 60  # 秒
+    start_time: Optional[datetime] = None
+    end_time: Optional[datetime] = None
+    limit: int = 1000
+    
+    @validator('period')
+    def validate_period(cls, v):
+        allowed_periods = [60, 300, 900, 1800, 3600, 86400]
+        if v not in allowed_periods:
+            raise ValueError(f'时间周期必须是: {allowed_periods}')
+        return v
+    
+    @validator('limit')
+    def validate_limit(cls, v):
+        if v < 1 or v > 8000:
+            raise ValueError('数据长度必须在1-8000之间')
+        return v
+    
+    @validator('end_time')
+    def validate_end_time(cls, v, values):
+        if v and 'start_time' in values and values['start_time']:
+            if v <= values['start_time']:
+                raise ValueError('结束时间必须大于开始时间')
+        return v
+
+
+class HistoryQuoteRequest(BaseModel):
+    """历史行情查询请求模型"""
+    symbol: str
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    limit: int = 1000
+    
+    @validator('limit')
+    def validate_limit(cls, v):
+        if v < 1 or v > 10000:
+            raise ValueError('数据长度必须在1-10000之间')
+        return v
+
+
+class PeriodConvertRequest(BaseModel):
+    """时间周期转换请求模型"""
+    symbol: str
+    source_period: int
+    target_period: int
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    limit: int = 1000
+    
+    @validator('source_period', 'target_period')
+    def validate_periods(cls, v):
+        allowed_periods = [60, 300, 900, 1800, 3600, 86400]
+        if v not in allowed_periods:
+            raise ValueError(f'时间周期必须是: {allowed_periods}')
+        return v
+    
+    @validator('target_period')
+    def validate_target_period(cls, v, values):
+        if 'source_period' in values:
+            if v <= values['source_period']:
+                raise ValueError('目标周期必须大于源周期')
+            if v % values['source_period'] != 0:
+                raise ValueError('目标周期必须是源周期的整数倍')
+        return v
+
+
+class MarketSummaryItem(BaseModel):
+    """市场概况项目模型"""
+    symbol: str
+    close: float
+    open: float
+    high: float
+    low: float
+    volume: int
+    change: float
+    change_rate: float
+    datetime: str
+
+
+class MarketSummaryResponse(BaseModel):
+    """市场概况响应模型"""
+    summary: Dict[str, MarketSummaryItem]
+    total_symbols: int
+    update_time: str
+
+
+class DataExportRequest(BaseModel):
+    """数据导出请求模型"""
+    symbol: str
+    data_type: str  # kline, quote
+    period: Optional[int] = None  # K线数据需要
+    start_time: datetime
+    end_time: datetime
+    format: str = "csv"  # csv, json, excel
+    
+    @validator('data_type')
+    def validate_data_type(cls, v):
+        allowed_types = ['kline', 'quote']
+        if v not in allowed_types:
+            raise ValueError(f'数据类型必须是: {allowed_types}')
+        return v
+    
+    @validator('format')
+    def validate_format(cls, v):
+        allowed_formats = ['csv', 'json', 'excel']
+        if v not in allowed_formats:
+            raise ValueError(f'导出格式必须是: {allowed_formats}')
+        return v
+    
+    @validator('period')
+    def validate_period(cls, v, values):
+        if values.get('data_type') == 'kline' and not v:
+            raise ValueError('K线数据必须指定时间周期')
+        return v
+
+
+class CacheStats(BaseModel):
+    """缓存统计模型"""
+    total_keys: int
+    kline_cache_keys: int
+    quote_cache_keys: int
+    cache_size_mb: float
+    hit_rate: float
+    last_cleanup: Optional[str] = None

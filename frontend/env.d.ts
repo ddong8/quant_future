@@ -6,12 +6,13 @@ declare module '*.vue' {
   export default component
 }
 
-interface ImportMetaEnv {
-  readonly VITE_API_BASE_URL: string
-  readonly VITE_WS_BASE_URL: string
-  readonly VITE_APP_TITLE: string
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
+declare module 'nprogress' {
+  interface NProgress {
+    configure(options: { showSpinner?: boolean }): NProgress
+    start(): NProgress
+    done(): NProgress
+  }
+  
+  const nprogress: NProgress
+  export default nprogress
 }

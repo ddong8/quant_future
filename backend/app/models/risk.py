@@ -1,12 +1,13 @@
 """
 风险管理相关数据模型
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean, Decimal, Enum as SQLEnum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+from datetime import datetime
 
 from ..core.database import Base
-from .enums import RiskEventType
+from .enums import RiskEventType, RiskRuleType
 
 
 class RiskRule(Base):
@@ -14,27 +15,23 @@ class RiskRule(Base):
     __tablename__ = "risk_rules"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    
+    # 规则信息
+    rule_type = Column(SQLEnum(RiskRuleType), nullable=False)
+    symbol = Column(String(20), nullable=True, index=True)  # 品种代码，为空表示全局规则
+    rule_value = Column(Decimal(precision=18, scale=8), nullable=False)
     description = Column(Text)
-    
-    # 规则类型和配置
-    rule_type = Column(String(50), nullable=False)  # daily_loss/position_limit/order_frequency等
-    parameters = Column(JSON, nullable=False)  # 规则参数配置
-    
-    # 适用范围
-    user_id = Column(Integer, ForeignKey("users.id"), index=True)  # 为空表示全局规则
-    strategy_id = Column(Integer, ForeignKey("strategies.id"), index=True)  # 为空表示用户级规则
     
     # 规则状态
     is_active = Column(Boolean, default=True, nullable=False)
-    priority = Column(Integer, default=0)  # 优先级，数字越大优先级越高
     
     # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     def __repr__(self):
-        return f"<RiskRule(id={self.id}, name='{self.name}', type='{self.rule_type}')>"
+        return f"<RiskRule(id={self.id}, type='{self.rule_type}', value={self.rule_value})>"
 
 
 class RiskEvent(Base):

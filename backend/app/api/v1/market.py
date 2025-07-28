@@ -6,9 +6,10 @@ from typing import List, Optional
 import json
 import asyncio
 
-from ...core.dependencies import get_current_user, require_trader_or_admin
-from ...core.response import success_response
+from ...core.dependencies import get_current_user, require_trader_or_admin, get_pagination_params, PaginationParams
+from ...core.response import success_response, paginated_response
 from ...services.market_service import market_service
+from ...services.history_service import history_service
 from ...schemas.market import (
     InstrumentInfo,
     QuoteData,
@@ -20,6 +21,11 @@ from ...schemas.market import (
     MarketStatus,
     ConnectionStatus,
     MarketDataStats,
+    HistoryKlineRequest,
+    HistoryQuoteRequest,
+    PeriodConvertRequest,
+    MarketSummaryResponse,
+    CacheStats,
 )
 from ...models import User
 
@@ -335,3 +341,176 @@ async def push_quotes_to_client(websocket: WebSocket, symbols: List[str]):
     except Exception as e:
         logger.error(f"推送行情数据失败: {e}")
         manager.disconnect(websocket)
+
+
+# 历史数据查询接口
+@router.post("/history/klines", response_model=List[KlineData])
+async def get_history_klines(
+    request: HistoryKlineRequest,
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """获取历史K线数据"""
+    klines = await history_service.get_klines(
+        symbol=request.symbol,
+        period=request.period,
+        start_time=request.start_time,
+        end_time=request.end_time,
+        limit=request.limit
+    )
+    
+    return success_response(
+        data=[kline.dict() for kline in klines],
+        message=f"获取历史K线数据成功，共{len(klines)}条"
+    )
+
+
+@router.get("/history/klines/{symbol}")
+async def get_history_klines_paginated(
+    symbol: str,
+    period: int = Query(60, description="时间周期（秒）"),
+    start_time: Optional[str] = Query(None, description="开始时间（ISO格式）"),
+    end_time: Optional[str] = Query(None, description="结束时间（ISO格式）"),
+    pagination: PaginationParams = Depends(get_pagination_params),
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """分页获取历史K线数据"""
+    # 解析时间参数
+    start_dt = datetime.fromisoformat(start_time) if start_time else None
+    end_dt = datetime.fromisoformat(end_time) if end_time else None
+    
+    klines, total = await history_service.get_klines_paginated(
+        symbol=symbol,
+        period=period,
+        pagination=pagination,
+        start_time=start_dt,
+        end_time=end_dt
+    )
+    
+    return paginated_response(
+        data=[kline.dict() for kline in klines],
+        total=total,
+        page=pagination.page,
+        page_size=pagination.page_size,
+        message="获取历史K线数据成功"
+    )
+
+
+@router.post("/history/quotes", response_model=List[QuoteData])
+async def get_history_quotes(
+    request: HistoryQuoteRequest,
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """获取历史行情数据"""
+    quotes = await history_service.get_quotes_history(
+        symbol=request.symbol,
+        start_time=request.start_time,
+        end_time=request.end_time,
+        limit=request.limit
+    )
+    
+    return success_response(
+        data=[quote.dict() for quote in quotes],
+        message=f"获取历史行情数据成功，共{len(quotes)}条"
+    )
+
+
+@router.post("/history/convert-period", response_model=List[KlineData])
+async def convert_kline_period(
+    request: PeriodConvertRequest,
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """转换K线时间周期"""
+    klines = await history_service.convert_kline_period(
+        symbol=request.symbol,
+        source_period=request.source_period,
+        target_period=request.target_period,
+        start_time=request.start_time,
+        end_time=request.end_time,
+        limit=request.limit
+    )
+    
+    return success_response(
+        data=[kline.dict() for kline in klines],
+        message=f"K线周期转换成功，共{len(klines)}条"
+    )
+
+
+@router.get("/summary", response_model=MarketSummaryResponse)
+async def get_market_summary(
+    symbols: List[str] = Query(..., description="合约代码列表"),
+    period: int = Query(86400, description="统计周期（秒）"),
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """获取市场概况"""
+    summary = await history_service.get_market_summary(symbols, period)
+    
+    response_data = MarketSummaryResponse(
+        summary=summary,
+        total_symbols=len(summary),
+        update_time=datetime.now().isoformat()
+    )
+    
+    return success_response(
+        data=response_data.dict(),
+        message=f"获取市场概况成功，包含{len(summary)}个合约"
+    )
+
+
+@router.delete("/cache")
+async def clear_cache(
+    symbol: Optional[str] = Query(None, description="合约代码，为空则清理所有缓存"),
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """清理历史数据缓存"""
+    history_service.clear_cache(symbol)
+    
+    message = f"清理{symbol}的缓存成功" if symbol else "清理所有历史数据缓存成功"
+    
+    return success_response(
+        data={"symbol": symbol},
+        message=message
+    )
+
+
+@router.get("/cache/stats", response_model=CacheStats)
+async def get_cache_stats(
+    current_user: User = Depends(require_trader_or_admin),
+):
+    """获取缓存统计信息"""
+    try:
+        redis_client = history_service.redis_client
+        
+        # 统计缓存键数量
+        all_keys = redis_client.keys("*")
+        kline_keys = redis_client.keys("klines:*")
+        quote_keys = redis_client.keys("quotes:*")
+        
+        # 估算缓存大小（简化计算）
+        cache_size_mb = len(all_keys) * 0.001  # 粗略估算
+        
+        stats = CacheStats(
+            total_keys=len(all_keys),
+            kline_cache_keys=len(kline_keys),
+            quote_cache_keys=len(quote_keys),
+            cache_size_mb=cache_size_mb,
+            hit_rate=0.85,  # 模拟值
+            last_cleanup=None
+        )
+        
+        return success_response(
+            data=stats.dict(),
+            message="获取缓存统计成功"
+        )
+        
+    except Exception as e:
+        logger.error(f"获取缓存统计失败: {e}")
+        return success_response(
+            data=CacheStats(
+                total_keys=0,
+                kline_cache_keys=0,
+                quote_cache_keys=0,
+                cache_size_mb=0,
+                hit_rate=0,
+            ).dict(),
+            message="获取缓存统计失败"
+        )

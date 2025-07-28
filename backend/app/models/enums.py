@@ -73,3 +73,42 @@ class NotificationType(str, Enum):
     SMS = "sms"
     WEBHOOK = "webhook"
     IN_APP = "in_app"
+
+
+class OrderType(str, Enum):
+    """订单类型枚举"""
+    MARKET = "market"
+    LIMIT = "limit"
+    STOP_MARKET = "stop_market"
+    STOP_LIMIT = "stop_limit"
+
+
+class OrderSide(str, Enum):
+    """订单方向枚举"""
+    BUY = "buy"
+    SELL = "sell"
+
+
+class PositionSide(str, Enum):
+    """持仓方向枚举"""
+    LONG = "long"
+    SHORT = "short"
+
+
+class TransactionType(str, Enum):
+    """交易流水类型枚举"""
+    DEPOSIT = "deposit"          # 充值
+    WITHDRAW = "withdraw"        # 提现
+    COMMISSION = "commission"    # 手续费
+    PROFIT = "profit"           # 盈利
+    LOSS = "loss"               # 亏损
+    FREEZE = "freeze"           # 冻结
+    UNFREEZE = "unfreeze"       # 解冻
+
+
+class RiskRuleType(str, Enum):
+    """风险规则类型枚举"""
+    POSITION_LIMIT = "position_limit"           # 持仓限制
+    ORDER_SIZE_LIMIT = "order_size_limit"       # 单笔订单大小限制
+    DAILY_LOSS_LIMIT = "daily_loss_limit"       # 日亏损限制
+    CONCENTRATION_LIMIT = "concentration_limit"  # 集中度限制

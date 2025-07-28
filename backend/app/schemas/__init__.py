@@ -36,6 +36,25 @@ from .market import (
     MarketStatus,
     ConnectionStatus,
     MarketDataStats,
+    HistoryKlineRequest,
+    HistoryQuoteRequest,
+    PeriodConvertRequest,
+    MarketSummaryResponse,
+    CacheStats,
+)
+from .strategy import (
+    StrategyCreate,
+    StrategyUpdate,
+    StrategyResponse,
+    StrategyListResponse,
+    StrategySearchRequest,
+    StrategyStatusUpdate,
+    StrategyVersionCreate,
+    StrategyVersionResponse,
+    StrategyStatsResponse,
+    StrategyCloneRequest,
+    BatchStrategyOperation,
+    StrategyTemplate,
 )
 
 __all__ = [
@@ -72,4 +91,22 @@ __all__ = [
     "MarketStatus",
     "ConnectionStatus",
     "MarketDataStats",
+    "HistoryKlineRequest",
+    "HistoryQuoteRequest",
+    "PeriodConvertRequest",
+    "MarketSummaryResponse",
+    "CacheStats",
+    # 策略管理相关
+    "StrategyCreate",
+    "StrategyUpdate",
+    "StrategyResponse",
+    "StrategyListResponse",
+    "StrategySearchRequest",
+    "StrategyStatusUpdate",
+    "StrategyVersionCreate",
+    "StrategyVersionResponse",
+    "StrategyStatsResponse",
+    "StrategyCloneRequest",
+    "BatchStrategyOperation",
+    "StrategyTemplate",
 ]
