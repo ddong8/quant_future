@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, func
 import logging
 
-from ..models import Position, Order, TradingAccount, User
+from ..models import Position, Order, Account, User
 from ..models.enums import PositionSide, OrderSide, OrderStatus
 from ..core.exceptions import NotFoundError, ValidationError
 from ..core.dependencies import PaginationParams, SortParams

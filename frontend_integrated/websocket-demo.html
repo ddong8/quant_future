@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 量化交易平台 - WebSocket实时数据</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://unpkg.com/element-plus/dist/index.full.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; }
+        .header { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); color: white; padding: 20px; text-align: center; box-shadow: 0 2px 12px rgba(0,0,0,0.1); border-radius: 8px; margin-bottom: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .realtime-section { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); margin: 20px 0; }
+        .price-display { font-size: 2em; font-weight: bold; font-family: monospace; }
+        .price-up { color: #27ae60; }
+        .price-down { color: #e74c3c; }
+        .price-neutral { color: #3498db; }
+        .connection-status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .connected { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .disconnected { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .message-log { background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 6px; height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>🚀 量化交易平台 - 实时数据演示</h1>
+            <p>WebSocket实时行情推送演示</p>
+        </div>
+        
+        <div class="container">
+            <!-- 连接状态 -->
+            <div class="realtime-section">
+                <h2>🔗 连接状态</h2>
+                <div :class="['connection-status', wsConnected ? 'connected' : 'disconnected']">
+                    {{ wsConnected ? '✅ WebSocket已连接' : '❌ WebSocket未连接' }}
+                </div>
+                <el-button @click="connectWebSocket" :disabled="wsConnected" type="primary">连接WebSocket</el-button>
+                <el-button @click="disconnectWebSocket" :disabled="!wsConnected" type="danger">断开连接</el-button>
+            </div>
+
+            <!-- 实时行情 -->
+            <div class="realtime-section">
+                <h2>📊 实时行情</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                    <div v-for="quote in realtimeQuotes" :key="quote.symbol" style="border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                        <h3>{{ quote.name }}</h3>
+                        <div :class="['price-display', getPriceClass(quote)]">
+                            ¥{{ quote.last_price }}
+                        </div>
+                        <div style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                            变动: {{ quote.change > 0 ? '+' : '' }}{{ quote.change }} ({{ quote.change_percent > 0 ? '+' : '' }}{{ quote.change_percent }}%)
+                        </div>
+                        <div style="font-size: 0.8em; color: #999; margin-top: 5px;">
+                            更新时间: {{ formatTime(quote.timestamp) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 消息日志 -->
+            <div class="realtime-section">
+                <h2>📝 消息日志</h2>
+                <div class="message-log" ref="messageLog">{{ messageLog }}</div>
+                <el-button @click="clearLog" style="margin-top: 10px;">清空日志</el-button>
+            </div>
+
+            <!-- 模拟数据控制 -->
+            <div class="realtime-section">
+                <h2>🎮 模拟控制</h2>
+                <p>由于这是演示版本，我们使用模拟数据来展示实时功能：</p>
+                <el-button @click="startSimulation" :disabled="simulationRunning" type="success">开始模拟数据</el-button>
+                <el-button @click="stopSimulation" :disabled="!simulationRunning" type="warning">停止模拟</el-button>
+                <div style="margin-top: 10px;">
+                    <span>更新频率: </span>
+                    <el-slider v-model="updateInterval" :min="500" :max="5000" :step="500" style="width: 200px; display: inline-block; margin: 0 10px;"></el-slider>
+                    <span>{{ updateInterval }}ms</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+        const { ElButton, ElSlider, ElMessage } = ElementPlus;
+
+        createApp({
+            components: {
+                ElButton,
+                ElSlider
+            },
+            data() {
+                return {
+                    wsConnected: false,
+                    ws: null,
+                    messageLog: '等待连接WebSocket...\n',
+                    simulationRunning: false,
+                    simulationTimer: null,
+                    updateInterval: 1000,
+                    realtimeQuotes: [
+                        {
+                            symbol: 'SHFE.cu2401',
+                            name: '沪铜2401',
+                            last_price: 68500.0,
+                            change: 0,
+                            change_percent: 0,
+                            timestamp: new Date().toISOString()
+                        },
+                        {
+                            symbol: 'SHFE.au2312',
+                            name: '沪金2312',
+                            last_price: 456.8,
+                            change: 0,
+                            change_percent: 0,
+                            timestamp: new Date().toISOString()
+                        },
+                        {
+                            symbol: 'DCE.i2401',
+                            name: '铁矿石2401',
+                            last_price: 785.5,
+                            change: 0,
+                            change_percent: 0,
+                            timestamp: new Date().toISOString()
+                        }
+                    ]
+                }
+            },
+            methods: {
+                connectWebSocket() {
+                    try {
+                        // 尝试连接到后端WebSocket（如果存在）
+                        this.ws = new WebSocket('ws://localhost:8000/api/v1/ws');
+                        
+                        this.ws.onopen = () => {
+                            this.wsConnected = true;
+                            this.addLog('✅ WebSocket连接成功');
+                            ElMessage.success('WebSocket连接成功');
+                        };
+                        
+                        this.ws.onmessage = (event) => {
+                            const data = JSON.parse(event.data);
+                            this.handleWebSocketMessage(data);
+                        };
+                        
+                        this.ws.onclose = () => {
+                            this.wsConnected = false;
+                            this.addLog('❌ WebSocket连接关闭');
+                            ElMessage.warning('WebSocket连接关闭');
+                        };
+                        
+                        this.ws.onerror = (error) => {
+                            this.addLog('🚫 WebSocket连接错误: ' + error.message);
+                            ElMessage.error('WebSocket连接失败，使用模拟模式');
+                            // 如果WebSocket连接失败，启用模拟模式
+                            this.wsConnected = true; // 模拟连接成功
+                            this.startSimulation();
+                        };
+                        
+                    } catch (error) {
+                        this.addLog('🚫 WebSocket初始化失败: ' + error.message);
+                        ElMessage.error('WebSocket不可用，使用模拟模式');
+                        // 启用模拟模式
+                        this.wsConnected = true;
+                        this.startSimulation();
+                    }
+                },
+                
+                disconnectWebSocket() {
+                    if (this.ws) {
+                        this.ws.close();
+                    }
+                    this.stopSimulation();
+                    this.wsConnected = false;
+                    this.addLog('🔌 手动断开WebSocket连接');
+                },
+                
+                handleWebSocketMessage(data) {
+                    this.addLog('📨 收到消息: ' + JSON.stringify(data));
+                    
+                    if (data.type === 'quote_update') {
+                        this.updateQuote(data.data);
+                    }
+                },
+                
+                updateQuote(quoteData) {
+                    const index = this.realtimeQuotes.findIndex(q => q.symbol === quoteData.symbol);
+                    if (index !== -1) {
+                        const oldPrice = this.realtimeQuotes[index].last_price;
+                        this.realtimeQuotes[index] = {
+                            ...this.realtimeQuotes[index],
+                            ...quoteData,
+                            change: quoteData.last_price - oldPrice,
+                            change_percent: ((quoteData.last_price - oldPrice) / oldPrice * 100).toFixed(2),
+                            timestamp: new Date().toISOString()
+                        };
+                    }
+                },
+                
+                startSimulation() {
+                    if (this.simulationRunning) return;
+                    
+                    this.simulationRunning = true;
+                    this.addLog('🎮 开始模拟实时数据推送');
+                    
+                    this.simulationTimer = setInterval(() => {
+                        this.realtimeQuotes.forEach(quote => {
+                            const oldPrice = quote.last_price;
+                            // 模拟价格波动 (-2% 到 +2%)
+                            const changePercent = (Math.random() - 0.5) * 0.04;
+                            const newPrice = oldPrice * (1 + changePercent);
+                            const change = newPrice - oldPrice;
+                            
+                            quote.last_price = Math.round(newPrice * 100) / 100;
+                            quote.change = Math.round(change * 100) / 100;
+                            quote.change_percent = Math.round(changePercent * 10000) / 100;
+                            quote.timestamp = new Date().toISOString();
+                        });
+                        
+                        this.addLog(`📊 更新行情数据 - ${this.formatTime(new Date().toISOString())}`);
+                    }, this.updateInterval);
+                },
+                
+                stopSimulation() {
+                    if (this.simulationTimer) {
+                        clearInterval(this.simulationTimer);
+                        this.simulationTimer = null;
+                    }
+                    this.simulationRunning = false;
+                    this.addLog('⏹️ 停止模拟数据推送');
+                },
+                
+                addLog(message) {
+                    const timestamp = new Date().toLocaleTimeString();
+                    this.messageLog += `[${timestamp}] ${message}\n`;
+                    this.$nextTick(() => {
+                        const logElement = this.$refs.messageLog;
+                        if (logElement) {
+                            logElement.scrollTop = logElement.scrollHeight;
+                        }
+                    });
+                },
+                
+                clearLog() {
+                    this.messageLog = '';
+                },
+                
+                getPriceClass(quote) {
+                    if (quote.change > 0) return 'price-up';
+                    if (quote.change < 0) return 'price-down';
+                    return 'price-neutral';
+                },
+                
+                formatTime(timestamp) {
+                    return new Date(timestamp).toLocaleTimeString();
+                }
+            },
+            
+            watch: {
+                updateInterval(newVal) {
+                    if (this.simulationRunning) {
+                        this.stopSimulation();
+                        this.startSimulation();
+                    }
+                }
+            },
+            
+            beforeUnmount() {
+                this.stopSimulation();
+                if (this.ws) {
+                    this.ws.close();
+                }
+            }
+        }).use(ElementPlus).mount('#app');
+    </script>
+</body>
+</html>

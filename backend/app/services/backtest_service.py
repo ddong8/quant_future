@@ -613,7 +613,8 @@ class BacktestService:
             self.db.rollback()
             logger.error(f"克隆回测失败: {e}")
             raise  
-  def analyze_backtest_results(self, backtest_id: int, user_id: int) -> Dict[str, Any]:
+    
+    def analyze_backtest_results(self, backtest_id: int, user_id: int) -> Dict[str, Any]:
         """分析回测结果"""
         try:
             backtest = self.db.query(Backtest).filter(

@@ -2,6 +2,7 @@
 系统监控和通知相关数据模型
 """
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from ..core.database import Base
@@ -137,8 +138,7 @@ class ScheduledTask(Base):
     def __repr__(self):
         return f"<ScheduledTask(id={self.id}, name='{self.name}', type='{self.task_type}')>"
 
-class 
-SystemMetrics(Base):
+class SystemMetrics(Base):
     """系统性能指标表"""
     __tablename__ = "system_metrics_detailed"
     
@@ -209,6 +209,9 @@ class AlertRule(Base):
     created_by = Column(Integer, ForeignKey("users.id"), comment="创建者ID")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # 关系
+    creator = relationship("User", back_populates="alert_rules")
 
 
 class AlertHistory(Base):
@@ -265,5 +268,5 @@ class SystemEvent(Base):
     severity = Column(String(20), comment="严重程度")
     source = Column(String(100), comment="事件源")
     user_id = Column(Integer, ForeignKey("users.id"), comment="相关用户ID")
-    metadata = Column(JSON, comment="事件元数据")
+    event_metadata = Column(JSON, comment="事件元数据")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

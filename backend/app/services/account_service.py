@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc, func
 import logging
 
-from ..models import TradingAccount, User, Order, Position, AccountTransaction
+from ..models import Account, User, Order, Position, AccountTransaction
 from ..models.enums import OrderStatus, TransactionType
 from ..core.exceptions import NotFoundError, ValidationError, InsufficientFundsError
 from ..core.dependencies import PaginationParams, SortParams
@@ -22,13 +22,13 @@ class AccountService:
     def __init__(self, db: Session):
         self.db = db
     
-    def get_account(self, user_id: int) -> Optional[TradingAccount]:
+    def get_account(self, user_id: int) -> Optional[Account]:
         """获取用户交易账户"""
-        return self.db.query(TradingAccount).filter(
-            TradingAccount.user_id == user_id
+        return self.db.query(Account).filter(
+            Account.user_id == user_id
         ).first()
     
-    def create_account(self, user_id: int, initial_balance: float = 0.0) -> TradingAccount:
+    def create_account(self, user_id: int, initial_balance: float = 0.0) -> Account:
         """创建交易账户"""
         try:
             # 检查是否已存在账户
@@ -37,7 +37,7 @@ class AccountService:
                 raise ValidationError("用户已存在交易账户")
             
             # 创建新账户
-            account = TradingAccount(
+            account = Account(
                 user_id=user_id,
                 account_id=self._generate_account_id(user_id),
                 total_balance=Decimal(str(initial_balance)),
@@ -74,7 +74,7 @@ class AccountService:
     
     def update_balance(self, user_id: int, amount: Decimal, 
                       transaction_type: TransactionType, 
-                      description: str = "") -> TradingAccount:
+                      description: str = "") -> Account:
         """更新账户余额"""
         try:
             account = self.get_account(user_id)
@@ -459,7 +459,7 @@ class AccountService:
             logger.error(f"记录交易流水失败: {e}")
             raise
     
-    def deposit(self, user_id: int, amount: float, description: str = "充值") -> TradingAccount:
+    def deposit(self, user_id: int, amount: float, description: str = "充值") -> Account:
         """充值"""
         return self.update_balance(
             user_id=user_id,
@@ -468,7 +468,7 @@ class AccountService:
             description=description
         )
     
-    def withdraw(self, user_id: int, amount: float, description: str = "提现") -> TradingAccount:
+    def withdraw(self, user_id: int, amount: float, description: str = "提现") -> Account:
         """提现"""
         return self.update_balance(
             user_id=user_id,

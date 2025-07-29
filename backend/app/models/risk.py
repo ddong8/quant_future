@@ -1,7 +1,7 @@
 """
 风险管理相关数据模型
 """
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean, Decimal, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Text, JSON, Boolean, Numeric, Enum as SQLEnum
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -20,7 +20,7 @@ class RiskRule(Base):
     # 规则信息
     rule_type = Column(SQLEnum(RiskRuleType), nullable=False)
     symbol = Column(String(20), nullable=True, index=True)  # 品种代码，为空表示全局规则
-    rule_value = Column(Decimal(precision=18, scale=8), nullable=False)
+    rule_value = Column(Numeric(precision=18, scale=8), nullable=False)
     description = Column(Text)
     
     # 规则状态

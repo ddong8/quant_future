@@ -39,6 +39,12 @@ class MarketService:
     async def initialize(self):
         """初始化市场数据服务"""
         try:
+            # 检查是否有天勤配置
+            from ..core.config import settings
+            if not settings.TQSDK_AUTH:
+                logger.warning("未配置天勤账户，跳过市场数据服务初始化")
+                return True
+            
             # 初始化tqsdk适配器
             await tqsdk_adapter.initialize(use_sim=True)
             
@@ -50,7 +56,9 @@ class MarketService:
             
         except Exception as e:
             logger.error(f"市场数据服务初始化失败: {e}")
-            raise ExternalServiceError(f"市场数据服务初始化失败: {str(e)}")
+            # 不抛出异常，允许应用继续启动
+            logger.warning("市场数据服务初始化失败，但应用将继续启动")
+            return False
     
     async def get_connection_status(self) -> ConnectionStatus:
         """获取连接状态"""

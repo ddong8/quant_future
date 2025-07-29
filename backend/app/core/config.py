@@ -2,7 +2,8 @@
 应用配置模块
 """
 from typing import Optional
-from pydantic import BaseSettings, validator
+from pydantic import validator
+from pydantic_settings import BaseSettings
 import os
 
 
@@ -13,12 +14,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "量化交易平台"
     APP_VERSION: str = "0.1.0"
     DEBUG: bool = False
-    SECRET_KEY: str
+    SECRET_KEY: str = "default-secret-key-change-in-production"
     
     # 数据库配置
-    DATABASE_URL: str
+    DATABASE_URL: str = "postgresql://postgres:password@localhost:5432/trading_db"
     INFLUXDB_URL: str = "http://localhost:8086"
-    INFLUXDB_TOKEN: str
+    INFLUXDB_TOKEN: str = "my-super-secret-auth-token"
     INFLUXDB_ORG: str = "trading-org"
     INFLUXDB_BUCKET: str = "market-data"
     
@@ -30,7 +31,9 @@ class Settings(BaseSettings):
     TQSDK_ACCOUNT: Optional[str] = None
     
     # JWT配置
-    JWT_SECRET_KEY: str
+    @property
+    def JWT_SECRET_KEY(self) -> str:
+        return self.SECRET_KEY
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -57,9 +60,11 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must be a PostgreSQL URL")
         return v
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": True,
+        "extra": "ignore"  # 忽略额外的环境变量
+    }
 
 
 # 创建全局配置实例

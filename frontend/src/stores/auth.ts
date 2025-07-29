@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, readonly } from 'vue'
 import type { User, LoginRequest, RegisterRequest } from '@/types/auth'
 import { authApi } from '@/api/auth'
 import { ElMessage } from 'element-plus'

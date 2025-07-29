@@ -3,7 +3,7 @@
 """
 from .user import User, UserSession
 from .strategy import Strategy, StrategyVersion
-from .trading import Order, Position, Account
+from .trading import Order, Position, TradingAccount as Account, AccountTransaction
 from .backtest import Backtest, BacktestReport
 from .risk import RiskRule, RiskEvent, RiskMetric
 from .system import SystemLog, SystemMetric, Notification, ScheduledTask
@@ -30,6 +30,7 @@ __all__ = [
     "Order",
     "Position",
     "Account",
+    "AccountTransaction",
     # 回测相关
     "Backtest",
     "BacktestReport",

@@ -13,9 +13,6 @@ const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
 onMounted(() => {
-  // 初始化认证状态
-  authStore.initAuth()
-  
   // 初始化主题
   themeStore.initTheme()
 })

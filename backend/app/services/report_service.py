@@ -46,26 +46,28 @@ class ReportService:
     def _register_filters(self):
         """注册自定义过滤器"""
         
-        @self.jinja_env.filter('currency')
         def currency_filter(value):
             """货币格式化"""
             if value is None:
                 return '¥0.00'
             return f'¥{value:,.2f}'
         
-        @self.jinja_env.filter('percent')
         def percent_filter(value):
             """百分比格式化"""
             if value is None:
                 return '0.00%'
             return f'{value * 100:.2f}%'
         
-        @self.jinja_env.filter('datetime')
         def datetime_filter(value, format='%Y-%m-%d %H:%M:%S'):
             """日期时间格式化"""
             if isinstance(value, str):
                 value = datetime.fromisoformat(value.replace('Z', '+00:00'))
             return value.strftime(format)
+        
+        # 手动注册过滤器
+        self.jinja_env.filters['currency'] = currency_filter
+        self.jinja_env.filters['percent'] = percent_filter
+        self.jinja_env.filters['datetime'] = datetime_filter
     
     async def generate_trading_report(
         self,
@@ -222,8 +224,8 @@ class ReportService:
         except Exception as e:
             logger.error(f"生成绩效报告失败: {e}")
             raise    
-    a
-sync def _collect_performance_data(
+    
+    async def _collect_performance_data(
         self,
         user_id: int,
         start_date: datetime,

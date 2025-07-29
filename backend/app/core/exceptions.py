@@ -180,6 +180,23 @@ class RateLimitError(BaseCustomException):
         )
 
 
+class InsufficientFundsError(BaseCustomException):
+    """资金不足错误"""
+    
+    def __init__(
+        self,
+        message: str = "资金不足",
+        error_code: str = "INSUFFICIENT_FUNDS_ERROR",
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            message=message,
+            error_code=error_code,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details=details,
+        )
+
+
 def create_error_response(
     error_code: str,
     error_message: str,

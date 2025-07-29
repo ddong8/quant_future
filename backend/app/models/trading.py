@@ -1,7 +1,7 @@
 """
 交易相关数据模型
 """
-from sqlalchemy import Column, Integer, String, Decimal, DateTime, Text, Boolean, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, Enum as SQLEnum, Numeric
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
@@ -22,18 +22,18 @@ class Order(Base):
     symbol = Column(String(20), nullable=False, index=True)
     side = Column(SQLEnum(OrderSide), nullable=False)
     order_type = Column(SQLEnum(OrderType), nullable=False)
-    quantity = Column(Decimal(precision=18, scale=8), nullable=False)
-    price = Column(Decimal(precision=18, scale=8), nullable=True)
-    stop_price = Column(Decimal(precision=18, scale=8), nullable=True)
+    quantity = Column(Numeric(precision=18, scale=8), nullable=False)
+    price = Column(Numeric(precision=18, scale=8), nullable=True)
+    stop_price = Column(Numeric(precision=18, scale=8), nullable=True)
     time_in_force = Column(String(10), default='GTC')
     
     # 订单状态和执行信息
     status = Column(SQLEnum(OrderStatus), default=OrderStatus.PENDING, nullable=False)
-    filled_quantity = Column(Decimal(precision=18, scale=8), default=0)
-    filled_amount = Column(Decimal(precision=18, scale=8), default=0)
-    average_price = Column(Decimal(precision=18, scale=8), nullable=True)
-    commission = Column(Decimal(precision=18, scale=8), default=0)
-    realized_pnl = Column(Decimal(precision=18, scale=8), default=0)
+    filled_quantity = Column(Numeric(precision=18, scale=8), default=0)
+    filled_amount = Column(Numeric(precision=18, scale=8), default=0)
+    average_price = Column(Numeric(precision=18, scale=8), nullable=True)
+    commission = Column(Numeric(precision=18, scale=8), default=0)
+    realized_pnl = Column(Numeric(precision=18, scale=8), default=0)
     
     # 外部订单ID
     exchange_order_id = Column(String(100), nullable=True)
@@ -69,16 +69,16 @@ class Position(Base):
     # 持仓基本信息
     symbol = Column(String(20), nullable=False, index=True)
     side = Column(SQLEnum(PositionSide), nullable=False)
-    quantity = Column(Decimal(precision=18, scale=8), nullable=False)
-    average_price = Column(Decimal(precision=18, scale=8), nullable=False)
+    quantity = Column(Numeric(precision=18, scale=8), nullable=False)
+    average_price = Column(Numeric(precision=18, scale=8), nullable=False)
     
     # 市值和盈亏
-    market_value = Column(Decimal(precision=18, scale=8), default=0)
-    unrealized_pnl = Column(Decimal(precision=18, scale=8), default=0)
-    realized_pnl = Column(Decimal(precision=18, scale=8), default=0)
+    market_value = Column(Numeric(precision=18, scale=8), default=0)
+    unrealized_pnl = Column(Numeric(precision=18, scale=8), default=0)
+    realized_pnl = Column(Numeric(precision=18, scale=8), default=0)
     
     # 冻结数量
-    frozen_quantity = Column(Decimal(precision=18, scale=8), default=0)
+    frozen_quantity = Column(Numeric(precision=18, scale=8), default=0)
     
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -100,15 +100,15 @@ class TradingAccount(Base):
     account_id = Column(String(50), unique=True, nullable=False, index=True)
     
     # 资金信息
-    total_balance = Column(Decimal(precision=18, scale=2), default=0)
-    available_balance = Column(Decimal(precision=18, scale=2), default=0)
-    used_margin = Column(Decimal(precision=18, scale=2), default=0)
-    frozen_balance = Column(Decimal(precision=18, scale=2), default=0)
+    total_balance = Column(Numeric(precision=18, scale=2), default=0)
+    available_balance = Column(Numeric(precision=18, scale=2), default=0)
+    used_margin = Column(Numeric(precision=18, scale=2), default=0)
+    frozen_balance = Column(Numeric(precision=18, scale=2), default=0)
     
     # 盈亏和费用
-    realized_pnl = Column(Decimal(precision=18, scale=2), default=0)
-    unrealized_pnl = Column(Decimal(precision=18, scale=2), default=0)
-    commission_paid = Column(Decimal(precision=18, scale=2), default=0)
+    realized_pnl = Column(Numeric(precision=18, scale=2), default=0)
+    unrealized_pnl = Column(Numeric(precision=18, scale=2), default=0)
+    commission_paid = Column(Numeric(precision=18, scale=2), default=0)
     
     # 状态
     is_active = Column(Boolean, default=True)
@@ -135,7 +135,7 @@ class AccountTransaction(Base):
     
     # 交易信息
     transaction_type = Column(SQLEnum(TransactionType), nullable=False)
-    amount = Column(Decimal(precision=18, scale=2), nullable=False)
+    amount = Column(Numeric(precision=18, scale=2), nullable=False)
     description = Column(String(200), nullable=True)
     
     # 时间戳

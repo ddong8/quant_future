@@ -92,7 +92,8 @@ class DatabaseManager:
         # 检查PostgreSQL
         try:
             with DatabaseManager.get_db_session() as db:
-                db.execute("SELECT 1")
+                from sqlalchemy import text
+                db.execute(text("SELECT 1"))
             health_status["postgresql"] = True
         except Exception as e:
             logger.error(f"PostgreSQL健康检查失败: {e}")

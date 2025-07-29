@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from ...core.dependencies import get_database, get_current_user
+from ...core.dependencies import get_current_user
+from ...core.database import get_db
 from ...core.response import (
     success_response,
     created_response,
@@ -35,7 +36,7 @@ router = APIRouter()
 async def register(
     register_data: RegisterRequest,
     request: Request,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """用户注册"""
     auth_service = AuthService(db)
@@ -51,7 +52,7 @@ async def register(
 async def login(
     login_data: LoginRequest,
     request: Request,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """用户登录"""
     auth_service = AuthService(db)
@@ -66,7 +67,7 @@ async def login(
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(
     refresh_data: RefreshTokenRequest,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """刷新访问令牌"""
     auth_service = AuthService(db)
@@ -83,7 +84,7 @@ async def logout(
     logout_data: LogoutRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """用户登出"""
     # 从请求头获取访问令牌
@@ -109,7 +110,7 @@ async def logout(
 @router.post("/verify-email")
 async def verify_email(
     verification_data: EmailVerificationRequest,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """验证邮箱"""
     auth_service = AuthService(db)
@@ -124,7 +125,7 @@ async def verify_email(
 @router.post("/password-reset/request")
 async def request_password_reset(
     reset_request: PasswordResetRequest,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """请求密码重置"""
     auth_service = AuthService(db)
@@ -138,7 +139,7 @@ async def request_password_reset(
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(
     reset_confirm: PasswordResetConfirm,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """确认密码重置"""
     auth_service = AuthService(db)
@@ -157,7 +158,7 @@ async def confirm_password_reset(
 async def change_password(
     change_data: ChangePasswordRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """修改密码"""
     auth_service = AuthService(db)
@@ -171,6 +172,30 @@ async def change_password(
         return success_response(message="密码修改成功")
     else:
         return error_response("CHANGE_PASSWORD_FAILED", "密码修改失败")
+
+
+@router.get("/me", response_model=UserProfile)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user),
+):
+    """获取当前用户信息"""
+    user_data = {
+        "id": current_user.id,
+        "username": current_user.username,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "phone": current_user.phone,
+        "role": current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role),
+        "is_active": current_user.is_active,
+        "is_verified": current_user.is_verified,
+        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+        "last_login_at": current_user.last_login_at.isoformat() if current_user.last_login_at else None,
+    }
+    
+    return success_response(
+        data=user_data,
+        message="获取用户信息成功"
+    )
 
 
 @router.get("/profile", response_model=UserProfile)
@@ -189,7 +214,7 @@ async def get_profile(
 @router.get("/sessions", response_model=List[SessionInfo])
 async def get_sessions(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取用户会话列表"""
     auth_service = AuthService(db)
@@ -205,7 +230,7 @@ async def get_sessions(
 async def revoke_session(
     session_id: int,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """撤销指定会话"""
     auth_service = AuthService(db)

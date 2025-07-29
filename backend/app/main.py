@@ -50,7 +50,7 @@ async def lifespan(app: FastAPI):
         
         # 启动定时任务调度器
         from .services.scheduler_service import scheduler_service
-        await scheduler_service.start()
+        scheduler_service.start()
         
         print("✅ 应用启动成功")
         print(f"📊 数据库状态: {health}")

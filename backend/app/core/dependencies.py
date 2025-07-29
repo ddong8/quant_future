@@ -35,7 +35,7 @@ def get_redis() -> redis.Redis:
 
 def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ) -> int:
     """获取当前用户ID"""
     try:
@@ -65,7 +65,7 @@ def get_current_user_id(
 
 def get_current_user(
     user_id: int = Depends(get_current_user_id),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ) -> User:
     """获取当前用户"""
     user = db.query(User).filter(User.id == user_id).first()
@@ -114,7 +114,7 @@ def require_trader_or_admin(current_user: User = Depends(get_current_active_user
 
 def get_optional_current_user(
     request: Request,
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ) -> Optional[User]:
     """获取可选的当前用户（用于公开接口）"""
     try:

@@ -67,33 +67,11 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, CandlestickChart } from 'echarts/charts'
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  DataZoomComponent,
-  ToolboxComponent
-} from 'echarts/components'
 import VChart from 'vue-echarts'
 import { useMarketWebSocket } from '@/utils/websocket'
 import type { WebSocketMessage } from '@/utils/websocket'
 
-// 注册ECharts组件
-use([
-  CanvasRenderer,
-  LineChart,
-  CandlestickChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent,
-  DataZoomComponent,
-  ToolboxComponent
-])
+// ECharts 组件已在全局注册
 
 interface Props {
   symbol: string

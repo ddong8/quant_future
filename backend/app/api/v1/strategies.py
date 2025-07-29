@@ -402,8 +402,7 @@ async def get_strategy_dependencies(
         message="获取依赖信息成功"
     )
 
-@r
-outer.post("/{strategy_id}/unit-test")
+@router.post("/{strategy_id}/unit-test")
 async def run_strategy_unit_tests(
     strategy_id: int,
     test_data: Optional[dict] = None,
@@ -440,8 +439,7 @@ async def run_code_unit_tests(
         data=test_results,
         message="单元测试完成"
     )
-@rout
-er.post("/{strategy_id}/comprehensive-validation")
+@router.post("/{strategy_id}/comprehensive-validation")
 async def comprehensive_strategy_validation(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),

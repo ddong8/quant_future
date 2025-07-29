@@ -134,19 +134,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { use } from 'echarts/core'
-import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, PieChart } from 'echarts/charts'
-import {
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent
-} from 'echarts/components'
-import VChart from 'vue-echarts'
+import VChart, { THEME_KEY } from 'vue-echarts'
 import dayjs from 'dayjs'
 import {
   Wallet,
@@ -157,16 +148,8 @@ import {
 import RealTimeChart from '@/components/RealTimeChart.vue'
 import RealTimeTable from '@/components/RealTimeTable.vue'
 
-// 注册ECharts组件
-use([
-  CanvasRenderer,
-  LineChart,
-  PieChart,
-  TitleComponent,
-  TooltipComponent,
-  LegendComponent,
-  GridComponent
-])
+// 提供主题
+provide(THEME_KEY, 'light')
 
 const router = useRouter()
 const authStore = useAuthStore()

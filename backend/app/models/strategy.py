@@ -42,7 +42,6 @@ class Strategy(Base):
     # 关系
     user = relationship("User", back_populates="strategies")
     backtests = relationship("Backtest", back_populates="strategy", cascade="all, delete-orphan")
-    orders = relationship("Order", back_populates="strategy", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Strategy(id={self.id}, name='{self.name}', status='{self.status}')>"

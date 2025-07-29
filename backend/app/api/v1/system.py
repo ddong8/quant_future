@@ -23,7 +23,8 @@ async def system_health():
         # 检查数据库连接
         db = next(get_db())
         try:
-            db.execute("SELECT 1")
+            from sqlalchemy import text
+            db.execute(text("SELECT 1"))
             db_status = "healthy"
         except Exception as e:
             db_status = f"unhealthy: {str(e)}"

@@ -513,8 +513,7 @@ async def batch_stop_backtests(
         },
         message=f"批量停止完成，成功: {success_count}, 失败: {len(results) - success_count}"
     )
-# 回测分析和
-报告相关API
+# 回测分析和报告相关API
 
 @router.get("/{backtest_id}/analysis")
 async def analyze_backtest_results(

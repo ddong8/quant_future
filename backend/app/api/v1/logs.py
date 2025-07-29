@@ -386,9 +386,9 @@ async def update_log_config(
 
 @router.delete("/cleanup")
 async def cleanup_old_logs(
-    days: int = Query(30, ge=1, description="清理多少天前的日志"),
     background_tasks: BackgroundTasks,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    days: int = Query(30, ge=1, description="清理多少天前的日志")
 ):
     """清理旧日志"""
     try:

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { ref, readonly } from 'vue'
 
 export type ThemeMode = 'light' | 'dark' | 'auto'
 

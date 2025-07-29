@@ -50,18 +50,22 @@ services:
       timeout: 10s
       retries: 3
 
-  # 使用我们创建的演示服务器
+  # 完整的FastAPI后端应用
   backend:
-    image: python:3.9-slim
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: trading_backend
-    working_dir: /app
-    volumes:
-      - ./demo_server.py:/app/demo_server.py
-    command: >
-      bash -c "
-        pip install fastapi uvicorn[standard] &&
-        python demo_server.py
-      "
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/trading_db
+      - REDIS_URL=redis://redis:6379/0
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+      - INFLUXDB_ORG=trading-org
+      - INFLUXDB_BUCKET=market-data
+      - SECRET_KEY=your-super-secret-key-change-this-in-production
+      - DEBUG=true
+      - LOG_LEVEL=INFO
     ports:
       - "8000:8000"
     depends_on:
@@ -72,18 +76,33 @@ services:
       influxdb:
         condition: service_healthy
     restart: unless-stopped
+    volumes:
+      - ./backend:/app
+      - ./logs:/var/log/trading
 
-  # 简化的前端服务
+  # 完整的Vue.js前端应用
   frontend:
-    image: nginx:alpine
+    image: node:18-alpine
     container_name: trading_frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     ports:
-      - "3000:80"
+      - "3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
-    volumes:
-      - ./frontend_html:/usr/share/nginx/html:ro
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_WS_BASE_URL=ws://localhost:8000/api/v1/ws
+    command: >
+      sh -c "
+        echo '📦 安装前端依赖...' &&
+        npm install --silent &&
+        echo '🚀 启动完整Vue.js应用...' &&
+        npm run dev -- --host 0.0.0.0 --port 3000
+      "
 
 volumes:
   postgres_data:

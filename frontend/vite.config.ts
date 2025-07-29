@@ -1,37 +1,11 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
-import { visualizer } from 'rollup-plugin-visualizer'
-import { compression } from 'vite-plugin-compression'
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
-    
-    // Gzip压缩
-    compression({
-      algorithm: 'gzip',
-      ext: '.gz',
-      threshold: 1024,
-      deleteOriginFile: false
-    }),
-    
-    // Brotli压缩
-    compression({
-      algorithm: 'brotliCompress',
-      ext: '.br',
-      threshold: 1024,
-      deleteOriginFile: false
-    }),
-    
-    // 打包分析
-    visualizer({
-      filename: 'dist/stats.html',
-      open: false,
-      gzipSize: true,
-      brotliSize: true
-    })
+    vue()
   ],
   
   resolve: {
@@ -46,12 +20,12 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://trading_backend:8000',
         changeOrigin: true,
         secure: false
       },
       '/ws': {
-        target: 'ws://localhost:8000',
+        target: 'ws://trading_backend:8000',
         ws: true,
         changeOrigin: true
       }
@@ -179,12 +153,6 @@ export default defineConfig({
   
   // CSS配置
   css: {
-    preprocessorOptions: {
-      scss: {
-        additionalData: `@import "@/styles/variables.scss";`
-      }
-    },
-    
     // CSS模块化
     modules: {
       localsConvention: 'camelCase'
