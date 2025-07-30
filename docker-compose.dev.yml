@@ -21,16 +21,20 @@ services:
     environment:
       - DEBUG=true
       - LOG_LEVEL=DEBUG
-      - RELOAD=true
+      - UVICORN_RELOAD=true
+      - WORKER_PROCESSES=1  # 开发环境使用单进程
+      - DB_POOL_SIZE=5      # 开发环境减少连接池大小
+      - REDIS_MAX_CONNECTIONS=20
     volumes:
       - ./backend:/app  # 开发环境允许热重载
-    command: >
-      sh -c "
-        echo '⏳ 等待数据库初始化完成...' &&
-        python check_init_status.py --wait --timeout 300 &&
-        echo '🚀 启动开发服务器...' &&
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-      "
+    command: ["python", "start_backend.py"]
+    # 开发环境的健康检查更频繁
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # 前端服务 - 开发环境配置
   frontend:
@@ -38,13 +42,26 @@ services:
       - NODE_ENV=development
       - VITE_API_BASE_URL=http://localhost:8000/api/v1
       - VITE_WS_BASE_URL=ws://localhost:8000/api/v1/ws
+      - VITE_API_PROXY_TARGET=http://backend:8000
+      - VITE_WS_PROXY_TARGET=ws://backend:8000
+      - VITE_ENABLE_DEBUG=true
+      - VITE_REQUEST_TIMEOUT=10000  # 开发环境较短超时
     command: >
       sh -c "
         echo '📦 安装前端依赖...' &&
         npm install --silent &&
+        echo '🔍 测试后端连接...' &&
+        timeout 10 sh -c 'until wget -q --spider http://backend:8000/api/v1/health/; do echo \"等待后端服务...\"; sleep 2; done' &&
         echo '🚀 启动开发服务器...' &&
         npm run dev -- --host 0.0.0.0 --port 3000
       "
+    # 开发环境的健康检查
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # 开发工具容器
   dev-tools:

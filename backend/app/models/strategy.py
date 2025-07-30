@@ -42,6 +42,7 @@ class Strategy(Base):
     # 关系
     user = relationship("User", back_populates="strategies")
     backtests = relationship("Backtest", back_populates="strategy", cascade="all, delete-orphan")
+    versions = relationship("StrategyVersion", foreign_keys="StrategyVersion.strategy_id", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Strategy(id={self.id}, name='{self.name}', status='{self.status}')>"
@@ -60,6 +61,9 @@ class StrategyVersion(Base):
     
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    strategy = relationship("Strategy", foreign_keys=[strategy_id])
     
     def __repr__(self):
         return f"<StrategyVersion(id={self.id}, strategy_id={self.strategy_id}, version='{self.version}')>"

@@ -20,14 +20,17 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://trading_backend:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://backend:8000',
         changeOrigin: true,
-        secure: false
+        secure: false,
+        timeout: 30000,
+        proxyTimeout: 30000
       },
       '/ws': {
-        target: 'ws://trading_backend:8000',
+        target: process.env.VITE_WS_PROXY_TARGET || 'ws://backend:8000',
         ws: true,
-        changeOrigin: true
+        changeOrigin: true,
+        timeout: 30000
       }
     }
   },
@@ -61,7 +64,7 @@ export default defineConfig({
           'ui-vendor': ['element-plus', '@element-plus/icons-vue'],
           
           // 图表库
-          'chart-vendor': ['chart.js', 'chartjs-adapter-date-fns'],
+          'chart-vendor': ['echarts', 'vue-echarts'],
           
           // 工具库
           'utils-vendor': ['axios', 'dayjs', 'lodash-es'],

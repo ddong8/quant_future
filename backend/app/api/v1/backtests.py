@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ...core.dependencies import (
-    get_database,
+    get_db,
     get_current_user,
     require_trader_or_admin,
     get_pagination_params,
@@ -45,7 +45,7 @@ router = APIRouter()
 async def create_backtest(
     backtest_data: BacktestCreate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """创建回测"""
     history_service = HistoryService(db)
@@ -70,7 +70,7 @@ async def get_backtests_list(
     pagination: PaginationParams = Depends(get_pagination_params),
     sort_params: SortParams = Depends(get_sort_params),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取回测列表"""
     history_service = HistoryService(db)
@@ -99,7 +99,7 @@ async def get_backtests_list(
 @router.get("/stats", response_model=BacktestStatsResponse)
 async def get_backtest_stats(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取回测统计信息"""
     history_service = HistoryService(db)
@@ -117,7 +117,7 @@ async def get_backtest_stats(
 async def get_backtest_by_id(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """根据ID获取回测详情"""
     history_service = HistoryService(db)
@@ -136,7 +136,7 @@ async def update_backtest(
     backtest_id: int,
     backtest_data: BacktestUpdate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新回测"""
     history_service = HistoryService(db)
@@ -158,7 +158,7 @@ async def update_backtest(
 async def delete_backtest(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """删除回测"""
     history_service = HistoryService(db)
@@ -174,7 +174,7 @@ async def delete_backtest(
 async def start_backtest(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """启动回测"""
     history_service = HistoryService(db)
@@ -192,7 +192,7 @@ async def start_backtest(
 async def stop_backtest(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """停止回测"""
     history_service = HistoryService(db)
@@ -210,7 +210,7 @@ async def stop_backtest(
 async def get_backtest_progress(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取回测进度"""
     history_service = HistoryService(db)
@@ -228,7 +228,7 @@ async def get_backtest_progress(
 async def get_backtest_results(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取回测结果"""
     history_service = HistoryService(db)
@@ -247,7 +247,7 @@ async def clone_backtest(
     backtest_id: int,
     clone_data: BacktestCloneRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """克隆回测"""
     history_service = HistoryService(db)
@@ -269,7 +269,7 @@ async def clone_backtest(
 async def compare_backtests(
     comparison_request: BacktestComparisonRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """比较多个回测结果"""
     history_service = HistoryService(db)
@@ -290,7 +290,7 @@ async def compare_backtests(
 async def get_equity_curve(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取资金曲线数据"""
     history_service = HistoryService(db)
@@ -314,7 +314,7 @@ async def get_equity_curve(
 async def get_trade_records(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取交易记录"""
     history_service = HistoryService(db)
@@ -338,7 +338,7 @@ async def get_trade_records(
 async def get_daily_returns(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取日收益率数据"""
     history_service = HistoryService(db)
@@ -362,7 +362,7 @@ async def get_daily_returns(
 async def get_performance_metrics(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取详细性能指标"""
     history_service = HistoryService(db)
@@ -418,7 +418,7 @@ async def get_performance_metrics(
 async def restart_backtest(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """重新启动回测"""
     history_service = HistoryService(db)
@@ -442,7 +442,7 @@ async def restart_backtest(
 @router.get("/running/list")
 async def get_running_backtests(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取正在运行的回测列表"""
     history_service = HistoryService(db)
@@ -475,7 +475,7 @@ async def get_running_backtests(
 async def batch_stop_backtests(
     backtest_ids: List[int],
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """批量停止回测"""
     if len(backtest_ids) > 20:
@@ -519,7 +519,7 @@ async def batch_stop_backtests(
 async def analyze_backtest_results(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """分析回测结果"""
     history_service = HistoryService(db)
@@ -540,7 +540,7 @@ async def generate_backtest_report(
     format: str = Query("html", description="报告格式: html/pdf"),
     include_charts: bool = Query(True, description="是否包含图表"),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """生成回测报告"""
     history_service = HistoryService(db)
@@ -565,7 +565,7 @@ async def get_chart_data(
     backtest_id: int,
     chart_type: str,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取图表数据
     
@@ -593,7 +593,7 @@ async def get_chart_data(
 async def get_performance_attribution(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取业绩归因分析"""
     history_service = HistoryService(db)
@@ -611,7 +611,7 @@ async def get_performance_attribution(
 async def detailed_backtest_comparison(
     backtest_ids: List[int],
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """详细回测比较"""
     history_service = HistoryService(db)
@@ -630,7 +630,7 @@ async def get_rolling_performance(
     backtest_id: int,
     window: int = Query(252, description="滚动窗口大小（交易日）"),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取滚动性能指标"""
     history_service = HistoryService(db)
@@ -648,7 +648,7 @@ async def get_rolling_performance(
 async def get_risk_analysis(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取风险分析"""
     history_service = HistoryService(db)
@@ -667,7 +667,7 @@ async def get_risk_analysis(
 async def get_monthly_analysis(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取月度分析"""
     history_service = HistoryService(db)
@@ -694,7 +694,7 @@ async def get_monthly_analysis(
 async def get_trade_analysis(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取交易分析"""
     history_service = HistoryService(db)
@@ -712,7 +712,7 @@ async def get_trade_analysis(
 async def get_summary_statistics(
     backtest_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取汇总统计"""
     history_service = HistoryService(db)

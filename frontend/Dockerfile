@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # 安装依赖
-RUN npm install && npm install -D sass-embedded
+RUN npm ci --only=production && npm install -D sass-embedded
 
 # 复制源代码
 COPY . .

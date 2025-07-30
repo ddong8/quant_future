@@ -70,6 +70,8 @@ class RiskEvent(Base):
     
     # 关系
     user = relationship("User", back_populates="risk_events")
+    strategy = relationship("Strategy", foreign_keys=[strategy_id])
+    rule = relationship("RiskRule", foreign_keys=[rule_id])
     
     def __repr__(self):
         return f"<RiskEvent(id={self.id}, type='{self.event_type}', severity='{self.severity}')>"

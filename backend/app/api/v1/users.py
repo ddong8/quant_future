@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ...core.dependencies import (
-    get_database,
+    get_db,
     get_current_user,
     require_admin,
     require_trader_or_admin,
@@ -41,16 +41,13 @@ router = APIRouter()
 async def create_user(
     user_data: UserCreate,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """创建用户（管理员权限）"""
     user_service = UserService(db)
     user_response = user_service.create_user(user_data, current_user.id)
     
-    return created_response(
-        data=user_response.dict(),
-        message="用户创建成功"
-    )
+    return user_response
 
 
 @router.get("/", response_model=List[UserListResponse])
@@ -62,7 +59,7 @@ async def get_users_list(
     pagination: PaginationParams = Depends(get_pagination_params),
     sort_params: SortParams = Depends(get_sort_params),
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取用户列表（管理员权限）"""
     search_params = UserSearchRequest(
@@ -87,16 +84,13 @@ async def get_users_list(
 @router.get("/stats", response_model=UserStatsResponse)
 async def get_user_stats(
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取用户统计信息（管理员权限）"""
     user_service = UserService(db)
     stats = user_service.get_user_stats()
     
-    return success_response(
-        data=stats.dict(),
-        message="获取用户统计成功"
-    )
+    return stats
 
 
 @router.get("/me", response_model=UserResponse)
@@ -104,44 +98,33 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ):
     """获取当前用户信息"""
-    user_response = UserResponse.from_orm(current_user)
-    
-    return success_response(
-        data=user_response.dict(),
-        message="获取用户信息成功"
-    )
+    return UserResponse.from_orm(current_user)
 
 
 @router.put("/me", response_model=UserResponse)
 async def update_current_user(
     user_data: UserUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新当前用户信息"""
     user_service = UserService(db)
     user_response = user_service.update_user(current_user.id, user_data, current_user.id)
     
-    return success_response(
-        data=user_response.dict(),
-        message="用户信息更新成功"
-    )
+    return user_response
 
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user_by_id(
     user_id: int,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """根据ID获取用户信息（管理员权限）"""
     user_service = UserService(db)
     user_response = user_service.get_user_by_id(user_id)
     
-    return success_response(
-        data=user_response.dict(),
-        message="获取用户信息成功"
-    )
+    return user_response
 
 
 @router.put("/{user_id}", response_model=UserResponse)
@@ -149,23 +132,20 @@ async def update_user_by_id(
     user_id: int,
     user_data: UserAdminUpdate,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新指定用户信息（管理员权限）"""
     user_service = UserService(db)
     user_response = user_service.admin_update_user(user_id, user_data, current_user.id)
     
-    return success_response(
-        data=user_response.dict(),
-        message="用户信息更新成功"
-    )
+    return user_response
 
 
 @router.delete("/{user_id}")
 async def delete_user_by_id(
     user_id: int,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """删除指定用户（管理员权限）"""
     user_service = UserService(db)
@@ -179,7 +159,7 @@ async def delete_user_by_id(
 async def batch_user_operation(
     operation_data: BatchUserOperation,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """批量用户操作（管理员权限）"""
     user_service = UserService(db)
@@ -196,7 +176,7 @@ async def change_user_role(
     user_id: int,
     new_role: UserRole,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """修改用户角色（管理员权限）"""
     user_service = UserService(db)
@@ -212,7 +192,7 @@ async def change_user_role(
 async def get_user_sessions(
     user_id: int,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取用户会话列表（管理员权限）"""
     user_service = UserService(db)
@@ -229,7 +209,7 @@ async def revoke_user_sessions(
     user_id: int,
     session_ids: Optional[List[int]] = None,
     current_user: User = Depends(require_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """撤销用户会话（管理员权限）"""
     user_service = UserService(db)
@@ -244,7 +224,7 @@ async def revoke_user_sessions(
 @router.get("/me/sessions")
 async def get_my_sessions(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取当前用户会话列表"""
     user_service = UserService(db)
@@ -260,7 +240,7 @@ async def get_my_sessions(
 async def revoke_my_sessions(
     session_ids: Optional[List[int]] = None,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """撤销当前用户会话"""
     user_service = UserService(db)

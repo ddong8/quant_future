@@ -66,6 +66,7 @@ class Backtest(Base):
     # 关系
     strategy = relationship("Strategy", back_populates="backtests")
     user = relationship("User", back_populates="backtests")
+    reports = relationship("BacktestReport", foreign_keys="BacktestReport.backtest_id", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Backtest(id={self.id}, name='{self.name}', status='{self.status}')>"
@@ -88,6 +89,9 @@ class BacktestReport(Base):
     
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # 关系
+    backtest = relationship("Backtest", foreign_keys=[backtest_id])
     
     def __repr__(self):
         return f"<BacktestReport(id={self.id}, backtest_id={self.backtest_id}, type='{self.report_type}')>"

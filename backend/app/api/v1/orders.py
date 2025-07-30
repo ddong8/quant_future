@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ...core.dependencies import (
-    get_database,
+    get_db,
     get_current_user,
     require_trader_or_admin,
     get_pagination_params,
@@ -48,7 +48,7 @@ router = APIRouter()
 async def create_order(
     order_data: OrderCreate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """创建订单"""
     # 初始化服务
@@ -73,7 +73,7 @@ async def get_orders_list(
     pagination: PaginationParams = Depends(get_pagination_params),
     sort_params: SortParams = Depends(get_sort_params),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取订单列表"""
     # 初始化服务
@@ -106,7 +106,7 @@ async def get_orders_list(
 async def get_pending_orders(
     strategy_id: Optional[int] = Query(None, description="策略ID"),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取待成交订单"""
     # 初始化服务
@@ -127,7 +127,7 @@ async def get_order_statistics(
     start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
     end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取订单统计信息"""
     from datetime import datetime
@@ -163,7 +163,7 @@ async def get_order_statistics(
 async def get_order_by_id(
     order_id: str,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """根据ID获取订单详情"""
     # 初始化服务
@@ -184,7 +184,7 @@ async def modify_order(
     order_id: str,
     modify_data: OrderModify,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """修改订单"""
     # 初始化服务
@@ -208,7 +208,7 @@ async def modify_order(
 async def cancel_order(
     order_id: str,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """撤销订单"""
     # 初始化服务
@@ -228,7 +228,7 @@ async def cancel_order(
 async def batch_cancel_orders(
     cancel_request: BatchCancelRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """批量撤销订单"""
     # 初始化服务
@@ -249,7 +249,7 @@ async def update_order_status(
     order_id: str,
     status_update: OrderStatusUpdate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新订单状态（系统内部调用）"""
     # 初始化服务
@@ -277,7 +277,7 @@ async def update_order_status(
 async def check_order_risk(
     risk_request: RiskCheckRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """检查订单风险"""
     risk_service = RiskService(db)
@@ -293,7 +293,7 @@ async def check_order_risk(
 @router.get("/risk/summary", response_model=RiskSummaryResponse)
 async def get_risk_summary(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取风险摘要"""
     risk_service = RiskService(db)
@@ -310,7 +310,7 @@ async def get_risk_summary(
 async def update_risk_parameters(
     risk_params: RiskParametersUpdate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新风险参数"""
     risk_service = RiskService(db)
@@ -333,7 +333,7 @@ async def get_positions(
     strategy_id: Optional[int] = Query(None, description="策略ID"),
     symbol: Optional[str] = Query(None, description="交易品种"),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取持仓列表"""
     from ...models import Position, Strategy
@@ -359,7 +359,7 @@ async def get_positions(
 @router.get("/positions/summary")
 async def get_position_summary(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取持仓汇总"""
     from ...models import Position, Strategy
@@ -443,7 +443,7 @@ async def get_position_summary(
 @router.get("/account")
 async def get_account_info(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取账户信息"""
     from ...models import Account

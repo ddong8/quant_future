@@ -6,7 +6,19 @@ from .strategy import Strategy, StrategyVersion
 from .trading import Order, Position, TradingAccount as Account, AccountTransaction
 from .backtest import Backtest, BacktestReport
 from .risk import RiskRule, RiskEvent, RiskMetric
-from .system import SystemLog, SystemMetric, Notification, ScheduledTask
+from .system import (
+    SystemLog, 
+    SystemMetric, 
+    Notification, 
+    ScheduledTask,
+    SystemMetrics,
+    HealthCheck,
+    AlertRule,
+    AlertHistory,
+    MonitoringConfig,
+    NotificationChannel,
+    SystemEvent
+)
 from .enums import (
     UserRole,
     StrategyStatus,
@@ -17,6 +29,11 @@ from .enums import (
     BacktestStatus,
     RiskEventType,
     NotificationType,
+    OrderSide,
+    OrderType,
+    PositionSide,
+    TransactionType,
+    RiskRuleType,
 )
 
 __all__ = [
@@ -41,6 +58,13 @@ __all__ = [
     # 系统相关
     "SystemLog",
     "SystemMetric",
+    "SystemMetrics",
+    "HealthCheck",
+    "AlertRule",
+    "AlertHistory",
+    "MonitoringConfig",
+    "NotificationChannel",
+    "SystemEvent",
     "Notification",
     "ScheduledTask",
     # 枚举类型
@@ -49,8 +73,13 @@ __all__ = [
     "OrderDirection",
     "OrderOffset",
     "OrderStatus",
+    "OrderSide",
+    "OrderType",
     "PositionDirection",
+    "PositionSide",
+    "TransactionType",
     "BacktestStatus",
     "RiskEventType",
+    "RiskRuleType",
     "NotificationType",
 ]

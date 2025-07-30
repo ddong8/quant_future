@@ -28,7 +28,7 @@ from .response import (
     deleted_response,
 )
 from .dependencies import (
-    get_database,
+    get_db,
     get_current_user,
     get_current_active_user,
     require_admin,
@@ -67,7 +67,7 @@ __all__ = [
     "updated_response",
     "deleted_response",
     # 依赖
-    "get_database",
+    "get_db",
     "get_current_user",
     "get_current_active_user",
     "require_admin",

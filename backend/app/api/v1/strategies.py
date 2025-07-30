@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from ...core.dependencies import (
-    get_database,
+    get_db,
     get_current_user,
     require_trader_or_admin,
     get_pagination_params,
@@ -50,7 +50,7 @@ router = APIRouter()
 async def create_strategy(
     strategy_data: StrategyCreate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """创建策略"""
     strategy_service = StrategyService(db)
@@ -72,7 +72,7 @@ async def get_strategies_list(
     pagination: PaginationParams = Depends(get_pagination_params),
     sort_params: SortParams = Depends(get_sort_params),
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略列表"""
     search_params = StrategySearchRequest(
@@ -103,7 +103,7 @@ async def get_strategies_list(
 @router.get("/stats", response_model=StrategyStatsResponse)
 async def get_strategy_stats(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略统计信息"""
     strategy_service = StrategyService(db)
@@ -118,7 +118,7 @@ async def get_strategy_stats(
 @router.get("/templates", response_model=List[StrategyTemplate])
 async def get_strategy_templates(
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略模板"""
     strategy_service = StrategyService(db)
@@ -134,7 +134,7 @@ async def get_strategy_templates(
 async def get_strategy_by_id(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """根据ID获取策略详情"""
     strategy_service = StrategyService(db)
@@ -151,7 +151,7 @@ async def update_strategy(
     strategy_id: int,
     strategy_data: StrategyUpdate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新策略"""
     strategy_service = StrategyService(db)
@@ -169,7 +169,7 @@ async def update_strategy(
 async def delete_strategy(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """删除策略"""
     strategy_service = StrategyService(db)
@@ -184,7 +184,7 @@ async def update_strategy_status(
     strategy_id: int,
     status_update: StrategyStatusUpdate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """更新策略状态"""
     strategy_service = StrategyService(db)
@@ -203,7 +203,7 @@ async def create_strategy_version(
     strategy_id: int,
     version_data: StrategyVersionCreate,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """创建策略版本"""
     strategy_service = StrategyService(db)
@@ -221,7 +221,7 @@ async def create_strategy_version(
 async def get_strategy_versions(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略版本列表"""
     strategy_service = StrategyService(db)
@@ -238,7 +238,7 @@ async def clone_strategy(
     strategy_id: int,
     clone_data: StrategyCloneRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """克隆策略"""
     strategy_service = StrategyService(db)
@@ -256,7 +256,7 @@ async def clone_strategy(
 async def batch_strategy_operation(
     operation_data: BatchStrategyOperation,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """批量策略操作"""
     strategy_service = StrategyService(db)
@@ -278,7 +278,7 @@ from ...services.strategy_sandbox import StrategySandbox
 async def validate_strategy_code(
     validation_request: StrategyValidationRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """验证策略代码"""
     validator = StrategyValidator()
@@ -295,7 +295,7 @@ async def test_strategy(
     strategy_id: int,
     test_request: StrategyTestRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """测试策略"""
     tester = StrategyTester(db)
@@ -311,7 +311,7 @@ async def test_strategy(
 async def execute_in_sandbox(
     sandbox_request: StrategySandboxRequest,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """在沙盒中执行策略代码"""
     sandbox = StrategySandbox()
@@ -328,7 +328,7 @@ async def quick_test_strategy(
     code: str,
     test_params: Optional[dict] = None,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """快速测试策略代码"""
     tester = StrategyTester(db)
@@ -344,7 +344,7 @@ async def quick_test_strategy(
 async def analyze_strategy_code(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """分析策略代码"""
     strategy_service = StrategyService(db)
@@ -369,7 +369,7 @@ async def analyze_strategy_code(
 async def get_strategy_security_report(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略安全报告"""
     strategy_service = StrategyService(db)
@@ -388,7 +388,7 @@ async def get_strategy_security_report(
 async def get_strategy_dependencies(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """获取策略依赖信息"""
     strategy_service = StrategyService(db)
@@ -407,7 +407,7 @@ async def run_strategy_unit_tests(
     strategy_id: int,
     test_data: Optional[dict] = None,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """运行策略单元测试"""
     from ...services.strategy_unittest import run_strategy_unit_tests
@@ -428,7 +428,7 @@ async def run_code_unit_tests(
     code: str,
     test_data: Optional[dict] = None,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """运行代码单元测试"""
     from ...services.strategy_unittest import run_strategy_unit_tests
@@ -443,7 +443,7 @@ async def run_code_unit_tests(
 async def comprehensive_strategy_validation(
     strategy_id: int,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """综合策略验证"""
     from ...services.strategy_validation_service import StrategyValidationService
@@ -461,7 +461,7 @@ async def comprehensive_strategy_validation(
 async def quick_strategy_validation(
     code: str,
     current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_database),
+    db: Session = Depends(get_db),
 ):
     """快速策略验证"""
     from ...services.strategy_validation_service import StrategyValidationService

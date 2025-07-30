@@ -48,7 +48,9 @@ export default defineConfig({
       'pinia',
       'element-plus',
       'axios',
-      'dayjs'
+      'dayjs',
+      'echarts',
+      'vue-echarts'
     ]
   }
 })

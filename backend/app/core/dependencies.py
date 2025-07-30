@@ -18,9 +18,7 @@ from .security import TokenBlacklist
 security = HTTPBearer()
 
 
-def get_database() -> Generator[Session, None, None]:
-    """获取数据库会话依赖"""
-    return get_db()
+# get_database 函数已被移除，请直接使用 get_db
 
 
 def get_influxdb():

@@ -65,15 +65,72 @@ quantitative-trading-platform/
 
 ## 快速开始
 
+### 🚀 一键启动（推荐）
+
+使用我们提供的自动化启动脚本，一键启动整个平台：
+
+```bash
+# 克隆项目
+git clone https://github.com/your-org/quantitative-trading-platform.git
+cd quantitative-trading-platform
+
+# 一键启动所有服务
+./start-trading-platform.sh
+
+# 或者清理后启动
+./start-trading-platform.sh start --clean
+```
+
+启动完成后访问：
+- 🌐 前端应用: http://localhost:3000
+- 🔧 后端API: http://localhost:8000
+- 📚 API文档: http://localhost:8000/docs
+
 ### 环境要求
 
-- Python 3.9+
-- Node.js 16+
-- PostgreSQL 13+
-- Redis 6+
-- InfluxDB 2.0+
+- Docker 20.10+
+- Docker Compose 2.0+
+- 4GB+ 可用内存
+- 10GB+ 可用磁盘空间
 
-### 后端设置
+### 手动部署
+
+如果需要手动控制部署过程：
+
+1. **配置环境变量**
+```bash
+# 从模板创建环境变量文件
+cp .env.template .env
+# 根据需要修改配置
+vim .env
+```
+
+2. **启动服务**
+```bash
+# 构建并启动所有服务
+docker-compose up -d --build
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+3. **验证部署**
+```bash
+# 运行配置验证
+python3 validate_all_configs.py
+
+# 运行启动验证
+python3 validate_startup.py
+```
+
+### 本地开发设置
+
+如果需要本地开发环境：
+
+#### 后端设置
 
 1. 创建虚拟环境
 ```bash
@@ -94,17 +151,12 @@ cp .env.example .env
 # 编辑 .env 文件，配置数据库连接等信息
 ```
 
-4. 运行数据库迁移
+4. 启动开发服务器
 ```bash
-alembic upgrade head
+python start_backend.py
 ```
 
-5. 启动开发服务器
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### 前端设置
+#### 前端设置
 
 1. 安装依赖
 ```bash
@@ -128,38 +180,84 @@ npm run build
 
 #### 使用Docker Compose（推荐）
 
-1. 克隆项目
+我们的 Docker Compose 配置包含自动化的数据库初始化和健康检查：
+
+1. **克隆项目**
 ```bash
 git clone https://github.com/your-org/quantitative-trading-platform.git
 cd quantitative-trading-platform
 ```
 
-2. 配置环境变量
+2. **配置环境变量**
 ```bash
-cp backend/.env.example backend/.env
-cp frontend/.env.example frontend/.env
-# 编辑配置文件
+# 从模板创建环境变量文件
+cp .env.template .env
+# 根据需要修改配置
 ```
 
-3. 启动所有服务
+3. **启动所有服务**
 ```bash
-docker-compose up -d
+# 使用启动脚本（推荐）
+./start-trading-platform.sh
+
+# 或手动启动
+docker-compose up -d --build
 ```
 
-4. 初始化数据库
+4. **验证部署**
 ```bash
-docker-compose exec backend python -m alembic upgrade head
-docker-compose exec backend python init_db.py
+# 检查服务状态
+docker-compose ps
+
+# 验证配置
+python3 validate_all_configs.py
+
+# 验证启动状态
+python3 test_startup_config.py
 ```
 
-5. 访问应用
-- 前端: http://localhost:3000
-- 后端API: http://localhost:8000
-- API文档: http://localhost:8000/docs
+5. **访问应用**
+- 🌐 前端应用: http://localhost:3000
+- 🔧 后端API: http://localhost:8000
+- 📚 API文档: http://localhost:8000/docs
+- 🗄️ PostgreSQL: localhost:5432
+- 🔄 Redis: localhost:6379
+- 📊 InfluxDB: http://localhost:8086
+
+#### 服务架构
+
+```mermaid
+graph TB
+    subgraph "Docker Compose Environment"
+        Frontend[Frontend Container<br/>Vue.js + Nginx]
+        Backend[Backend Container<br/>FastAPI + Python]
+        Postgres[(PostgreSQL<br/>Database)]
+        Redis[(Redis<br/>Cache)]
+        InfluxDB[(InfluxDB<br/>Time Series)]
+        InitContainer[Init Container<br/>Database Setup]
+    end
+    
+    Frontend -->|API Proxy| Backend
+    Backend -->|Database Queries| Postgres
+    Backend -->|Cache Operations| Redis
+    Backend -->|Metrics Storage| InfluxDB
+    InitContainer -->|Initialize Schema| Postgres
+    InitContainer -->|Create Default Users| Postgres
+```
+
+#### 默认用户账户
+
+系统会自动创建以下默认用户：
+
+| 用户名 | 密码 | 角色 | 邮箱 |
+|--------|------|------|------|
+| admin | admin123 | 管理员 | admin@trading.com |
+| trader | trader123 | 交易员 | trader@trading.com |
+| observer | observer123 | 观察者 | observer@trading.com |
 
 #### 本地开发设置
 
-参考上面的"快速开始"部分进行本地开发环境设置。
+参考上面的"手动部署"部分进行本地开发环境设置。
 
 ### 代码规范
 
@@ -472,29 +570,168 @@ kubectl get pods -n trading-platform
 
 ### 监控和调试
 
+#### 健康检查
+
+系统提供了完整的健康检查机制：
+
+```bash
+# 基础健康检查
+curl http://localhost:8000/api/v1/health/
+
+# 详细健康检查（需要认证）
+curl -H "Authorization: Bearer <token>" http://localhost:8000/api/v1/health/detailed
+
+# 数据库健康检查
+curl -H "Authorization: Bearer <token>" http://localhost:8000/api/v1/health/database
+
+# 就绪检查（用于容器编排）
+curl http://localhost:8000/api/v1/health/readiness
+
+# 存活检查（用于容器编排）
+curl http://localhost:8000/api/v1/health/liveness
+```
+
 #### 日志查看
 
 ```bash
-# 查看应用日志
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# 查看所有服务日志
+docker-compose logs -f
 
 # 查看特定服务日志
-docker-compose logs -f postgres
-docker-compose logs -f redis
+docker-compose logs -f backend
+docker-compose logs -f frontend
+docker-compose logs -f db-init
+
+# 查看初始化日志
+docker-compose exec backend cat /var/log/trading/init.log
+
+# 使用启动脚本查看日志
+./start-trading-platform.sh logs backend
 ```
 
 #### 性能监控
 
-- Prometheus指标: http://localhost:9090
-- Grafana仪表板: http://localhost:3001
-- 应用性能监控集成在后端API中
+- 应用健康检查: http://localhost:8000/api/v1/health/
+- API文档和测试: http://localhost:8000/docs
+- 前端应用: http://localhost:3000
 
 #### 调试工具
 
-- 后端调试: 使用IDE断点调试或pdb
-- 前端调试: 使用浏览器开发者工具
-- API调试: 使用Swagger UI (http://localhost:8000/docs)
+- **后端调试**: 使用IDE断点调试或pdb
+- **前端调试**: 使用浏览器开发者工具和Vue DevTools
+- **API调试**: 使用Swagger UI (http://localhost:8000/docs)
+- **数据库调试**: 
+  ```bash
+  docker-compose exec postgres psql -U postgres -d trading_db
+  ```
+- **Redis调试**:
+  ```bash
+  docker-compose exec redis redis-cli
+  ```
+
+### 🔧 故障排除
+
+#### 常见问题
+
+1. **容器启动失败**
+   ```bash
+   # 检查服务状态
+   docker-compose ps
+   
+   # 查看错误日志
+   docker-compose logs <service-name>
+   
+   # 重新构建并启动
+   docker-compose up -d --build --force-recreate
+   ```
+
+2. **数据库连接失败**
+   ```bash
+   # 检查数据库初始化状态
+   docker-compose logs db-init
+   
+   # 手动运行初始化
+   docker-compose exec backend python init_db.py
+   
+   # 检查数据库健康状态
+   curl http://localhost:8000/api/v1/health/database
+   ```
+
+3. **前端无法访问后端API**
+   ```bash
+   # 检查网络连接
+   docker network ls
+   docker network inspect trading_network
+   
+   # 检查后端服务状态
+   curl http://localhost:8000/api/v1/health/
+   
+   # 重启相关服务
+   docker-compose restart backend frontend
+   ```
+
+4. **端口冲突**
+   ```bash
+   # 检查端口占用
+   netstat -tulpn | grep :8000
+   netstat -tulpn | grep :3000
+   
+   # 修改 docker-compose.yml 中的端口映射
+   # 或停止占用端口的服务
+   ```
+
+5. **磁盘空间不足**
+   ```bash
+   # 清理Docker资源
+   docker system prune -a
+   
+   # 清理未使用的卷
+   docker volume prune
+   
+   # 查看磁盘使用情况
+   df -h
+   ```
+
+#### 验证工具
+
+我们提供了多个验证工具来帮助诊断问题：
+
+```bash
+# 全面配置验证
+python3 validate_all_configs.py
+
+# Docker Compose配置验证
+python3 validate_compose_config.py
+
+# 启动配置验证
+python3 test_startup_config.py
+
+# 启动状态验证（需要服务运行）
+python3 validate_startup.py
+
+# 前端图表组件验证
+cd frontend && ./validate-charts.sh
+
+# 后端模型关系验证
+cd backend && python3 validate_models_simple.py
+```
+
+#### 重置和清理
+
+```bash
+# 完全重置（会删除所有数据）
+./start-trading-platform.sh start --clean --volumes
+
+# 仅重置容器（保留数据）
+./start-trading-platform.sh start --clean
+
+# 停止所有服务
+./start-trading-platform.sh stop
+
+# 手动清理
+docker-compose down -v  # 删除容器和卷
+docker-compose down     # 仅删除容器
+```
 
 ### 贡献指南
 

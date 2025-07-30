@@ -211,7 +211,8 @@ class AlertRule(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # 关系
-    creator = relationship("User", back_populates="alert_rules")
+    creator = relationship("User", back_populates="alert_rules", foreign_keys=[created_by])
+    history = relationship("AlertHistory", foreign_keys="AlertHistory.rule_id", cascade="all, delete-orphan")
 
 
 class AlertHistory(Base):
@@ -229,6 +230,9 @@ class AlertHistory(Base):
     status = Column(String(20), default='active', comment="状态: active, resolved")
     resolved_at = Column(DateTime(timezone=True), comment="解决时间")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    
+    # 关系
+    rule = relationship("AlertRule", foreign_keys=[rule_id])
 
 
 class MonitoringConfig(Base):

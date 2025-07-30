@@ -42,10 +42,7 @@ async def register(
     auth_service = AuthService(db)
     user_profile = auth_service.register_user(register_data, request)
     
-    return created_response(
-        data=user_profile.dict(),
-        message="注册成功，请查收验证邮件"
-    )
+    return user_profile
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -58,10 +55,7 @@ async def login(
     auth_service = AuthService(db)
     token_response = auth_service.authenticate_user(login_data, request)
     
-    return success_response(
-        data=token_response.dict(),
-        message="登录成功"
-    )
+    return token_response
 
 
 @router.post("/refresh", response_model=TokenResponse)
@@ -73,10 +67,7 @@ async def refresh_token(
     auth_service = AuthService(db)
     token_response = auth_service.refresh_token(refresh_data.refresh_token)
     
-    return success_response(
-        data=token_response.dict(),
-        message="令牌刷新成功"
-    )
+    return token_response
 
 
 @router.post("/logout")
@@ -179,22 +170,17 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user),
 ):
     """获取当前用户信息"""
-    user_data = {
-        "id": current_user.id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "phone": current_user.phone,
-        "role": current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role),
-        "is_active": current_user.is_active,
-        "is_verified": current_user.is_verified,
-        "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
-        "last_login_at": current_user.last_login_at.isoformat() if current_user.last_login_at else None,
-    }
-    
-    return success_response(
-        data=user_data,
-        message="获取用户信息成功"
+    return UserProfile(
+        id=current_user.id,
+        username=current_user.username,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        phone=current_user.phone,
+        role=current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role),
+        is_active=current_user.is_active,
+        is_verified=current_user.is_verified,
+        created_at=current_user.created_at,
+        last_login_at=current_user.last_login_at,
     )
 
 
@@ -203,12 +189,7 @@ async def get_profile(
     current_user: User = Depends(get_current_user),
 ):
     """获取用户资料"""
-    user_profile = UserProfile.from_orm(current_user)
-    
-    return success_response(
-        data=user_profile.dict(),
-        message="获取用户资料成功"
-    )
+    return UserProfile.from_attributes(current_user)
 
 
 @router.get("/sessions", response_model=List[SessionInfo])
@@ -220,10 +201,7 @@ async def get_sessions(
     auth_service = AuthService(db)
     sessions = auth_service.get_user_sessions(current_user.id)
     
-    return success_response(
-        data=[session.dict() for session in sessions],
-        message="获取会话列表成功"
-    )
+    return sessions
 
 
 @router.delete("/sessions/{session_id}")
