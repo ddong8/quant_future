@@ -1,0 +1,80 @@
+# 开发环境 Docker Compose 配置
+# 使用方法: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # 数据库初始化容器 - 开发环境配置
+  db-init:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./backend:/app:ro  # 只读挂载，防止容器修改源码
+    healthcheck:
+      test: ["CMD", "python", "init_healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # 后端服务 - 开发环境配置
+  backend:
+    environment:
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - RELOAD=true
+    volumes:
+      - ./backend:/app  # 开发环境允许热重载
+    command: >
+      sh -c "
+        echo '⏳ 等待数据库初始化完成...' &&
+        python check_init_status.py --wait --timeout 300 &&
+        echo '🚀 启动开发服务器...' &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+
+  # 前端服务 - 开发环境配置
+  frontend:
+    environment:
+      - NODE_ENV=development
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_WS_BASE_URL=ws://localhost:8000/api/v1/ws
+    command: >
+      sh -c "
+        echo '📦 安装前端依赖...' &&
+        npm install --silent &&
+        echo '🚀 启动开发服务器...' &&
+        npm run dev -- --host 0.0.0.0 --port 3000
+      "
+
+  # 开发工具容器
+  dev-tools:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.init
+    container_name: trading_dev_tools
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@postgres:5432/trading_db
+      - REDIS_URL=redis://redis:6379/0
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+      - INFLUXDB_ORG=trading-org
+      - INFLUXDB_BUCKET=market-data
+    depends_on:
+      - postgres
+      - redis
+      - influxdb
+    volumes:
+      - ./backend:/app
+      - ./logs:/var/log/trading
+    profiles:
+      - tools  # 只在指定 profile 时启动
+    command: >
+      sh -c "
+        echo '🛠️  开发工具容器已启动' &&
+        echo '可用命令:' &&
+        echo '  python check_db_status.py - 检查数据库状态' &&
+        echo '  python wait_for_db.py - 等待数据库就绪' &&
+        echo '  python check_init_status.py - 检查初始化状态' &&
+        echo '  python validate_config.py - 验证配置' &&
+        tail -f /dev/null
+      "

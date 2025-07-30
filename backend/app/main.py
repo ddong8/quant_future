@@ -32,30 +32,55 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时执行
     try:
+        print("🚀 开始启动应用...")
+        
+        # 等待数据库就绪
+        from .services.health_check_service import health_checker
+        print("⏳ 等待数据库就绪...")
+        
+        db_ready = await health_checker.wait_for_database_ready(
+            max_wait_time=settings.DB_INIT_TIMEOUT,
+            check_interval=2
+        )
+        
+        if not db_ready:
+            raise SystemError("数据库未在指定时间内就绪")
+        
+        print("✅ 数据库已就绪")
+        
         # 初始化数据库
+        print("🔧 初始化数据库结构...")
         db_manager.init_database()
         
-        # 健康检查
-        health = db_manager.health_check()
-        if not all(health.values()):
-            raise SystemError(f"数据库健康检查失败: {health}")
+        # 执行全面健康检查
+        print("🏥 执行健康检查...")
+        health_result = await health_checker.perform_comprehensive_health_check()
+        
+        if health_result["overall_status"] == "critical":
+            raise SystemError(f"关键服务健康检查失败: {health_result}")
+        
+        if health_result["overall_status"] == "warning":
+            print(f"⚠️  部分服务存在警告: {health_result['summary']}")
         
         # 启动市场数据服务
+        print("📈 启动市场数据服务...")
         from .services.market_service import market_service
         await market_service.initialize()
         
         # 启动实时数据推送服务
+        print("📡 启动实时数据推送服务...")
         from .services.realtime_service import realtime_service
         await realtime_service.start()
         
         # 启动定时任务调度器
+        print("⏰ 启动定时任务调度器...")
         from .services.scheduler_service import scheduler_service
         scheduler_service.start()
         
         print("✅ 应用启动成功")
-        print(f"📊 数据库状态: {health}")
-        print("📡 实时数据服务已启动")
-        print("⏰ 定时任务调度器已启动")
+        print(f"📊 整体健康状态: {health_result['overall_status']}")
+        print(f"🕐 总启动时间: {health_result['total_response_time_ms']:.2f}ms")
+        print("🌐 应用已准备好接收请求")
         
     except Exception as e:
         print(f"❌ 应用启动失败: {e}")
