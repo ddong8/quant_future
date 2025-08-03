@@ -1,0 +1,211 @@
+"""add risk profile tables
+
+Revision ID: 011
+Revises: 010
+Create Date: 2024-01-15 11:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '011'
+down_revision = '010'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建风险偏好档案表
+    op.create_table('risk_profiles',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('risk_tolerance', sa.Enum('CONSERVATIVE', 'MODERATE', 'BALANCED', 'AGGRESSIVE', 'SPECULATIVE', name='risktolerancelevel'), nullable=False),
+        sa.Column('risk_score', sa.Integer(), nullable=False),
+        sa.Column('investment_objective', sa.Enum('CAPITAL_PRESERVATION', 'INCOME_GENERATION', 'BALANCED_GROWTH', 'CAPITAL_APPRECIATION', 'SPECULATION', name='investmentobjective'), nullable=False),
+        sa.Column('time_horizon', sa.Enum('SHORT_TERM', 'MEDIUM_TERM', 'LONG_TERM', name='timehorizon'), nullable=False),
+        sa.Column('age', sa.Integer(), nullable=True),
+        sa.Column('annual_income', sa.Numeric(precision=15, scale=2), nullable=True),
+        sa.Column('net_worth', sa.Numeric(precision=15, scale=2), nullable=True),
+        sa.Column('investment_experience_years', sa.Integer(), nullable=True),
+        sa.Column('max_portfolio_loss_percentage', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('max_single_position_percentage', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('preferred_asset_classes', sa.JSON(), nullable=True),
+        sa.Column('excluded_asset_classes', sa.JSON(), nullable=True),
+        sa.Column('questionnaire_answers', sa.JSON(), nullable=True),
+        sa.Column('questionnaire_version', sa.String(10), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('last_assessment_date', sa.DateTime(), nullable=True),
+        sa.Column('next_review_date', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id')
+    )
+    op.create_index(op.f('ix_risk_profiles_id'), 'risk_profiles', ['id'], unique=False)
+    
+    # 创建投资组合配置表
+    op.create_table('portfolio_configurations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('risk_profile_id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('is_default', sa.Boolean(), nullable=True, default=False),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('asset_allocation', sa.JSON(), nullable=False),
+        sa.Column('target_allocation', sa.JSON(), nullable=True),
+        sa.Column('rebalance_threshold', sa.Numeric(precision=5, scale=2), nullable=True, default=5.0),
+        sa.Column('max_drawdown_limit', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('stop_loss_percentage', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('take_profit_percentage', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('min_cash_percentage', sa.Numeric(precision=5, scale=2), nullable=True, default=5.0),
+        sa.Column('max_leverage_ratio', sa.Numeric(precision=5, scale=2), nullable=True, default=1.0),
+        sa.Column('allowed_instruments', sa.JSON(), nullable=True),
+        sa.Column('forbidden_instruments', sa.JSON(), nullable=True),
+        sa.Column('rebalance_frequency', sa.String(20), nullable=True, default='monthly'),
+        sa.Column('auto_rebalance', sa.Boolean(), nullable=True, default=False),
+        sa.Column('last_rebalance_date', sa.DateTime(), nullable=True),
+        sa.Column('next_rebalance_date', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['risk_profile_id'], ['risk_profiles.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_portfolio_configurations_id'), 'portfolio_configurations', ['id'], unique=False)
+    op.create_index(op.f('ix_portfolio_configurations_user_id'), 'portfolio_configurations', ['user_id'], unique=False)
+    
+    # 创建资产分配历史表
+    op.create_table('allocation_history',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('portfolio_config_id', sa.Integer(), nullable=False),
+        sa.Column('allocation_date', sa.DateTime(), nullable=False),
+        sa.Column('allocation_data', sa.JSON(), nullable=False),
+        sa.Column('total_value', sa.Numeric(precision=15, scale=2), nullable=True),
+        sa.Column('change_reason', sa.String(50), nullable=True),
+        sa.Column('change_description', sa.Text(), nullable=True),
+        sa.Column('expected_return', sa.Numeric(precision=8, scale=4), nullable=True),
+        sa.Column('expected_volatility', sa.Numeric(precision=8, scale=4), nullable=True),
+        sa.Column('sharpe_ratio', sa.Numeric(precision=8, scale=4), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['portfolio_config_id'], ['portfolio_configurations.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_allocation_history_id'), 'allocation_history', ['id'], unique=False)
+    
+    # 创建投资建议表
+    op.create_table('investment_recommendations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('risk_profile_id', sa.Integer(), nullable=False),
+        sa.Column('title', sa.String(200), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('recommendation_type', sa.String(50), nullable=False),
+        sa.Column('priority', sa.String(20), nullable=True, default='medium'),
+        sa.Column('recommended_action', sa.String(50), nullable=True),
+        sa.Column('target_symbol', sa.String(20), nullable=True),
+        sa.Column('target_allocation', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('reasoning', sa.Text(), nullable=True),
+        sa.Column('expected_return', sa.Numeric(precision=8, scale=4), nullable=True),
+        sa.Column('risk_level', sa.String(20), nullable=True),
+        sa.Column('confidence_score', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('status', sa.String(20), nullable=True, default='active'),
+        sa.Column('is_read', sa.Boolean(), nullable=True, default=False),
+        sa.Column('is_accepted', sa.Boolean(), nullable=True),
+        sa.Column('valid_from', sa.DateTime(), nullable=True),
+        sa.Column('valid_until', sa.DateTime(), nullable=True),
+        sa.Column('executed_at', sa.DateTime(), nullable=True),
+        sa.Column('execution_result', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['risk_profile_id'], ['risk_profiles.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_investment_recommendations_id'), 'investment_recommendations', ['id'], unique=False)
+    op.create_index(op.f('ix_investment_recommendations_user_id'), 'investment_recommendations', ['user_id'], unique=False)
+    
+    # 创建风险评估问题表
+    op.create_table('risk_assessment_questions',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('question_text', sa.Text(), nullable=False),
+        sa.Column('question_type', sa.String(20), nullable=False),
+        sa.Column('category', sa.String(50), nullable=True),
+        sa.Column('weight', sa.Numeric(precision=5, scale=2), nullable=True, default=1.0),
+        sa.Column('options', sa.JSON(), nullable=False),
+        sa.Column('scoring_rules', sa.JSON(), nullable=True),
+        sa.Column('version', sa.String(10), nullable=True, default='1.0'),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('order_index', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_assessment_questions_id'), 'risk_assessment_questions', ['id'], unique=False)
+    
+    # 创建市场环境表
+    op.create_table('market_regimes',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('regime_name', sa.String(50), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('volatility_level', sa.String(20), nullable=True),
+        sa.Column('trend_direction', sa.String(20), nullable=True),
+        sa.Column('market_sentiment', sa.String(20), nullable=True),
+        sa.Column('parameters', sa.JSON(), nullable=True),
+        sa.Column('recommended_allocations', sa.JSON(), nullable=True),
+        sa.Column('risk_adjustments', sa.JSON(), nullable=True),
+        sa.Column('is_current', sa.Boolean(), nullable=True, default=False),
+        sa.Column('confidence_level', sa.Numeric(precision=5, scale=2), nullable=True),
+        sa.Column('effective_from', sa.DateTime(), nullable=True),
+        sa.Column('effective_until', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_market_regimes_id'), 'market_regimes', ['id'], unique=False)
+    
+    # 创建风险提醒表
+    op.create_table('risk_alerts',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('alert_type', sa.String(50), nullable=False),
+        sa.Column('title', sa.String(200), nullable=False),
+        sa.Column('message', sa.Text(), nullable=False),
+        sa.Column('severity', sa.String(20), nullable=True, default='medium'),
+        sa.Column('trigger_condition', sa.JSON(), nullable=True),
+        sa.Column('trigger_value', sa.Numeric(precision=15, scale=4), nullable=True),
+        sa.Column('current_value', sa.Numeric(precision=15, scale=4), nullable=True),
+        sa.Column('related_symbol', sa.String(20), nullable=True),
+        sa.Column('related_portfolio', sa.String(100), nullable=True),
+        sa.Column('status', sa.String(20), nullable=True, default='active'),
+        sa.Column('is_read', sa.Boolean(), nullable=True, default=False),
+        sa.Column('is_acknowledged', sa.Boolean(), nullable=True, default=False),
+        sa.Column('acknowledged_at', sa.DateTime(), nullable=True),
+        sa.Column('resolved_at', sa.DateTime(), nullable=True),
+        sa.Column('resolution_note', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_alerts_id'), 'risk_alerts', ['id'], unique=False)
+    op.create_index(op.f('ix_risk_alerts_user_id'), 'risk_alerts', ['user_id'], unique=False)
+
+
+def downgrade():
+    # 删除创建的表
+    op.drop_table('risk_alerts')
+    op.drop_table('market_regimes')
+    op.drop_table('risk_assessment_questions')
+    op.drop_table('investment_recommendations')
+    op.drop_table('allocation_history')
+    op.drop_table('portfolio_configurations')
+    op.drop_table('risk_profiles')
+    
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS risktolerancelevel')
+    op.execute('DROP TYPE IF EXISTS investmentobjective')
+    op.execute('DROP TYPE IF EXISTS timehorizon')

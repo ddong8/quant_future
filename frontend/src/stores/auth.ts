@@ -41,8 +41,21 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.login(loginData)
       
-      if (response.success) {
-        const { access_token, refresh_token, user: userData } = response.data
+      // 现在后端返回统一格式：{ success: true, data: TokenResponse, message: string }
+      if (response.success && response.data) {
+        const { access_token, refresh_token, user_id, username, role } = response.data
+        
+        // 构造用户对象
+        const userData: User = {
+          id: user_id,
+          username: username,
+          email: '', // 后续通过 getCurrentUser 获取完整信息
+          role: role as 'admin' | 'trader' | 'viewer',
+          is_active: true,
+          is_verified: true,
+          created_at: '',
+          updated_at: ''
+        }
         
         // 保存认证信息
         token.value = access_token
@@ -53,13 +66,21 @@ export const useAuthStore = defineStore('auth', () => {
         localStorage.setItem('access_token', access_token)
         localStorage.setItem('refresh_token', refresh_token)
         
-        ElMessage.success('登录成功')
+        // 获取完整用户信息
+        try {
+          await getCurrentUser()
+        } catch (error) {
+          console.warn('获取用户详细信息失败，使用基本信息')
+        }
+        
+        ElMessage.success(response.message || '登录成功')
         return true
       } else {
         ElMessage.error(response.message || '登录失败')
         return false
       }
     } catch (error: any) {
+      console.error('登录错误:', error)
       ElMessage.error(error.message || '登录失败')
       return false
     } finally {
@@ -106,13 +127,18 @@ export const useAuthStore = defineStore('auth', () => {
   const getCurrentUser = async () => {
     try {
       const response = await authApi.getCurrentUser()
-      if (response.success) {
+      // 检查响应格式，适配不同的返回格式
+      if (response.success && response.data) {
         user.value = response.data
+      } else if (response.id) {
+        // 直接返回用户对象的情况
+        user.value = response as User
       } else {
-        throw new Error(response.message)
+        throw new Error('获取用户信息失败')
       }
     } catch (error) {
-      clearAuth()
+      console.warn('获取用户信息失败:', error)
+      // 不清除认证状态，因为可能只是这个接口有问题
       throw error
     }
   }
@@ -127,8 +153,9 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.refreshToken(refreshToken.value)
       
-      if (response.success) {
-        const { access_token, refresh_token: newRefreshToken } = response.data
+      // 适配后端直接返回 TokenResponse 的格式
+      if (response.access_token) {
+        const { access_token, refresh_token: newRefreshToken } = response
         
         token.value = access_token
         refreshToken.value = newRefreshToken

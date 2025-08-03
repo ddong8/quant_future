@@ -1,0 +1,68 @@
+"""Add position PnL fields and history table
+
+Revision ID: 008
+Revises: 007
+Create Date: 2024-01-01 00:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '008'
+down_revision = '007'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 添加持仓表的新字段
+    op.add_column('positions', sa.Column('unrealized_pnl_percent', sa.DECIMAL(precision=10, scale=6), nullable=True, default=0))
+    op.add_column('positions', sa.Column('daily_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True, default=0))
+    op.add_column('positions', sa.Column('daily_pnl_percent', sa.DECIMAL(precision=10, scale=6), nullable=True, default=0))
+    op.add_column('positions', sa.Column('return_rate', sa.DECIMAL(precision=10, scale=6), nullable=True, default=0))
+    
+    # 创建持仓历史表
+    op.create_table('position_history',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('position_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('symbol', sa.String(length=20), nullable=False),
+        sa.Column('quantity', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('avg_cost', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('current_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('market_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('unrealized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('unrealized_pnl_percent', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('daily_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('daily_pnl_percent', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('total_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('return_rate', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('risk_metrics', sa.JSON(), nullable=True),
+        sa.Column('recorded_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['position_id'], ['positions.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_position_history_id'), 'position_history', ['id'], unique=False)
+    op.create_index(op.f('ix_position_history_position_id'), 'position_history', ['position_id'], unique=False)
+    op.create_index(op.f('ix_position_history_user_id'), 'position_history', ['user_id'], unique=False)
+    op.create_index(op.f('ix_position_history_symbol'), 'position_history', ['symbol'], unique=False)
+    op.create_index(op.f('ix_position_history_recorded_at'), 'position_history', ['recorded_at'], unique=False)
+
+
+def downgrade():
+    # 删除持仓历史表
+    op.drop_index(op.f('ix_position_history_recorded_at'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_symbol'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_user_id'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_position_id'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_id'), table_name='position_history')
+    op.drop_table('position_history')
+    
+    # 删除持仓表的新字段
+    op.drop_column('positions', 'return_rate')
+    op.drop_column('positions', 'daily_pnl_percent')
+    op.drop_column('positions', 'daily_pnl')
+    op.drop_column('positions', 'unrealized_pnl_percent')

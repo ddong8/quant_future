@@ -17,7 +17,7 @@
       
       <div class="header-actions">
         <el-button @click="showTestDialog = true">
-          <el-icon><Experiment /></el-icon>
+          <el-icon><Setting /></el-icon>
           新建测试
         </el-button>
         <el-button @click="showDeployDialog = true" type="primary">
@@ -212,7 +212,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft,
-  Experiment,
+  Setting,
   Upload,
   Refresh
 } from '@element-plus/icons-vue'

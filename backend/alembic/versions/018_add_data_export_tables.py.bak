@@ -1,0 +1,142 @@
+"""add data export tables
+
+Revision ID: 018
+Revises: 017
+Create Date: 2024-01-20 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '018'
+down_revision = '017'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建数据导出任务表
+    op.create_table('data_export_tasks',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('export_type', sa.String(length=50), nullable=False),
+        sa.Column('format', sa.String(length=20), nullable=False),
+        sa.Column('status', sa.String(length=20), nullable=False),
+        sa.Column('progress', sa.Integer(), nullable=True),
+        sa.Column('file_path', sa.String(length=500), nullable=True),
+        sa.Column('file_size', sa.BigInteger(), nullable=True),
+        sa.Column('download_url', sa.String(length=500), nullable=True),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('filters', sa.JSON(), nullable=True),
+        sa.Column('include_fields', sa.JSON(), nullable=True),
+        sa.Column('exclude_fields', sa.JSON(), nullable=True),
+        sa.Column('compress', sa.Boolean(), nullable=True),
+        sa.Column('password_protect', sa.Boolean(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('started_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_data_export_tasks_id'), 'data_export_tasks', ['id'], unique=False)
+    op.create_index(op.f('ix_data_export_tasks_user_id'), 'data_export_tasks', ['user_id'], unique=False)
+
+    # 创建系统备份表
+    op.create_table('system_backups',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('backup_type', sa.String(length=50), nullable=False),
+        sa.Column('file_path', sa.String(length=500), nullable=False),
+        sa.Column('file_size', sa.BigInteger(), nullable=False),
+        sa.Column('checksum', sa.String(length=64), nullable=False),
+        sa.Column('include_user_data', sa.Boolean(), nullable=True),
+        sa.Column('include_system_logs', sa.Boolean(), nullable=True),
+        sa.Column('include_market_data', sa.Boolean(), nullable=True),
+        sa.Column('compress', sa.Boolean(), nullable=True),
+        sa.Column('encrypt', sa.Boolean(), nullable=True),
+        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('expires_at', sa.DateTime(timezone=True), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_backups_id'), 'system_backups', ['id'], unique=False)
+
+    # 创建系统日志表
+    op.create_table('system_logs',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('level', sa.String(length=20), nullable=False),
+        sa.Column('module', sa.String(length=100), nullable=False),
+        sa.Column('message', sa.Text(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('ip_address', sa.String(length=45), nullable=True),
+        sa.Column('user_agent', sa.String(length=500), nullable=True),
+        sa.Column('request_id', sa.String(length=100), nullable=True),
+        sa.Column('extra_data', sa.JSON(), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_logs_id'), 'system_logs', ['id'], unique=False)
+    op.create_index(op.f('ix_system_logs_timestamp'), 'system_logs', ['timestamp'], unique=False)
+    op.create_index(op.f('ix_system_logs_level'), 'system_logs', ['level'], unique=False)
+    op.create_index(op.f('ix_system_logs_module'), 'system_logs', ['module'], unique=False)
+    op.create_index(op.f('ix_system_logs_user_id'), 'system_logs', ['user_id'], unique=False)
+    op.create_index(op.f('ix_system_logs_request_id'), 'system_logs', ['request_id'], unique=False)
+
+    # 创建系统指标表
+    op.create_table('system_metrics',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('timestamp', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('cpu_usage', sa.Integer(), nullable=False),
+        sa.Column('memory_usage', sa.Integer(), nullable=False),
+        sa.Column('disk_usage', sa.Integer(), nullable=False),
+        sa.Column('active_connections', sa.Integer(), nullable=False),
+        sa.Column('request_count', sa.Integer(), nullable=False),
+        sa.Column('error_count', sa.Integer(), nullable=False),
+        sa.Column('response_time_avg', sa.Integer(), nullable=False),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_metrics_id'), 'system_metrics', ['id'], unique=False)
+    op.create_index(op.f('ix_system_metrics_timestamp'), 'system_metrics', ['timestamp'], unique=False)
+
+    # 创建数据完整性检查表
+    op.create_table('data_integrity_checks',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('check_id', sa.String(length=100), nullable=False),
+        sa.Column('started_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
+        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+        sa.Column('status', sa.String(length=20), nullable=False),
+        sa.Column('total_tables', sa.Integer(), nullable=True),
+        sa.Column('checked_tables', sa.Integer(), nullable=True),
+        sa.Column('issues_found', sa.Integer(), nullable=True),
+        sa.Column('issues', sa.JSON(), nullable=True),
+        sa.Column('recommendations', sa.JSON(), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_data_integrity_checks_id'), 'data_integrity_checks', ['id'], unique=False)
+    op.create_index(op.f('ix_data_integrity_checks_check_id'), 'data_integrity_checks', ['check_id'], unique=True)
+
+    # 添加默认值
+    op.execute("ALTER TABLE data_export_tasks ALTER COLUMN status SET DEFAULT 'pending'")
+    op.execute("ALTER TABLE data_export_tasks ALTER COLUMN progress SET DEFAULT 0")
+    op.execute("ALTER TABLE data_export_tasks ALTER COLUMN compress SET DEFAULT false")
+    op.execute("ALTER TABLE data_export_tasks ALTER COLUMN password_protect SET DEFAULT false")
+    
+    op.execute("ALTER TABLE system_backups ALTER COLUMN include_user_data SET DEFAULT true")
+    op.execute("ALTER TABLE system_backups ALTER COLUMN include_system_logs SET DEFAULT false")
+    op.execute("ALTER TABLE system_backups ALTER COLUMN include_market_data SET DEFAULT false")
+    op.execute("ALTER TABLE system_backups ALTER COLUMN compress SET DEFAULT true")
+    op.execute("ALTER TABLE system_backups ALTER COLUMN encrypt SET DEFAULT true")
+    
+    op.execute("ALTER TABLE data_integrity_checks ALTER COLUMN status SET DEFAULT 'running'")
+    op.execute("ALTER TABLE data_integrity_checks ALTER COLUMN total_tables SET DEFAULT 0")
+    op.execute("ALTER TABLE data_integrity_checks ALTER COLUMN checked_tables SET DEFAULT 0")
+    op.execute("ALTER TABLE data_integrity_checks ALTER COLUMN issues_found SET DEFAULT 0")
+
+
+def downgrade():
+    # 删除表
+    op.drop_table('data_integrity_checks')
+    op.drop_table('system_metrics')
+    op.drop_table('system_logs')
+    op.drop_table('system_backups')
+    op.drop_table('data_export_tasks')

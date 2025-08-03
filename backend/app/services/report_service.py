@@ -15,7 +15,8 @@ from sqlalchemy import desc, and_, func
 from app.core.database_manager import DatabaseManager
 from app.core.logging import get_logger
 from app.models.user import User
-from app.models.trading import Order, Position
+from app.models.order import Order
+from app.models.position import Position
 from app.models.backtest import Backtest
 from app.models.system import SystemLog
 from app.schemas.report import (

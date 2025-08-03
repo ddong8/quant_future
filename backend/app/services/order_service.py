@@ -1,405 +1,116 @@
 """
 订单管理服务
 """
-import uuid
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc, func
-import logging
 
-from ..models import Order, Position, Account, Strategy, User
-from ..models.enums import OrderDirection, OrderOffset, OrderStatus, PositionDirection
-from ..core.exceptions import (
-    NotFoundError,
-    ConflictError,
-    ValidationError,
-    AuthorizationError,
+import logging
+from typing import List, Optional, Dict, Any, Tuple
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_, desc, asc, func
+from datetime import datetime, timedelta
+from decimal import Decimal
+import uuid
+
+from ..models.order import Order, OrderFill, OrderTemplate, OrderStatus, OrderType, OrderSide
+from ..models.strategy import Strategy
+from ..models.backtest import Backtest
+from ..schemas.order import (
+    OrderCreate, OrderUpdate, OrderSearchParams,
+    OrderTemplateCreate, OrderTemplateUpdate,
+    OrderActionRequest, OrderRiskCheckRequest
 )
-from ..core.dependencies import PaginationParams, SortParams
-from .tqsdk_adapter import TQSDKAdapter
-from .risk_service import RiskService
+from ..core.exceptions import ValidationError, NotFoundError, PermissionError
+from ..core.websocket import websocket_manager
+from .order_notification_service import order_notification_service
 
 logger = logging.getLogger(__name__)
 
 
 class OrderService:
-    """订单管理服务类"""
+    """订单管理服务"""
     
-    def __init__(self, db: Session, tqsdk_adapter: TQSDKAdapter, risk_service: RiskService):
+    def __init__(self, db: Session):
         self.db = db
-        self.tqsdk_adapter = tqsdk_adapter
-        self.risk_service = risk_service
     
-    def create_order(self, order_data: Dict[str, Any], user_id: int) -> Order:
+    def create_order(self, order_data: OrderCreate, user_id: int) -> Order:
         """创建订单"""
         try:
-            # 验证策略权限
-            strategy = self.db.query(Strategy).filter(
-                and_(
-                    Strategy.id == order_data['strategy_id'],
+            # 验证关联资源权限
+            if order_data.strategy_id:
+                strategy = self.db.query(Strategy).filter(
+                    Strategy.id == order_data.strategy_id,
                     Strategy.user_id == user_id
-                )
-            ).first()
+                ).first()
+                if not strategy:
+                    raise NotFoundError("策略不存在或无权限访问")
             
-            if not strategy:
-                raise NotFoundError("策略不存在或无权限访问")
+            if order_data.backtest_id:
+                backtest = self.db.query(Backtest).filter(
+                    Backtest.id == order_data.backtest_id,
+                    Backtest.user_id == user_id
+                ).first()
+                if not backtest:
+                    raise NotFoundError("回测不存在或无权限访问")
             
-            # 生成订单ID
-            order_id = f"ORD_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
-            
-            # 风险检查
-            risk_check_result = self.risk_service.check_order_risk(order_data, user_id)
-            if not risk_check_result['passed']:
-                raise ValidationError(f"风险检查未通过: {risk_check_result['reason']}")
+            # 验证父订单
+            if order_data.parent_order_id:
+                parent_order = self.db.query(Order).filter(
+                    Order.id == order_data.parent_order_id,
+                    Order.user_id == user_id
+                ).first()
+                if not parent_order:
+                    raise NotFoundError("父订单不存在或无权限访问")
             
             # 创建订单
-            new_order = Order(
-                id=order_id,
-                strategy_id=order_data['strategy_id'],
-                symbol=order_data['symbol'],
-                direction=order_data['direction'],
-                offset=order_data['offset'],
-                volume=order_data['volume'],
-                price=order_data['price'],
-                status=OrderStatus.PENDING,
-                notes=order_data.get('notes', '')
+            order = Order(
+                uuid=str(uuid.uuid4()),
+                symbol=order_data.symbol,
+                order_type=order_data.order_type,
+                side=order_data.side,
+                quantity=order_data.quantity,
+                price=order_data.price,
+                stop_price=order_data.stop_price,
+                time_in_force=order_data.time_in_force,
+                priority=order_data.priority,
+                iceberg_quantity=order_data.iceberg_quantity,
+                trailing_amount=order_data.trailing_amount,
+                trailing_percent=order_data.trailing_percent,
+                expire_time=order_data.expire_time,
+                max_position_size=order_data.max_position_size,
+                strategy_id=order_data.strategy_id,
+                backtest_id=order_data.backtest_id,
+                parent_order_id=order_data.parent_order_id,
+                broker=order_data.broker,
+                account_id=order_data.account_id,
+                tags=order_data.tags,
+                notes=order_data.notes,
+                metadata=order_data.metadata,
+                user_id=user_id,
+                source="manual"
             )
             
-            self.db.add(new_order)
-            self.db.commit()
-            self.db.refresh(new_order)
+            # 计算剩余数量
+            order.calculate_remaining_quantity()
             
-            # 提交到交易系统
-            try:
-                self._submit_order_to_broker(new_order)
-            except Exception as e:
-                # 如果提交失败，更新订单状态
-                new_order.status = OrderStatus.REJECTED
-                new_order.notes = f"提交失败: {str(e)}"
-                self.db.commit()
-                logger.error(f"订单提交失败: {order_id}, 错误: {e}")
-            
-            logger.info(f"订单创建成功: {order_id}")
-            return new_order
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"创建订单失败: {e}")
-            raise
-    
-    def modify_order(self, order_id: str, modify_data: Dict[str, Any], user_id: int) -> Order:
-        """修改订单"""
-        try:
-            # 获取订单并验证权限
-            order = self._get_order_with_permission(order_id, user_id)
-            
-            # 检查订单状态是否允许修改
-            if order.status not in [OrderStatus.PENDING, OrderStatus.PARTIAL_FILLED]:
-                raise ValidationError("订单状态不允许修改")
-            
-            # 风险检查
-            modified_order_data = {
-                'strategy_id': order.strategy_id,
-                'symbol': order.symbol,
-                'direction': order.direction,
-                'offset': order.offset,
-                'volume': modify_data.get('volume', order.volume),
-                'price': modify_data.get('price', order.price),
-            }
-            
-            risk_check_result = self.risk_service.check_order_risk(modified_order_data, user_id)
-            if not risk_check_result['passed']:
-                raise ValidationError(f"风险检查未通过: {risk_check_result['reason']}")
-            
-            # 更新订单信息
-            old_volume = order.volume
-            old_price = order.price
-            
-            if 'volume' in modify_data:
-                order.volume = modify_data['volume']
-            if 'price' in modify_data:
-                order.price = modify_data['price']
-            if 'notes' in modify_data:
-                order.notes = modify_data['notes']
-            
-            order.updated_at = datetime.utcnow()
-            
-            # 提交修改到交易系统
-            try:
-                self._modify_order_in_broker(order, old_volume, old_price)
-            except Exception as e:
-                # 如果修改失败，回滚订单信息
-                order.volume = old_volume
-                order.price = old_price
-                self.db.rollback()
-                raise ValidationError(f"订单修改失败: {str(e)}")
-            
+            self.db.add(order)
             self.db.commit()
             self.db.refresh(order)
             
-            logger.info(f"订单修改成功: {order_id}")
+            # 发送WebSocket通知
+            order_notification_service.notify_order_created(order)
+            
+            logger.info(f"创建订单成功: {order.id} - {order.symbol} {order.side} {order.quantity}")
             return order
             
         except Exception as e:
             self.db.rollback()
-            logger.error(f"修改订单失败: {e}")
+            logger.error(f"创建订单失败: {str(e)}")
             raise
     
-    def cancel_order(self, order_id: str, user_id: int) -> Order:
-        """撤销订单"""
-        try:
-            # 获取订单并验证权限
-            order = self._get_order_with_permission(order_id, user_id)
-            
-            # 检查订单状态是否允许撤销
-            if order.status not in [OrderStatus.PENDING, OrderStatus.PARTIAL_FILLED]:
-                raise ValidationError("订单状态不允许撤销")
-            
-            # 提交撤销到交易系统
-            try:
-                self._cancel_order_in_broker(order)
-            except Exception as e:
-                raise ValidationError(f"订单撤销失败: {str(e)}")
-            
-            # 更新订单状态
-            order.status = OrderStatus.CANCELLED
-            order.updated_at = datetime.utcnow()
-            
-            self.db.commit()
-            self.db.refresh(order)
-            
-            logger.info(f"订单撤销成功: {order_id}")
-            return order
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"撤销订单失败: {e}")
-            raise
-    
-    def get_order_by_id(self, order_id: str, user_id: int) -> Order:
-        """根据ID获取订单"""
-        return self._get_order_with_permission(order_id, user_id)
-    
-    def get_orders_list(self,
-                       user_id: int,
-                       strategy_id: Optional[int] = None,
-                       symbol: Optional[str] = None,
-                       status: Optional[OrderStatus] = None,
-                       direction: Optional[OrderDirection] = None,
-                       start_date: Optional[datetime] = None,
-                       end_date: Optional[datetime] = None,
-                       pagination: Optional[PaginationParams] = None,
-                       sort_params: Optional[SortParams] = None) -> Tuple[List[Order], int]:
-        """获取订单列表"""
-        # 构建查询
-        query = self.db.query(Order).join(Strategy).filter(Strategy.user_id == user_id)
-        
-        # 应用过滤条件
-        if strategy_id:
-            query = query.filter(Order.strategy_id == strategy_id)
-        
-        if symbol:
-            query = query.filter(Order.symbol == symbol)
-        
-        if status:
-            query = query.filter(Order.status == status)
-        
-        if direction:
-            query = query.filter(Order.direction == direction)
-        
-        if start_date:
-            query = query.filter(Order.created_at >= start_date)
-        
-        if end_date:
-            query = query.filter(Order.created_at <= end_date)
-        
-        # 获取总数
-        total = query.count()
-        
-        # 应用排序
-        if sort_params:
-            if hasattr(Order, sort_params.sort_by):
-                sort_column = getattr(Order, sort_params.sort_by)
-                if sort_params.sort_order == "asc":
-                    query = query.order_by(sort_column)
-                else:
-                    query = query.order_by(desc(sort_column))
-        else:
-            query = query.order_by(desc(Order.created_at))
-        
-        # 应用分页
-        if pagination:
-            query = query.offset(pagination.offset).limit(pagination.page_size)
-        
-        orders = query.all()
-        
-        return orders, total
-    
-    def get_pending_orders(self, user_id: int, strategy_id: Optional[int] = None) -> List[Order]:
-        """获取待成交订单"""
-        query = self.db.query(Order).join(Strategy).filter(
-            and_(
-                Strategy.user_id == user_id,
-                Order.status.in_([OrderStatus.PENDING, OrderStatus.PARTIAL_FILLED])
-            )
-        )
-        
-        if strategy_id:
-            query = query.filter(Order.strategy_id == strategy_id)
-        
-        return query.order_by(Order.created_at).all()
-    
-    def batch_cancel_orders(self, order_ids: List[str], user_id: int) -> Dict[str, Any]:
-        """批量撤销订单"""
-        try:
-            if len(order_ids) > 50:
-                raise ValidationError("批量操作最多支持50个订单")
-            
-            results = []
-            success_count = 0
-            failed_count = 0
-            
-            for order_id in order_ids:
-                try:
-                    order = self.cancel_order(order_id, user_id)
-                    results.append({
-                        'order_id': order_id,
-                        'success': True,
-                        'message': '撤销成功'
-                    })
-                    success_count += 1
-                except Exception as e:
-                    results.append({
-                        'order_id': order_id,
-                        'success': False,
-                        'message': str(e)
-                    })
-                    failed_count += 1
-            
-            logger.info(f"批量撤销订单完成: 成功 {success_count}, 失败 {failed_count}")
-            
-            return {
-                'results': results,
-                'success_count': success_count,
-                'failed_count': failed_count
-            }
-            
-        except Exception as e:
-            logger.error(f"批量撤销订单失败: {e}")
-            raise
-    
-    def update_order_status(self, order_id: str, status: OrderStatus, 
-                           filled_volume: Optional[int] = None,
-                           avg_fill_price: Optional[float] = None,
-                           commission: Optional[float] = None) -> Order:
-        """更新订单状态（由交易系统回调）"""
-        try:
-            order = self.db.query(Order).filter(Order.id == order_id).first()
-            if not order:
-                raise NotFoundError("订单不存在")
-            
-            old_status = order.status
-            order.status = status
-            order.updated_at = datetime.utcnow()
-            
-            if filled_volume is not None:
-                order.filled_volume = filled_volume
-            
-            if avg_fill_price is not None:
-                order.avg_fill_price = avg_fill_price
-            
-            if commission is not None:
-                order.commission = commission
-            
-            if status == OrderStatus.FILLED:
-                order.filled_at = datetime.utcnow()
-                # 更新持仓
-                self._update_position_from_order(order)
-            
-            self.db.commit()
-            self.db.refresh(order)
-            
-            logger.info(f"订单状态更新: {order_id}, {old_status} -> {status}")
-            return order
-            
-        except Exception as e:
-            self.db.rollback()
-            logger.error(f"更新订单状态失败: {e}")
-            raise
-    
-    def get_order_statistics(self, user_id: int, 
-                           start_date: Optional[datetime] = None,
-                           end_date: Optional[datetime] = None) -> Dict[str, Any]:
-        """获取订单统计信息"""
-        query = self.db.query(Order).join(Strategy).filter(Strategy.user_id == user_id)
-        
-        if start_date:
-            query = query.filter(Order.created_at >= start_date)
-        
-        if end_date:
-            query = query.filter(Order.created_at <= end_date)
-        
-        # 基础统计
-        total_orders = query.count()
-        filled_orders = query.filter(Order.status == OrderStatus.FILLED).count()
-        cancelled_orders = query.filter(Order.status == OrderStatus.CANCELLED).count()
-        pending_orders = query.filter(Order.status.in_([OrderStatus.PENDING, OrderStatus.PARTIAL_FILLED])).count()
-        
-        # 按方向统计
-        buy_orders = query.filter(Order.direction == OrderDirection.BUY).count()
-        sell_orders = query.filter(Order.direction == OrderDirection.SELL).count()
-        
-        # 按品种统计
-        symbol_stats = query.with_entities(
-            Order.symbol,
-            func.count(Order.id).label('count')
-        ).group_by(Order.symbol).all()
-        
-        # 成交率
-        fill_rate = filled_orders / total_orders if total_orders > 0 else 0
-        
-        # 平均成交时间（已成交订单）
-        filled_orders_query = query.filter(
-            and_(
-                Order.status == OrderStatus.FILLED,
-                Order.filled_at.isnot(None)
-            )
-        )
-        
-        avg_fill_time = None
-        if filled_orders_query.count() > 0:
-            fill_times = []
-            for order in filled_orders_query.all():
-                if order.filled_at and order.created_at:
-                    fill_time = (order.filled_at - order.created_at).total_seconds()
-                    fill_times.append(fill_time)
-            
-            if fill_times:
-                avg_fill_time = sum(fill_times) / len(fill_times)
-        
-        return {
-            'total_orders': total_orders,
-            'filled_orders': filled_orders,
-            'cancelled_orders': cancelled_orders,
-            'pending_orders': pending_orders,
-            'buy_orders': buy_orders,
-            'sell_orders': sell_orders,
-            'fill_rate': fill_rate,
-            'avg_fill_time_seconds': avg_fill_time,
-            'symbol_distribution': [
-                {'symbol': symbol, 'count': count} 
-                for symbol, count in symbol_stats
-            ]
-        }
-    
-    def _get_order_with_permission(self, order_id: str, user_id: int) -> Order:
-        """获取订单并验证权限"""
-        order = self.db.query(Order).join(Strategy).filter(
-            and_(
-                Order.id == order_id,
-                Strategy.user_id == user_id
-            )
+    def get_order(self, order_id: int, user_id: int) -> Optional[Order]:
+        """获取订单详情"""
+        order = self.db.query(Order).filter(
+            Order.id == order_id,
+            Order.user_id == user_id
         ).first()
         
         if not order:
@@ -407,130 +118,547 @@ class OrderService:
         
         return order
     
-    def _submit_order_to_broker(self, order: Order):
-        """提交订单到券商系统"""
-        try:
-            # 使用tqsdk适配器提交订单
-            broker_order_id = self.tqsdk_adapter.submit_order(
-                symbol=order.symbol,
-                direction=order.direction,
-                offset=order.offset,
-                volume=order.volume,
-                price=order.price
-            )
-            
-            # 更新订单的券商订单ID
-            order.notes = f"券商订单ID: {broker_order_id}"
-            
-        except Exception as e:
-            logger.error(f"提交订单到券商失败: {order.id}, 错误: {e}")
-            raise
+    def get_order_by_uuid(self, order_uuid: str, user_id: int) -> Optional[Order]:
+        """通过UUID获取订单"""
+        order = self.db.query(Order).filter(
+            Order.uuid == order_uuid,
+            Order.user_id == user_id
+        ).first()
+        
+        if not order:
+            raise NotFoundError("订单不存在或无权限访问")
+        
+        return order
     
-    def _modify_order_in_broker(self, order: Order, old_volume: int, old_price: float):
-        """在券商系统中修改订单"""
+    def update_order(self, order_id: int, order_data: OrderUpdate, user_id: int) -> Order:
+        """更新订单"""
         try:
-            # 使用tqsdk适配器修改订单
-            self.tqsdk_adapter.modify_order(
-                order_id=order.id,
-                volume=order.volume,
-                price=order.price
-            )
-            
-        except Exception as e:
-            logger.error(f"在券商系统修改订单失败: {order.id}, 错误: {e}")
-            raise
-    
-    def _cancel_order_in_broker(self, order: Order):
-        """在券商系统中撤销订单"""
-        try:
-            # 使用tqsdk适配器撤销订单
-            self.tqsdk_adapter.cancel_order(order.id)
-            
-        except Exception as e:
-            logger.error(f"在券商系统撤销订单失败: {order.id}, 错误: {e}")
-            raise
-    
-    def _update_position_from_order(self, order: Order):
-        """根据订单更新持仓"""
-        try:
-            # 查找现有持仓
-            position = self.db.query(Position).filter(
-                and_(
-                    Position.strategy_id == order.strategy_id,
-                    Position.symbol == order.symbol
-                )
+            order = self.db.query(Order).filter(
+                Order.id == order_id,
+                Order.user_id == user_id
             ).first()
             
-            if order.offset == OrderOffset.OPEN:
-                # 开仓
-                if position:
-                    # 更新现有持仓
-                    if order.direction == OrderDirection.BUY:
-                        if position.direction == PositionDirection.LONG:
-                            # 增加多头持仓
-                            total_cost = position.volume * position.avg_price + order.filled_volume * order.avg_fill_price
-                            total_volume = position.volume + order.filled_volume
-                            position.avg_price = total_cost / total_volume
-                            position.volume = total_volume
-                        else:
-                            # 减少空头持仓或转为多头
-                            if order.filled_volume >= position.volume:
-                                # 平空后开多
-                                remaining_volume = order.filled_volume - position.volume
-                                position.direction = PositionDirection.LONG
-                                position.volume = remaining_volume
-                                position.avg_price = order.avg_fill_price
-                            else:
-                                # 部分平空
-                                position.volume -= order.filled_volume
-                    else:  # SELL
-                        if position.direction == PositionDirection.SHORT:
-                            # 增加空头持仓
-                            total_cost = position.volume * position.avg_price + order.filled_volume * order.avg_fill_price
-                            total_volume = position.volume + order.filled_volume
-                            position.avg_price = total_cost / total_volume
-                            position.volume = total_volume
-                        else:
-                            # 减少多头持仓或转为空头
-                            if order.filled_volume >= position.volume:
-                                # 平多后开空
-                                remaining_volume = order.filled_volume - position.volume
-                                position.direction = PositionDirection.SHORT
-                                position.volume = remaining_volume
-                                position.avg_price = order.avg_fill_price
-                            else:
-                                # 部分平多
-                                position.volume -= order.filled_volume
-                else:
-                    # 创建新持仓
-                    direction = PositionDirection.LONG if order.direction == OrderDirection.BUY else PositionDirection.SHORT
-                    position = Position(
-                        strategy_id=order.strategy_id,
-                        symbol=order.symbol,
-                        direction=direction,
-                        volume=order.filled_volume,
-                        avg_price=order.avg_fill_price,
-                        margin=order.filled_volume * order.avg_fill_price * 0.1,  # 假设保证金率10%
-                        margin_rate=0.1
-                    )
-                    self.db.add(position)
+            if not order:
+                raise NotFoundError("订单不存在或无权限访问")
             
-            else:
-                # 平仓
-                if position:
-                    if order.direction == OrderDirection.BUY and position.direction == PositionDirection.SHORT:
-                        # 买入平空
-                        position.volume = max(0, position.volume - order.filled_volume)
-                    elif order.direction == OrderDirection.SELL and position.direction == PositionDirection.LONG:
-                        # 卖出平多
-                        position.volume = max(0, position.volume - order.filled_volume)
-                    
-                    # 如果持仓为0，删除持仓记录
-                    if position.volume == 0:
-                        self.db.delete(position)
+            # 检查订单是否可以修改
+            if not order.is_active:
+                raise ValidationError("只能修改活跃状态的订单")
             
-            position.updated_at = datetime.utcnow()
+            # 更新字段
+            update_data = order_data.dict(exclude_unset=True)
+            updated_fields = list(update_data.keys())
+            
+            for field, value in update_data.items():
+                if hasattr(order, field):
+                    setattr(order, field, value)
+            
+            # 重新计算剩余数量
+            if 'quantity' in update_data:
+                order.calculate_remaining_quantity()
+            
+            self.db.commit()
+            self.db.refresh(order)
+            
+            # 发送WebSocket通知
+            order_notification_service.notify_order_updated(order, updated_fields)
+            
+            logger.info(f"更新订单成功: {order.id}")
+            return order
             
         except Exception as e:
-            logger.error(f"更新持仓失败: {e}")
+            self.db.rollback()
+            logger.error(f"更新订单失败: {str(e)}")
             raise
+    
+    def cancel_order(self, order_id: int, user_id: int, reason: str = "") -> Order:
+        """取消订单"""
+        try:
+            order = self.db.query(Order).filter(
+                Order.id == order_id,
+                Order.user_id == user_id
+            ).first()
+            
+            if not order:
+                raise NotFoundError("订单不存在或无权限访问")
+            
+            if not order.is_active:
+                raise ValidationError("只能取消活跃状态的订单")
+            
+            # 保存旧状态
+            old_status = order.status
+            
+            # 更新订单状态
+            order.status = OrderStatus.CANCELLED
+            order.cancelled_at = datetime.now()
+            if reason:
+                order.notes = f"{order.notes or ''}\n取消原因: {reason}".strip()
+            
+            self.db.commit()
+            self.db.refresh(order)
+            
+            # 发送WebSocket通知
+            order_notification_service.notify_order_cancelled(order, reason)
+            order_notification_service.notify_order_status_change(order, old_status)
+            
+            logger.info(f"取消订单成功: {order.id}")
+            return order
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"取消订单失败: {str(e)}")
+            raise
+    
+    def search_orders(self, params: OrderSearchParams, user_id: int) -> Tuple[List[Order], int]:
+        """搜索订单"""
+        query = self.db.query(Order).filter(Order.user_id == user_id)
+        
+        # 交易标的筛选
+        if params.symbol:
+            query = query.filter(Order.symbol.ilike(f"%{params.symbol}%"))
+        
+        # 订单类型筛选
+        if params.order_type:
+            query = query.filter(Order.order_type == params.order_type)
+        
+        # 订单方向筛选
+        if params.side:
+            query = query.filter(Order.side == params.side)
+        
+        # 订单状态筛选
+        if params.status:
+            query = query.filter(Order.status == params.status)
+        
+        # 策略筛选
+        if params.strategy_id:
+            query = query.filter(Order.strategy_id == params.strategy_id)
+        
+        # 回测筛选
+        if params.backtest_id:
+            query = query.filter(Order.backtest_id == params.backtest_id)
+        
+        # 标签筛选
+        if params.tags:
+            for tag in params.tags:
+                query = query.filter(Order.tags.contains([tag]))
+        
+        # 时间范围筛选
+        if params.created_after:
+            query = query.filter(Order.created_at >= params.created_after)
+        
+        if params.created_before:
+            query = query.filter(Order.created_at <= params.created_before)
+        
+        # 数量范围筛选
+        if params.min_quantity:
+            query = query.filter(Order.quantity >= params.min_quantity)
+        
+        if params.max_quantity:
+            query = query.filter(Order.quantity <= params.max_quantity)
+        
+        # 价格范围筛选
+        if params.min_price:
+            query = query.filter(Order.price >= params.min_price)
+        
+        if params.max_price:
+            query = query.filter(Order.price <= params.max_price)
+        
+        # 获取总数
+        total = query.count()
+        
+        # 排序
+        sort_field = getattr(Order, params.sort_by)
+        if params.sort_order == 'desc':
+            query = query.order_by(desc(sort_field))
+        else:
+            query = query.order_by(asc(sort_field))
+        
+        # 分页
+        offset = (params.page - 1) * params.page_size
+        orders = query.offset(offset).limit(params.page_size).all()
+        
+        return orders, total
+    
+    def get_user_orders(self, user_id: int, status: Optional[OrderStatus] = None, 
+                       limit: int = 50) -> List[Order]:
+        """获取用户订单列表"""
+        query = self.db.query(Order).filter(Order.user_id == user_id)
+        
+        if status:
+            query = query.filter(Order.status == status)
+        
+        return query.order_by(desc(Order.created_at)).limit(limit).all()
+    
+    def get_active_orders(self, user_id: int) -> List[Order]:
+        """获取活跃订单"""
+        return self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.status.in_([
+                OrderStatus.PENDING,
+                OrderStatus.SUBMITTED,
+                OrderStatus.ACCEPTED,
+                OrderStatus.PARTIALLY_FILLED
+            ])
+        ).order_by(desc(Order.created_at)).all()
+    
+    def get_order_stats(self, user_id: int) -> Dict[str, Any]:
+        """获取订单统计信息"""
+        # 基础统计
+        total_orders = self.db.query(Order).filter(Order.user_id == user_id).count()
+        
+        active_orders = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.status.in_([
+                OrderStatus.PENDING,
+                OrderStatus.SUBMITTED,
+                OrderStatus.ACCEPTED,
+                OrderStatus.PARTIALLY_FILLED
+            ])
+        ).count()
+        
+        filled_orders = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.status == OrderStatus.FILLED
+        ).count()
+        
+        cancelled_orders = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.status == OrderStatus.CANCELLED
+        ).count()
+        
+        rejected_orders = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.status == OrderStatus.REJECTED
+        ).count()
+        
+        # 成交统计
+        filled_query = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.filled_quantity > 0
+        )
+        
+        total_volume = filled_query.with_entities(
+            func.sum(Order.filled_quantity)
+        ).scalar() or Decimal('0')
+        
+        total_value = filled_query.with_entities(
+            func.sum(Order.filled_quantity * Order.avg_fill_price)
+        ).scalar() or Decimal('0')
+        
+        # 成交率统计
+        orders_with_fills = self.db.query(Order).filter(
+            Order.user_id == user_id,
+            Order.quantity > 0
+        ).all()
+        
+        if orders_with_fills:
+            fill_ratios = [order.fill_ratio for order in orders_with_fills]
+            avg_fill_ratio = sum(fill_ratios) / len(fill_ratios)
+        else:
+            avg_fill_ratio = 0.0
+        
+        # 成功率（完全成交的订单比例）
+        success_rate = filled_orders / total_orders if total_orders > 0 else 0.0
+        
+        return {
+            'total_orders': total_orders,
+            'active_orders': active_orders,
+            'filled_orders': filled_orders,
+            'cancelled_orders': cancelled_orders,
+            'rejected_orders': rejected_orders,
+            'total_volume': float(total_volume),
+            'total_value': float(total_value),
+            'avg_fill_ratio': round(avg_fill_ratio, 4),
+            'success_rate': round(success_rate, 4)
+        }
+    
+    def add_order_fill(self, order_id: int, fill_data: Dict[str, Any]) -> OrderFill:
+        """添加订单成交记录"""
+        try:
+            order = self.db.query(Order).filter(Order.id == order_id).first()
+            if not order:
+                raise NotFoundError("订单不存在")
+            
+            # 创建成交记录
+            fill = OrderFill(
+                uuid=str(uuid.uuid4()),
+                order_id=order_id,
+                fill_id_external=fill_data.get('fill_id_external'),
+                quantity=Decimal(str(fill_data['quantity'])),
+                price=Decimal(str(fill_data['price'])),
+                value=Decimal(str(fill_data['quantity'])) * Decimal(str(fill_data['price'])),
+                commission=Decimal(str(fill_data.get('commission', 0))),
+                commission_asset=fill_data.get('commission_asset'),
+                fill_time=fill_data.get('fill_time', datetime.now()),
+                liquidity=fill_data.get('liquidity'),
+                counterparty=fill_data.get('counterparty'),
+                metadata=fill_data.get('metadata', {})
+            )
+            
+            self.db.add(fill)
+            
+            # 更新订单状态
+            order.filled_quantity += fill.quantity
+            order.commission += fill.commission
+            order.calculate_remaining_quantity()
+            order.update_avg_fill_price()
+            
+            # 保存旧状态
+            old_status = order.status
+            
+            # 更新订单状态
+            if order.filled_quantity >= order.quantity:
+                order.status = OrderStatus.FILLED
+                order.filled_at = datetime.now()
+            elif order.filled_quantity > 0:
+                order.status = OrderStatus.PARTIALLY_FILLED
+            
+            self.db.commit()
+            self.db.refresh(fill)
+            self.db.refresh(order)
+            
+            # 发送WebSocket通知
+            order_notification_service.notify_order_filled(order, fill)
+            if old_status != order.status:
+                order_notification_service.notify_order_status_change(order, old_status)
+            
+            logger.info(f"添加订单成交记录: {order_id}, 数量: {fill.quantity}, 价格: {fill.price}")
+            return fill
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"添加订单成交记录失败: {str(e)}")
+            raise
+    
+    def perform_risk_check(self, risk_data: OrderRiskCheckRequest, user_id: int) -> Dict[str, Any]:
+        """执行订单风险检查"""
+        try:
+            warnings = []
+            errors = []
+            suggestions = []
+            risk_score = 0.0
+            
+            # 基础风险检查
+            # 1. 检查持仓限制
+            current_position = self._get_current_position(risk_data.symbol, user_id)
+            if risk_data.side == OrderSide.BUY:
+                new_position = current_position + risk_data.quantity
+            else:
+                new_position = current_position - risk_data.quantity
+            
+            # 2. 检查资金充足性
+            if risk_data.price and risk_data.side == OrderSide.BUY:
+                required_funds = risk_data.quantity * risk_data.price
+                available_funds = self._get_available_funds(user_id)
+                
+                if required_funds > available_funds:
+                    errors.append("资金不足")
+                    risk_score += 30
+                elif required_funds > available_funds * Decimal('0.8'):
+                    warnings.append("资金使用率较高")
+                    risk_score += 15
+            
+            # 3. 检查价格合理性
+            if risk_data.price:
+                market_price = self._get_market_price(risk_data.symbol)
+                if market_price:
+                    price_diff = abs(risk_data.price - market_price) / market_price
+                    if price_diff > 0.1:  # 价格偏离超过10%
+                        warnings.append("订单价格偏离市价较大")
+                        risk_score += 10
+            
+            # 4. 检查订单数量
+            if risk_data.quantity > Decimal('1000000'):  # 大额订单
+                warnings.append("订单数量较大，建议分批执行")
+                risk_score += 5
+            
+            # 5. 检查策略风险
+            if risk_data.strategy_id:
+                strategy_risk = self._check_strategy_risk(risk_data.strategy_id, user_id)
+                risk_score += strategy_risk
+            
+            # 确定风险等级
+            if risk_score >= 50:
+                risk_level = "high"
+            elif risk_score >= 20:
+                risk_level = "medium"
+            else:
+                risk_level = "low"
+            
+            # 生成建议
+            if risk_level == "high":
+                suggestions.append("建议降低订单数量或调整价格")
+            elif risk_level == "medium":
+                suggestions.append("建议谨慎执行，关注市场变化")
+            
+            # 计算最大允许数量
+            max_allowed_quantity = self._calculate_max_allowed_quantity(
+                risk_data.symbol, risk_data.side, user_id
+            )
+            
+            # 估算保证金
+            estimated_margin = self._estimate_margin_requirement(
+                risk_data.symbol, risk_data.quantity, risk_data.price
+            )
+            
+            return {
+                'passed': len(errors) == 0,
+                'risk_level': risk_level,
+                'warnings': warnings,
+                'errors': errors,
+                'suggestions': suggestions,
+                'risk_score': risk_score,
+                'max_allowed_quantity': float(max_allowed_quantity) if max_allowed_quantity else None,
+                'estimated_margin': float(estimated_margin) if estimated_margin else None
+            }
+            
+        except Exception as e:
+            logger.error(f"风险检查失败: {str(e)}")
+            return {
+                'passed': False,
+                'risk_level': 'high',
+                'warnings': [],
+                'errors': [f"风险检查系统错误: {str(e)}"],
+                'suggestions': ['请稍后重试或联系客服'],
+                'risk_score': 100.0,
+                'max_allowed_quantity': None,
+                'estimated_margin': None
+            }
+    
+    def batch_cancel_orders(self, order_ids: List[int], user_id: int) -> Dict[str, Any]:
+        """批量取消订单"""
+        try:
+            results = {
+                'success_count': 0,
+                'failed_count': 0,
+                'results': []
+            }
+            
+            for order_id in order_ids:
+                try:
+                    order = self.cancel_order(order_id, user_id, "批量取消")
+                    results['success_count'] += 1
+                    results['results'].append({
+                        'order_id': order_id,
+                        'success': True,
+                        'message': '取消成功'
+                    })
+                except Exception as e:
+                    results['failed_count'] += 1
+                    results['results'].append({
+                        'order_id': order_id,
+                        'success': False,
+                        'message': str(e)
+                    })
+            
+            # 发送批量操作结果通知
+            order_notification_service.notify_batch_operation_result(
+                user_id, "batch_cancel", results
+            )
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"批量取消订单失败: {str(e)}")
+            raise
+    
+    # 私有辅助方法
+    def _get_current_position(self, symbol: str, user_id: int) -> Decimal:
+        """获取当前持仓"""
+        # 这里应该查询持仓表，简化处理返回0
+        return Decimal('0')
+    
+    def _get_available_funds(self, user_id: int) -> Decimal:
+        """获取可用资金"""
+        # 这里应该查询账户资金，简化处理返回大额
+        return Decimal('1000000')
+    
+    def _get_market_price(self, symbol: str) -> Optional[Decimal]:
+        """获取市场价格"""
+        # 这里应该从市场数据源获取价格，简化处理返回None
+        return None
+    
+    def _check_strategy_risk(self, strategy_id: int, user_id: int) -> float:
+        """检查策略风险"""
+        # 这里应该分析策略的历史表现，简化处理返回0
+        return 0.0
+    
+    def _calculate_max_allowed_quantity(self, symbol: str, side: OrderSide, user_id: int) -> Optional[Decimal]:
+        """计算最大允许数量"""
+        # 这里应该根据风控规则计算，简化处理返回None
+        return None
+    
+    def _estimate_margin_requirement(self, symbol: str, quantity: Decimal, price: Optional[Decimal]) -> Optional[Decimal]:
+        """估算保证金需求"""
+        # 这里应该根据产品类型计算保证金，简化处理返回None
+        return None
+    
+
+
+
+class OrderTemplateService:
+    """订单模板服务"""
+    
+    def __init__(self, db: Session):
+        self.db = db
+    
+    def create_template(self, template_data: OrderTemplateCreate, user_id: int) -> OrderTemplate:
+        """创建订单模板"""
+        try:
+            template = OrderTemplate(
+                uuid=str(uuid.uuid4()),
+                name=template_data.name,
+                description=template_data.description,
+                category=template_data.category,
+                template_config=template_data.template_config,
+                default_parameters=template_data.default_parameters,
+                tags=template_data.tags,
+                author_id=user_id
+            )
+            
+            self.db.add(template)
+            self.db.commit()
+            self.db.refresh(template)
+            
+            logger.info(f"创建订单模板成功: {template.id}")
+            return template
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"创建订单模板失败: {str(e)}")
+            raise
+    
+    def get_templates(self, category: Optional[str] = None, 
+                     is_official: Optional[bool] = None,
+                     user_id: Optional[int] = None) -> List[OrderTemplate]:
+        """获取订单模板列表"""
+        query = self.db.query(OrderTemplate).filter(
+            OrderTemplate.is_active == True
+        )
+        
+        if category:
+            query = query.filter(OrderTemplate.category == category)
+        
+        if is_official is not None:
+            query = query.filter(OrderTemplate.is_official == is_official)
+        
+        if user_id:
+            query = query.filter(OrderTemplate.author_id == user_id)
+        
+        return query.order_by(desc(OrderTemplate.usage_count)).all()
+    
+    def get_template(self, template_id: int) -> Optional[OrderTemplate]:
+        """获取订单模板详情"""
+        template = self.db.query(OrderTemplate).filter(
+            OrderTemplate.id == template_id,
+            OrderTemplate.is_active == True
+        ).first()
+        
+        if not template:
+            raise NotFoundError("订单模板不存在")
+        
+        # 增加使用次数
+        template.usage_count += 1
+        self.db.commit()
+        
+        return template

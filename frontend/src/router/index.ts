@@ -1,17 +1,44 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { createRoutePreloader } from '@/utils/routePreloader'
+import { ElMessage } from 'element-plus'
 import NProgress from 'nprogress'
 import 'nprogress/nprogress.css'
 
 // 配置NProgress
 NProgress.configure({ showSpinner: false })
 
+// 路由懒加载辅助函数
+const lazyLoad = (view: string, chunk?: string) => {
+  const chunkName = chunk || view.toLowerCase()
+  return () => import(/* webpackChunkName: "[request]" */ `@/views/${view}.vue`)
+}
+
+// 带错误处理的懒加载
+const lazyLoadWithErrorHandling = (importFunc: () => Promise<any>, retries = 3) => {
+  return async () => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await importFunc()
+      } catch (error) {
+        console.error(`Failed to load component (attempt ${i + 1}):`, error)
+        if (i === retries - 1) {
+          ElMessage.error('页面加载失败，请刷新重试')
+          throw error
+        }
+        // 等待一段时间后重试
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)))
+      }
+    }
+  }
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/auth/LoginView.vue'),
+    component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "auth" */ '@/views/auth/LoginView.vue')),
     meta: {
       title: '登录',
       requiresAuth: false
@@ -20,7 +47,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/auth/RegisterView.vue'),
+    component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "auth" */ '@/views/auth/RegisterView.vue')),
     meta: {
       title: '注册',
       requiresAuth: false
@@ -28,7 +55,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    component: () => import('@/layouts/MainLayout.vue'),
+    component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "layout" */ '@/layouts/MainLayout.vue')),
     meta: {
       requiresAuth: true
     },
@@ -36,19 +63,21 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'Dashboard',
-        component: () => import('@/views/dashboard/DashboardView.vue'),
+        component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "dashboard" */ '@/views/dashboard/DashboardView.vue')),
         meta: {
           title: '仪表板',
-          icon: 'Dashboard'
+          icon: 'Dashboard',
+          preload: true
         }
       },
       {
         path: '/trading',
         name: 'Trading',
-        component: () => import('@/views/trading/TradingView.vue'),
+        component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "trading" */ '@/views/trading/TradingView.vue')),
         meta: {
           title: '交易',
-          icon: 'TrendCharts'
+          icon: 'TrendCharts',
+          preload: true
         }
       },
       {
@@ -85,6 +114,24 @@ const routes: RouteRecordRaw[] = [
         meta: {
           title: '账户管理',
           icon: 'Wallet'
+        }
+      },
+      {
+        path: '/account',
+        name: 'AccountOverview',
+        component: () => import('@/views/account/AccountOverview.vue'),
+        meta: {
+          title: '账户概览',
+          hidden: true
+        }
+      },
+      {
+        path: '/account/transactions',
+        name: 'TransactionHistory',
+        component: () => import('@/views/account/TransactionHistory.vue'),
+        meta: {
+          title: '交易流水',
+          hidden: true
         }
       },
       {
@@ -162,10 +209,19 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/market',
         name: 'Market',
-        component: () => import('@/views/market/MarketView.vue'),
+        component: () => import('@/views/market/MarketQuotes.vue'),
         meta: {
-          title: '市场数据',
+          title: '市场行情',
           icon: 'Monitor'
+        }
+      },
+      {
+        path: '/market/technical',
+        name: 'TechnicalAnalysis',
+        component: () => import('@/views/market/TechnicalAnalysisView.vue'),
+        meta: {
+          title: '技术分析',
+          hidden: true
         }
       },
       {
@@ -210,6 +266,21 @@ const router = createRouter({
       return { top: 0 }
     }
   }
+})
+
+// 创建路由预加载器
+const routePreloader = createRoutePreloader(router)
+
+// 初始化预加载功能
+router.onReady?.(() => {
+  // 预加载标记的路由
+  routePreloader.preloadMarkedRoutes()
+  
+  // 设置悬停预加载
+  routePreloader.setupHoverPreload()
+  
+  // 在空闲时间预加载
+  routePreloader.preloadOnIdle()
 })
 
 // 路由守卫
@@ -257,8 +328,24 @@ router.beforeEach(async (to, from, next) => {
   next()
 })
 
-router.afterEach(() => {
+router.afterEach((to) => {
   NProgress.done()
+  
+  // 智能预加载下一个可能访问的路由
+  if (routePreloader) {
+    routePreloader.intelligentPreload()
+  }
+  
+  // 记录页面访问性能
+  if ('performance' in window) {
+    setTimeout(() => {
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+      if (navigation) {
+        const loadTime = navigation.loadEventEnd - navigation.loadEventStart
+        console.log(`Page ${to.name} loaded in ${loadTime}ms`)
+      }
+    }, 0)
+  }
 })
 
 export default router

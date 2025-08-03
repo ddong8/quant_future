@@ -24,6 +24,8 @@ redis==5.0.1
 # 工具库
 pydantic==2.5.0
 pydantic-settings==2.1.0
+qrcode==7.4.2
+pyotp==2.9.0
 email-validator==2.1.0
 python-dotenv==1.0.0
 loguru==0.7.2

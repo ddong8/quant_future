@@ -1,45 +1,26 @@
 """
 订单管理API路由
 """
-from fastapi import APIRouter, Depends, Query, status
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from ...core.dependencies import (
-    get_db,
-    get_current_user,
-    require_trader_or_admin,
-    get_pagination_params,
-    get_sort_params,
-    PaginationParams,
-    SortParams,
-)
-from ...core.response import (
-    success_response,
-    created_response,
-    paginated_response,
-    deleted_response,
-)
-from ...services.order_service import OrderService
-from ...services.risk_service import RiskService
-from ...services.tqsdk_adapter import TQSDKAdapter
+from ...core.database import get_db
+from ...core.dependencies import get_current_user
+from ...models.user import User
+from ...models.order import OrderStatus, OrderType, OrderSide
 from ...schemas.order import (
-    OrderCreate,
-    OrderModify,
-    OrderResponse,
-    OrderListResponse,
-    OrderSearchRequest,
-    BatchCancelRequest,
-    OrderStatusUpdate,
-    OrderStatistics,
-    RiskCheckRequest,
-    RiskCheckResponse,
-    RiskSummaryResponse,
-    RiskParametersUpdate,
-    BatchOperationResult,
+    OrderCreate, OrderUpdate, OrderResponse, OrderListResponse,
+    OrderSearchParams, OrderStatsResponse, OrderActionRequest, OrderActionResponse,
+    OrderTemplateCreate, OrderTemplateUpdate, OrderTemplateResponse,
+    OrderRiskCheckRequest, OrderRiskCheckResponse, OrderExecutionReport
 )
-from ...models import User
-from ...models.enums import OrderStatus, OrderDirection
+from ...services.order_service import OrderService, OrderTemplateService
+from ...services.order_execution_simulator import order_execution_simulator
+from ...services.order_execution_service import order_execution_service
+from ...core.exceptions import ValidationError, NotFoundError
+from ...core.response import success_response, error_response
 
 router = APIRouter()
 
@@ -47,417 +28,567 @@ router = APIRouter()
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
 async def create_order(
     order_data: OrderCreate,
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """创建订单"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    order = order_service.create_order(order_data.dict(), current_user.id)
-    
-    return created_response(
-        data=OrderResponse.from_orm(order).dict(),
-        message="订单创建成功"
-    )
+    try:
+        service = OrderService(db)
+        order = service.create_order(order_data, current_user.id)
+        return success_response(data=order.to_dict(), message="订单创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建订单失败")
 
 
 @router.get("/", response_model=List[OrderListResponse])
-async def get_orders_list(
-    strategy_id: Optional[int] = Query(None, description="策略ID"),
-    symbol: Optional[str] = Query(None, description="交易品种"),
+async def search_orders(
+    symbol: Optional[str] = Query(None, description="交易标的"),
+    order_type: Optional[OrderType] = Query(None, description="订单类型"),
+    side: Optional[OrderSide] = Query(None, description="订单方向"),
     status: Optional[OrderStatus] = Query(None, description="订单状态"),
-    direction: Optional[OrderDirection] = Query(None, description="交易方向"),
-    pagination: PaginationParams = Depends(get_pagination_params),
-    sort_params: SortParams = Depends(get_sort_params),
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取订单列表"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    orders, total = order_service.get_orders_list(
-        user_id=current_user.id,
-        strategy_id=strategy_id,
-        symbol=symbol,
-        status=status,
-        direction=direction,
-        pagination=pagination,
-        sort_params=sort_params
-    )
-    
-    order_list = [OrderListResponse.from_orm(order) for order in orders]
-    
-    return paginated_response(
-        data=[order.dict() for order in order_list],
-        total=total,
-        page=pagination.page,
-        page_size=pagination.page_size,
-        message="获取订单列表成功"
-    )
-
-
-@router.get("/pending")
-async def get_pending_orders(
     strategy_id: Optional[int] = Query(None, description="策略ID"),
-    current_user: User = Depends(require_trader_or_admin),
+    backtest_id: Optional[int] = Query(None, description="回测ID"),
+    tags: Optional[List[str]] = Query(None, description="标签筛选"),
+    created_after: Optional[str] = Query(None, description="创建时间起始"),
+    created_before: Optional[str] = Query(None, description="创建时间结束"),
+    sort_by: str = Query("created_at", description="排序字段"),
+    sort_order: str = Query("desc", description="排序方向"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取待成交订单"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    pending_orders = order_service.get_pending_orders(current_user.id, strategy_id)
-    
-    return success_response(
-        data=[OrderListResponse.from_orm(order).dict() for order in pending_orders],
-        message="获取待成交订单成功"
-    )
+    """搜索订单"""
+    try:
+        # 构建搜索参数
+        search_params = OrderSearchParams(
+            symbol=symbol,
+            order_type=order_type,
+            side=side,
+            status=status,
+            strategy_id=strategy_id,
+            backtest_id=backtest_id,
+            tags=tags or [],
+            sort_by=sort_by,
+            sort_order=sort_order,
+            page=page,
+            page_size=page_size
+        )
+        
+        # 处理日期参数
+        if created_after:
+            from datetime import datetime
+            search_params.created_after = datetime.fromisoformat(created_after)
+        if created_before:
+            from datetime import datetime
+            search_params.created_before = datetime.fromisoformat(created_before)
+        
+        service = OrderService(db)
+        orders, total = service.search_orders(search_params, current_user.id)
+        
+        return success_response(
+            data=[order.to_dict() for order in orders],
+            message="获取订单列表成功",
+            meta={
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size
+            }
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取订单列表失败")
 
 
-@router.get("/statistics", response_model=OrderStatistics)
-async def get_order_statistics(
-    start_date: Optional[str] = Query(None, description="开始日期 YYYY-MM-DD"),
-    end_date: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
-    current_user: User = Depends(require_trader_or_admin),
+@router.get("/stats", response_model=OrderStatsResponse)
+async def get_order_stats(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取订单统计信息"""
-    from datetime import datetime
-    
-    # 解析日期参数
-    start_datetime = None
-    end_datetime = None
-    
-    if start_date:
-        start_datetime = datetime.strptime(start_date, "%Y-%m-%d")
-    
-    if end_date:
-        end_datetime = datetime.strptime(end_date, "%Y-%m-%d")
-    
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    statistics = order_service.get_order_statistics(
-        current_user.id, 
-        start_datetime, 
-        end_datetime
-    )
-    
-    return success_response(
-        data=statistics,
-        message="获取订单统计成功"
-    )
+    try:
+        service = OrderService(db)
+        stats = service.get_order_stats(current_user.id)
+        return success_response(data=stats, message="获取统计信息成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取统计信息失败")
+
+
+@router.get("/active", response_model=List[OrderListResponse])
+async def get_active_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取活跃订单"""
+    try:
+        service = OrderService(db)
+        orders = service.get_active_orders(current_user.id)
+        return success_response(
+            data=[order.to_dict() for order in orders],
+            message="获取活跃订单成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取活跃订单失败")
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-async def get_order_by_id(
-    order_id: str,
-    current_user: User = Depends(require_trader_or_admin),
+async def get_order(
+    order_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """根据ID获取订单详情"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    order = order_service.get_order_by_id(order_id, current_user.id)
-    
-    return success_response(
-        data=OrderResponse.from_orm(order).dict(),
-        message="获取订单详情成功"
-    )
+    """获取订单详情"""
+    try:
+        service = OrderService(db)
+        order = service.get_order(order_id, current_user.id)
+        return success_response(data=order.to_dict(), message="获取订单详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取订单详情失败")
+
+
+@router.get("/uuid/{order_uuid}", response_model=OrderResponse)
+async def get_order_by_uuid(
+    order_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """通过UUID获取订单详情"""
+    try:
+        service = OrderService(db)
+        order = service.get_order_by_uuid(order_uuid, current_user.id)
+        return success_response(data=order.to_dict(), message="获取订单详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取订单详情失败")
 
 
 @router.put("/{order_id}", response_model=OrderResponse)
-async def modify_order(
-    order_id: str,
-    modify_data: OrderModify,
-    current_user: User = Depends(require_trader_or_admin),
+async def update_order(
+    order_id: int,
+    order_data: OrderUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """修改订单"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    order = order_service.modify_order(
-        order_id, 
-        modify_data.dict(exclude_unset=True), 
-        current_user.id
-    )
-    
-    return success_response(
-        data=OrderResponse.from_orm(order).dict(),
-        message="订单修改成功"
-    )
+    """更新订单"""
+    try:
+        service = OrderService(db)
+        order = service.update_order(order_id, order_data, current_user.id)
+        return success_response(data=order.to_dict(), message="订单更新成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="更新订单失败")
 
 
 @router.delete("/{order_id}")
 async def cancel_order(
-    order_id: str,
-    current_user: User = Depends(require_trader_or_admin),
+    order_id: int,
+    reason: Optional[str] = Query(None, description="取消原因"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """撤销订单"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    order = order_service.cancel_order(order_id, current_user.id)
-    
-    return success_response(
-        data=OrderResponse.from_orm(order).dict(),
-        message="订单撤销成功"
-    )
+    """取消订单"""
+    try:
+        service = OrderService(db)
+        order = service.cancel_order(order_id, current_user.id, reason or "")
+        return success_response(data=order.to_dict(), message="订单取消成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="取消订单失败")
 
 
-@router.post("/batch-cancel", response_model=BatchOperationResult)
+@router.post("/{order_id}/action", response_model=OrderActionResponse)
+async def perform_order_action(
+    order_id: int,
+    action_request: OrderActionRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """执行订单操作"""
+    try:
+        service = OrderService(db)
+        
+        if action_request.action == "cancel":
+            reason = action_request.parameters.get('reason', '') if action_request.parameters else ''
+            order = service.cancel_order(order_id, current_user.id, reason)
+            
+            return success_response(
+                data={
+                    "order_id": order_id,
+                    "action": "cancel",
+                    "success": True,
+                    "message": "订单取消成功",
+                    "timestamp": datetime.now()
+                },
+                message="订单操作成功"
+            )
+        
+        elif action_request.action == "modify":
+            if not action_request.parameters:
+                raise ValidationError("修改订单需要提供参数")
+            
+            # 构建更新数据
+            update_data = OrderUpdate(**action_request.parameters)
+            order = service.update_order(order_id, update_data, current_user.id)
+            
+            return success_response(
+                data={
+                    "order_id": order_id,
+                    "action": "modify",
+                    "success": True,
+                    "message": "订单修改成功",
+                    "timestamp": datetime.now()
+                },
+                message="订单操作成功"
+            )
+        
+        else:
+            raise ValidationError(f"不支持的操作: {action_request.action}")
+            
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="执行订单操作失败")
+
+
+@router.post("/batch/cancel")
 async def batch_cancel_orders(
-    cancel_request: BatchCancelRequest,
-    current_user: User = Depends(require_trader_or_admin),
+    order_ids: List[int],
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """批量撤销订单"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    result = order_service.batch_cancel_orders(cancel_request.order_ids, current_user.id)
-    
-    return success_response(
-        data=result,
-        message=f"批量撤销完成，成功: {result['success_count']}, 失败: {result['failed_count']}"
-    )
+    """批量取消订单"""
+    try:
+        service = OrderService(db)
+        results = service.batch_cancel_orders(order_ids, current_user.id)
+        return success_response(data=results, message="批量取消订单完成")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="批量取消订单失败")
 
 
-@router.put("/{order_id}/status")
-async def update_order_status(
-    order_id: str,
-    status_update: OrderStatusUpdate,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """更新订单状态（系统内部调用）"""
-    # 初始化服务
-    risk_service = RiskService(db)
-    tqsdk_adapter = TQSDKAdapter()
-    order_service = OrderService(db, tqsdk_adapter, risk_service)
-    
-    order = order_service.update_order_status(
-        order_id=order_id,
-        status=status_update.status,
-        filled_volume=status_update.filled_volume,
-        avg_fill_price=status_update.avg_fill_price,
-        commission=status_update.commission
-    )
-    
-    return success_response(
-        data=OrderResponse.from_orm(order).dict(),
-        message="订单状态更新成功"
-    )
-
-
-# 风险管理相关API
-
-@router.post("/risk-check", response_model=RiskCheckResponse)
+@router.post("/risk-check", response_model=OrderRiskCheckResponse)
 async def check_order_risk(
-    risk_request: RiskCheckRequest,
-    current_user: User = Depends(require_trader_or_admin),
+    risk_data: OrderRiskCheckRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """检查订单风险"""
-    risk_service = RiskService(db)
-    
-    risk_result = risk_service.check_order_risk(risk_request.dict(), current_user.id)
-    
-    return success_response(
-        data=risk_result,
-        message="风险检查完成"
-    )
+    """订单风险检查"""
+    try:
+        service = OrderService(db)
+        risk_result = service.perform_risk_check(risk_data, current_user.id)
+        return success_response(data=risk_result, message="风险检查完成")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="风险检查失败")
 
 
-@router.get("/risk/summary", response_model=RiskSummaryResponse)
-async def get_risk_summary(
-    current_user: User = Depends(require_trader_or_admin),
+@router.post("/{order_id}/fills")
+async def add_order_fill(
+    order_id: int,
+    fill_data: dict,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取风险摘要"""
-    risk_service = RiskService(db)
-    
-    risk_summary = risk_service.get_risk_summary(current_user.id)
-    
-    return success_response(
-        data=risk_summary,
-        message="获取风险摘要成功"
-    )
+    """添加订单成交记录"""
+    try:
+        service = OrderService(db)
+        
+        # 验证订单权限
+        order = service.get_order(order_id, current_user.id)
+        
+        fill = service.add_order_fill(order_id, fill_data)
+        return success_response(data=fill.to_dict(), message="成交记录添加成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="添加成交记录失败")
 
 
-@router.put("/risk/parameters")
-async def update_risk_parameters(
-    risk_params: RiskParametersUpdate,
-    current_user: User = Depends(require_trader_or_admin),
+@router.get("/{order_id}/fills")
+async def get_order_fills(
+    order_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """更新风险参数"""
-    risk_service = RiskService(db)
-    
-    result = risk_service.update_risk_parameters(
-        current_user.id, 
-        risk_params.dict(exclude_unset=True)
-    )
-    
-    return success_response(
-        data=result,
-        message="风险参数更新成功" if result['success'] else "风险参数更新失败"
-    )
+    """获取订单成交记录"""
+    try:
+        service = OrderService(db)
+        
+        # 验证订单权限
+        order = service.get_order(order_id, current_user.id)
+        
+        fills = [fill.to_dict() for fill in order.fills]
+        return success_response(data=fills, message="获取成交记录成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取成交记录失败")
 
 
-# 持仓管理相关API
-
-@router.get("/positions")
-async def get_positions(
-    strategy_id: Optional[int] = Query(None, description="策略ID"),
-    symbol: Optional[str] = Query(None, description="交易品种"),
-    current_user: User = Depends(require_trader_or_admin),
+# 订单模板相关路由
+@router.get("/templates/", response_model=List[OrderTemplateResponse])
+async def get_order_templates(
+    category: Optional[str] = Query(None, description="模板分类"),
+    is_official: Optional[bool] = Query(None, description="是否官方模板"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取持仓列表"""
-    from ...models import Position, Strategy
-    from ...schemas.order import PositionResponse
-    from sqlalchemy import and_
-    
-    query = db.query(Position).join(Strategy).filter(Strategy.user_id == current_user.id)
-    
-    if strategy_id:
-        query = query.filter(Position.strategy_id == strategy_id)
-    
-    if symbol:
-        query = query.filter(Position.symbol == symbol)
-    
-    positions = query.all()
-    
-    return success_response(
-        data=[PositionResponse.from_orm(position).dict() for position in positions],
-        message="获取持仓列表成功"
-    )
+    """获取订单模板列表"""
+    try:
+        service = OrderTemplateService(db)
+        templates = service.get_templates(category, is_official)
+        return success_response(
+            data=[template.to_dict() for template in templates],
+            message="获取模板列表成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取模板列表失败")
 
 
-@router.get("/positions/summary")
-async def get_position_summary(
-    current_user: User = Depends(require_trader_or_admin),
+@router.post("/templates/", response_model=OrderTemplateResponse, status_code=status.HTTP_201_CREATED)
+async def create_order_template(
+    template_data: OrderTemplateCreate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取持仓汇总"""
-    from ...models import Position, Strategy
-    from sqlalchemy import func
-    
-    # 获取用户所有持仓
-    positions = db.query(Position).join(Strategy).filter(
-        Strategy.user_id == current_user.id
-    ).all()
-    
-    if not positions:
+    """创建订单模板"""
+    try:
+        service = OrderTemplateService(db)
+        template = service.create_template(template_data, current_user.id)
+        return success_response(data=template.to_dict(), message="模板创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建模板失败")
+
+
+@router.get("/templates/{template_id}", response_model=OrderTemplateResponse)
+async def get_order_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取订单模板详情"""
+    try:
+        service = OrderTemplateService(db)
+        template = service.get_template(template_id)
+        return success_response(data=template.to_dict(), message="获取模板详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取模板详情失败")
+
+
+@router.get("/my", response_model=List[OrderListResponse])
+async def get_my_orders(
+    status: Optional[OrderStatus] = Query(None, description="订单状态"),
+    limit: int = Query(50, ge=1, le=100, description="返回数量"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取我的订单列表"""
+    try:
+        service = OrderService(db)
+        orders = service.get_user_orders(current_user.id, status, limit)
+        return success_response(
+            data=[order.to_dict() for order in orders],
+            message="获取我的订单列表成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取订单列表失败")
+
+
+@router.post("/{order_id}/simulate")
+async def start_order_simulation(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """启动订单执行模拟"""
+    try:
+        service = OrderService(db)
+        order = service.get_order(order_id, current_user.id)
+        
+        if not order.is_active:
+            raise ValidationError("只能模拟活跃状态的订单")
+        
+        # 启动模拟
+        await order_execution_simulator.start_order_simulation(order_id)
+        
+        return success_response(
+            data={"order_id": order_id, "simulation_started": True},
+            message="订单执行模拟已启动"
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="启动模拟失败")
+
+
+@router.delete("/{order_id}/simulate")
+async def stop_order_simulation(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """停止订单执行模拟"""
+    try:
+        service = OrderService(db)
+        order = service.get_order(order_id, current_user.id)
+        
+        # 停止模拟
+        await order_execution_simulator.stop_order_simulation(order_id)
+        
+        return success_response(
+            data={"order_id": order_id, "simulation_stopped": True},
+            message="订单执行模拟已停止"
+        )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="停止模拟失败")
+
+
+@router.get("/simulator/status")
+async def get_simulator_status(
+    current_user: User = Depends(get_current_user)
+):
+    """获取模拟器状态"""
+    try:
+        status = order_execution_simulator.get_simulation_status()
+        return success_response(data=status, message="获取模拟器状态成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取模拟器状态失败")
+
+
+@router.post("/{order_id}/execute")
+async def execute_order(
+    order_id: int,
+    trading_system: Optional[str] = Query(None, description="交易系统类型"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """执行订单"""
+    try:
+        service = OrderService(db)
+        order = service.get_order(order_id, current_user.id)
+        
+        if not order.is_active:
+            raise ValidationError("只能执行活跃状态的订单")
+        
+        # 提交订单执行
+        result = await order_execution_service.submit_order_for_execution(
+            order, trading_system
+        )
+        
         return success_response(
             data={
-                'total_positions': 0,
-                'total_market_value': 0.0,
-                'total_unrealized_pnl': 0.0,
-                'total_realized_pnl': 0.0,
-                'positions_by_symbol': {},
-                'risk_metrics': {}
+                "order_id": order_id,
+                "execution_result": result.value,
+                "message": "订单执行请求已提交"
             },
-            message="获取持仓汇总成功"
+            message="订单执行成功"
         )
-    
-    # 计算汇总数据
-    total_market_value = sum(pos.volume * pos.avg_price for pos in positions)
-    total_unrealized_pnl = sum(pos.unrealized_pnl for pos in positions)
-    total_realized_pnl = sum(pos.realized_pnl for pos in positions)
-    
-    # 按品种分组
-    positions_by_symbol = {}
-    for position in positions:
-        symbol = position.symbol
-        if symbol not in positions_by_symbol:
-            positions_by_symbol[symbol] = {
-                'total_volume': 0,
-                'avg_price': 0.0,
-                'market_value': 0.0,
-                'unrealized_pnl': 0.0,
-                'realized_pnl': 0.0,
-                'positions': []
-            }
-        
-        symbol_data = positions_by_symbol[symbol]
-        symbol_data['total_volume'] += position.volume
-        symbol_data['market_value'] += position.volume * position.avg_price
-        symbol_data['unrealized_pnl'] += position.unrealized_pnl
-        symbol_data['realized_pnl'] += position.realized_pnl
-        symbol_data['positions'].append({
-            'id': position.id,
-            'strategy_id': position.strategy_id,
-            'direction': position.direction,
-            'volume': position.volume,
-            'avg_price': position.avg_price,
-            'unrealized_pnl': position.unrealized_pnl
-        })
-    
-    # 计算风险指标
-    risk_metrics = {
-        'total_exposure': total_market_value,
-        'pnl_ratio': (total_unrealized_pnl + total_realized_pnl) / total_market_value if total_market_value > 0 else 0,
-        'unrealized_pnl_ratio': total_unrealized_pnl / total_market_value if total_market_value > 0 else 0,
-    }
-    
-    summary = {
-        'total_positions': len(positions),
-        'total_market_value': total_market_value,
-        'total_unrealized_pnl': total_unrealized_pnl,
-        'total_realized_pnl': total_realized_pnl,
-        'positions_by_symbol': positions_by_symbol,
-        'risk_metrics': risk_metrics
-    }
-    
-    return success_response(
-        data=summary,
-        message="获取持仓汇总成功"
-    )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="执行订单失败")
 
 
-# 账户管理相关API
-
-@router.get("/account")
-async def get_account_info(
-    current_user: User = Depends(require_trader_or_admin),
+@router.get("/{order_id}/execution-status")
+async def get_order_execution_status(
+    order_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取账户信息"""
-    from ...models import Account
-    from ...schemas.order import AccountResponse
-    
-    account = db.query(Account).filter(Account.user_id == current_user.id).first()
-    
-    if not account:
+    """获取订单执行状态"""
+    try:
+        service = OrderService(db)
+        order = service.get_order(order_id, current_user.id)
+        
+        # 获取执行状态
+        execution_status = await order_execution_service.get_order_execution_status(order)
+        
         return success_response(
-            data=None,
-            message="未找到账户信息"
+            data=execution_status,
+            message="获取订单执行状态成功"
         )
-    
-    return success_response(
-        data=AccountResponse.from_orm(account).dict(),
-        message="获取账户信息成功"
-    )
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取订单执行状态失败")
+
+
+@router.get("/execution/service-status")
+async def get_execution_service_status(
+    current_user: User = Depends(get_current_user)
+):
+    """获取订单执行服务状态"""
+    try:
+        status = order_execution_service.get_service_status()
+        return success_response(data=status, message="获取执行服务状态成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取执行服务状态失败")
+
+
+@router.get("/execution/statistics")
+async def get_execution_statistics(
+    current_user: User = Depends(get_current_user)
+):
+    """获取订单执行统计"""
+    try:
+        stats = order_execution_service.get_execution_statistics()
+        return success_response(data=stats, message="获取执行统计成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取执行统计失败")
+
+
+@router.post("/execution/start-service")
+async def start_execution_service(
+    current_user: User = Depends(get_current_user)
+):
+    """启动订单执行服务"""
+    try:
+        await order_execution_service.start_service()
+        return success_response(
+            data={"service_started": True},
+            message="订单执行服务启动成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="启动执行服务失败")
+
+
+@router.post("/execution/stop-service")
+async def stop_execution_service(
+    current_user: User = Depends(get_current_user)
+):
+    """停止订单执行服务"""
+    try:
+        await order_execution_service.stop_service()
+        return success_response(
+            data={"service_stopped": True},
+            message="订单执行服务停止成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="停止执行服务失败")

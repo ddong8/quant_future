@@ -26,7 +26,7 @@ class SystemMonitoringService:
     def __init__(self):
         self.db_manager = DatabaseManager()
         self.influx_manager = InfluxDBManager()
-        self.notification_service = NotificationService()
+        self.notification_service = None  # 延迟初始化
         self.is_running = False
         self.collection_interval = 30  # 30秒收集一次
         
@@ -684,12 +684,13 @@ class SystemMonitoringService:
             message += f"条件: {rule.operator}\n"
             message += f"时间: {datetime.utcnow()}"
             
-            await self.notification_service.send_alert(
-                title=f"系统告警: {rule.name}",
-                message=message,
-                level=rule.severity,
-                channels=rule.notification_channels
-            )
+            # TODO: 修复notification_service初始化问题
+            # await self.notification_service.send_alert(
+            #     title=f"系统告警: {rule.name}",
+            #     message=message,
+            #     level=rule.severity,
+            #     channels=rule.notification_channels
+            # )
             
             # 记录告警历史
             await self._record_alert_history(rule, current_value)

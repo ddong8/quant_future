@@ -1,261 +1,518 @@
 """
-风险管理API
+风险管理API接口
 """
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from ...core.database import get_db
-from ...core.dependencies import get_current_user, PaginationParams
-from ...core.response import success_response, error_response
-from ...models import User
-from ...models.enums import RiskRuleType, RiskEventType
+from ...core.dependencies import get_current_user
+from ...core.permissions import require_permission
+from ...models.user import User
+from ...models.risk import RiskRule, RiskEvent, RiskMetrics, RiskLimit
 from ...schemas.risk import (
-    RiskRuleResponse,
-    RiskRuleListResponse,
-    RiskRuleCreateRequest,
-    RiskRuleUpdateRequest,
-    RiskEventResponse,
-    RiskEventListResponse,
-    RiskCheckRequest,
-    RiskCheckResponse,
-    RiskMetricsResponse
+    RiskRuleCreate, RiskRuleUpdate, RiskRuleResponse,
+    RiskEventResponse, RiskEventUpdate,
+    RiskMetricsResponse,
+    RiskLimitCreate, RiskLimitUpdate, RiskLimitResponse
 )
 from ...services.risk_service import RiskService
 
 router = APIRouter()
 
 
-@router.get("/rules", response_model=RiskRuleListResponse)
-async def get_risk_rules(
-    rule_type: Optional[str] = Query(None, description="规则类型"),
-    symbol: Optional[str] = Query(None, description="品种代码"),
-    is_active: Optional[bool] = Query(None, description="是否激活"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取风险规则列表"""
-    try:
-        risk_service = RiskService(db)
-        rules = risk_service.get_user_risk_rules(current_user.id)
-        
-        # 过滤规则
-        if rule_type:
-            try:
-                rule_type_enum = RiskRuleType(rule_type)
-                rules = [rule for rule in rules if rule.rule_type == rule_type_enum]
-            except ValueError:
-                return error_response(message="无效的规则类型")
-        
-        if symbol:
-            rules = [rule for rule in rules if rule.symbol == symbol]
-        
-        if is_active is not None:
-            rules = [rule for rule in rules if rule.is_active == is_active]
-        
-        return success_response(
-            data={
-                "rules": rules,
-                "total": len(rules)
-            }
-        )
-        
-    except Exception as e:
-        return error_response(message=f"获取风险规则失败: {str(e)}")
-
+# ==================== 风险规则管理 ====================
 
 @router.post("/rules", response_model=RiskRuleResponse)
+@require_permission("risk:create")
 async def create_risk_rule(
-    request: RiskRuleCreateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    rule_data: RiskRuleCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """创建风险规则"""
+    risk_service = RiskService(db)
+    
     try:
-        risk_service = RiskService(db)
-        
-        rule_data = {
-            "rule_type": request.rule_type,
-            "symbol": request.symbol,
-            "rule_value": request.rule_value,
-            "description": request.description,
-            "is_active": request.is_active
-        }
-        
-        rule = risk_service.create_risk_rule(current_user.id, rule_data)
-        
-        return success_response(
-            data=rule,
-            message="风险规则创建成功"
+        rule = risk_service.create_risk_rule(
+            rule_data.dict(),
+            created_by=current_user.id
         )
-        
+        return RiskRuleResponse.from_orm(rule)
     except Exception as e:
-        return error_response(message=f"创建风险规则失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"创建风险规则失败: {str(e)}"
+        )
+
+
+@router.get("/rules", response_model=List[RiskRuleResponse])
+@require_permission("risk:read")
+async def get_risk_rules(
+    user_id: Optional[int] = Query(None, description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
+    rule_type: Optional[str] = Query(None, description="规则类型"),
+    is_active: Optional[bool] = Query(None, description="是否激活"),
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取风险规则列表"""
+    risk_service = RiskService(db)
+    
+    rules = risk_service.get_risk_rules(
+        user_id=user_id,
+        strategy_id=strategy_id,
+        rule_type=rule_type,
+        is_active=is_active,
+        skip=skip,
+        limit=limit
+    )
+    
+    return [RiskRuleResponse.from_orm(rule) for rule in rules]
+
+
+@router.get("/rules/{rule_id}", response_model=RiskRuleResponse)
+@require_permission("risk:read")
+async def get_risk_rule(
+    rule_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取单个风险规则"""
+    risk_service = RiskService(db)
+    
+    rule = risk_service.get_risk_rule(rule_id)
+    if not rule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险规则不存在"
+        )
+    
+    return RiskRuleResponse.from_orm(rule)
 
 
 @router.put("/rules/{rule_id}", response_model=RiskRuleResponse)
+@require_permission("risk:update")
 async def update_risk_rule(
     rule_id: int,
-    request: RiskRuleUpdateRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    rule_data: RiskRuleUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """更新风险规则"""
-    try:
-        risk_service = RiskService(db)
-        
-        update_data = {}
-        if request.rule_value is not None:
-            update_data["rule_value"] = request.rule_value
-        if request.description is not None:
-            update_data["description"] = request.description
-        if request.is_active is not None:
-            update_data["is_active"] = request.is_active
-        
-        rule = risk_service.update_risk_rule(rule_id, current_user.id, update_data)
-        
-        return success_response(
-            data=rule,
-            message="风险规则更新成功"
+    risk_service = RiskService(db)
+    
+    rule = risk_service.update_risk_rule(
+        rule_id,
+        rule_data.dict(exclude_unset=True)
+    )
+    
+    if not rule:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险规则不存在"
         )
-        
-    except Exception as e:
-        return error_response(message=f"更新风险规则失败: {str(e)}")
+    
+    return RiskRuleResponse.from_orm(rule)
 
 
 @router.delete("/rules/{rule_id}")
+@require_permission("risk:delete")
 async def delete_risk_rule(
     rule_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """删除风险规则"""
-    try:
-        risk_service = RiskService(db)
-        
-        # 这里应该实现删除逻辑
-        # 暂时通过设置为非激活状态来"删除"
-        risk_service.update_risk_rule(rule_id, current_user.id, {"is_active": False})
-        
-        return success_response(message="风险规则删除成功")
-        
-    except Exception as e:
-        return error_response(message=f"删除风险规则失败: {str(e)}")
-
-
-@router.post("/check", response_model=RiskCheckResponse)
-async def check_order_risk(
-    request: RiskCheckRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """检查订单风险"""
-    try:
-        risk_service = RiskService(db)
-        
-        result = risk_service.check_order_risk(
-            user_id=current_user.id,
-            symbol=request.symbol,
-            side=request.side,
-            quantity=request.quantity,
-            price=request.price,
-            order_type=request.order_type
+    risk_service = RiskService(db)
+    
+    success = risk_service.delete_risk_rule(rule_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险规则不存在"
         )
-        
-        return success_response(data=result)
-        
-    except Exception as e:
-        return error_response(message=f"风险检查失败: {str(e)}")
+    
+    return {"message": "风险规则删除成功"}
 
 
-@router.get("/metrics", response_model=RiskMetricsResponse)
-async def get_risk_metrics(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取风险指标"""
-    try:
-        risk_service = RiskService(db)
-        metrics = risk_service.calculate_risk_metrics(current_user.id)
-        
-        return success_response(data=metrics)
-        
-    except Exception as e:
-        return error_response(message=f"获取风险指标失败: {str(e)}")
+# ==================== 风险事件管理 ====================
 
-
-@router.get("/events", response_model=RiskEventListResponse)
+@router.get("/events", response_model=List[RiskEventResponse])
+@require_permission("risk:read")
 async def get_risk_events(
+    user_id: Optional[int] = Query(None, description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
     event_type: Optional[str] = Query(None, description="事件类型"),
     severity: Optional[str] = Query(None, description="严重程度"),
-    is_resolved: Optional[bool] = Query(None, description="是否已解决"),
+    status: Optional[str] = Query(None, description="事件状态"),
     start_date: Optional[datetime] = Query(None, description="开始日期"),
     end_date: Optional[datetime] = Query(None, description="结束日期"),
-    pagination: PaginationParams = Depends(),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取风险事件列表"""
-    try:
-        # 这里需要实现风险事件查询逻辑
-        # 暂时返回空列表
-        return success_response(
-            data={
-                "events": [],
-                "total": 0,
-                "page": pagination.page,
-                "page_size": pagination.page_size
-            }
+    risk_service = RiskService(db)
+    
+    events = risk_service.get_risk_events(
+        user_id=user_id,
+        strategy_id=strategy_id,
+        event_type=event_type,
+        severity=severity,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        skip=skip,
+        limit=limit
+    )
+    
+    return [RiskEventResponse.from_orm(event) for event in events]
+
+
+@router.get("/events/{event_id}", response_model=RiskEventResponse)
+@require_permission("risk:read")
+async def get_risk_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取单个风险事件"""
+    risk_service = RiskService(db)
+    
+    event = risk_service.get_risk_event(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险事件不存在"
         )
-        
-    except Exception as e:
-        return error_response(message=f"获取风险事件失败: {str(e)}")
+    
+    return RiskEventResponse.from_orm(event)
 
 
-@router.post("/events/{event_id}/resolve")
+@router.put("/events/{event_id}/resolve", response_model=RiskEventResponse)
+@require_permission("risk:update")
 async def resolve_risk_event(
     event_id: int,
-    resolution_notes: str = Query(..., description="解决说明"),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    event_data: RiskEventUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """解决风险事件"""
-    try:
-        # 这里需要实现风险事件解决逻辑
-        return success_response(message="风险事件已解决")
-        
-    except Exception as e:
-        return error_response(message=f"解决风险事件失败: {str(e)}")
+    risk_service = RiskService(db)
+    
+    event = risk_service.resolve_risk_event(
+        event_id,
+        resolved_by=current_user.id,
+        notes=event_data.resolution_notes
+    )
+    
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险事件不存在"
+        )
+    
+    return RiskEventResponse.from_orm(event)
 
 
-@router.get("/dashboard")
-async def get_risk_dashboard(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+@router.put("/events/{event_id}/escalate", response_model=RiskEventResponse)
+@require_permission("risk:update")
+async def escalate_risk_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取风险管理仪表板数据"""
+    """升级风险事件"""
+    risk_service = RiskService(db)
+    
+    event = risk_service.escalate_risk_event(event_id)
+    if not event:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险事件不存在"
+        )
+    
+    return RiskEventResponse.from_orm(event)
+
+
+# ==================== 风险指标管理 ====================
+
+@router.get("/metrics", response_model=List[RiskMetricsResponse])
+@require_permission("risk:read")
+async def get_risk_metrics(
+    user_id: int = Query(..., description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
+    start_date: Optional[datetime] = Query(None, description="开始日期"),
+    end_date: Optional[datetime] = Query(None, description="结束日期"),
+    period_type: str = Query("daily", description="周期类型"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取风险指标历史数据"""
+    risk_service = RiskService(db)
+    
+    metrics = risk_service.get_risk_metrics(
+        user_id=user_id,
+        strategy_id=strategy_id,
+        start_date=start_date,
+        end_date=end_date,
+        period_type=period_type
+    )
+    
+    return [RiskMetricsResponse.from_orm(metric) for metric in metrics]
+
+
+@router.post("/metrics/calculate", response_model=RiskMetricsResponse)
+@require_permission("risk:create")
+async def calculate_risk_metrics(
+    user_id: int = Query(..., description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
+    date: Optional[datetime] = Query(None, description="计算日期"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """计算风险指标"""
+    risk_service = RiskService(db)
+    
     try:
-        risk_service = RiskService(db)
-        
-        # 获取风险指标
-        metrics = risk_service.calculate_risk_metrics(current_user.id)
-        
-        # 获取活跃规则数量
-        rules = risk_service.get_user_risk_rules(current_user.id)
-        active_rules = len([rule for rule in rules if rule.is_active])
-        
-        # 构建仪表板数据
-        dashboard_data = {
-            "risk_metrics": metrics,
-            "active_rules_count": active_rules,
-            "total_rules_count": len(rules),
-            "recent_events_count": 0,  # 需要实现事件查询
-            "risk_level": metrics.get("risk_level", "LOW"),
-            "last_update": datetime.utcnow().isoformat()
-        }
-        
-        return success_response(data=dashboard_data)
-        
+        metrics = risk_service.calculate_risk_metrics(
+            user_id=user_id,
+            strategy_id=strategy_id,
+            date=date
+        )
+        return RiskMetricsResponse.from_orm(metrics)
     except Exception as e:
-        return error_response(message=f"获取风险仪表板数据失败: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"计算风险指标失败: {str(e)}"
+        )
+
+
+# ==================== 风险监控 ====================
+
+@router.post("/check")
+@require_permission("risk:create")
+async def check_risk_rules(
+    context: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """检查风险规则"""
+    risk_service = RiskService(db)
+    
+    try:
+        events = risk_service.check_risk_rules(context)
+        return {
+            "message": f"风险检查完成，触发 {len(events)} 个事件",
+            "events": [event.to_dict() for event in events]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"风险检查失败: {str(e)}"
+        )
+
+
+# ==================== 风险限额管理 ====================
+
+@router.post("/limits", response_model=RiskLimitResponse)
+@require_permission("risk:create")
+async def create_risk_limit(
+    limit_data: RiskLimitCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """创建风险限额"""
+    try:
+        limit = RiskLimit(
+            user_id=limit_data.user_id,
+            strategy_id=limit_data.strategy_id,
+            limit_type=limit_data.limit_type,
+            limit_name=limit_data.limit_name,
+            description=limit_data.description,
+            limit_value=limit_data.limit_value,
+            is_hard_limit=limit_data.is_hard_limit,
+            warning_threshold=limit_data.warning_threshold,
+            reset_frequency=limit_data.reset_frequency,
+            metadata=limit_data.metadata or {},
+            created_by=current_user.id
+        )
+        
+        db.add(limit)
+        db.commit()
+        db.refresh(limit)
+        
+        return RiskLimitResponse.from_orm(limit)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"创建风险限额失败: {str(e)}"
+        )
+
+
+@router.get("/limits", response_model=List[RiskLimitResponse])
+@require_permission("risk:read")
+async def get_risk_limits(
+    user_id: Optional[int] = Query(None, description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
+    limit_type: Optional[str] = Query(None, description="限额类型"),
+    is_active: Optional[bool] = Query(None, description="是否激活"),
+    skip: int = Query(0, ge=0, description="跳过记录数"),
+    limit: int = Query(100, ge=1, le=1000, description="返回记录数"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取风险限额列表"""
+    query = db.query(RiskLimit)
+    
+    if user_id is not None:
+        query = query.filter(RiskLimit.user_id == user_id)
+    
+    if strategy_id is not None:
+        query = query.filter(RiskLimit.strategy_id == strategy_id)
+    
+    if limit_type is not None:
+        query = query.filter(RiskLimit.limit_type == limit_type)
+    
+    if is_active is not None:
+        query = query.filter(RiskLimit.is_active == is_active)
+    
+    limits = query.offset(skip).limit(limit).all()
+    return [RiskLimitResponse.from_orm(limit) for limit in limits]
+
+
+@router.get("/limits/{limit_id}", response_model=RiskLimitResponse)
+@require_permission("risk:read")
+async def get_risk_limit(
+    limit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取单个风险限额"""
+    limit = db.query(RiskLimit).filter(RiskLimit.id == limit_id).first()
+    if not limit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险限额不存在"
+        )
+    
+    return RiskLimitResponse.from_orm(limit)
+
+
+@router.put("/limits/{limit_id}", response_model=RiskLimitResponse)
+@require_permission("risk:update")
+async def update_risk_limit(
+    limit_id: int,
+    limit_data: RiskLimitUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新风险限额"""
+    limit = db.query(RiskLimit).filter(RiskLimit.id == limit_id).first()
+    if not limit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险限额不存在"
+        )
+    
+    try:
+        for key, value in limit_data.dict(exclude_unset=True).items():
+            setattr(limit, key, value)
+        
+        db.commit()
+        db.refresh(limit)
+        
+        return RiskLimitResponse.from_orm(limit)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"更新风险限额失败: {str(e)}"
+        )
+
+
+@router.delete("/limits/{limit_id}")
+@require_permission("risk:delete")
+async def delete_risk_limit(
+    limit_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除风险限额"""
+    limit = db.query(RiskLimit).filter(RiskLimit.id == limit_id).first()
+    if not limit:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="风险限额不存在"
+        )
+    
+    try:
+        db.delete(limit)
+        db.commit()
+        return {"message": "风险限额删除成功"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"删除风险限额失败: {str(e)}"
+        )
+
+
+# ==================== 风险报告 ====================
+
+@router.get("/reports/summary")
+@require_permission("risk:read")
+async def get_risk_summary(
+    user_id: int = Query(..., description="用户ID"),
+    strategy_id: Optional[int] = Query(None, description="策略ID"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取风险摘要报告"""
+    risk_service = RiskService(db)
+    
+    try:
+        # 获取最新的风险指标
+        latest_metrics = risk_service.get_risk_metrics(
+            user_id=user_id,
+            strategy_id=strategy_id,
+            limit=1
+        )
+        
+        # 获取活跃的风险事件
+        active_events = risk_service.get_risk_events(
+            user_id=user_id,
+            strategy_id=strategy_id,
+            status="ACTIVE",
+            limit=10
+        )
+        
+        # 获取风险限额状态
+        risk_limits = db.query(RiskLimit).filter(
+            RiskLimit.user_id == user_id,
+            RiskLimit.is_active == True
+        ).all()
+        
+        return {
+            "latest_metrics": latest_metrics[0].to_dict() if latest_metrics else None,
+            "active_events_count": len(active_events),
+            "active_events": [event.to_dict() for event in active_events],
+            "risk_limits": [limit.to_dict() for limit in risk_limits],
+            "summary": {
+                "total_events": len(active_events),
+                "critical_events": len([e for e in active_events if e.severity == "CRITICAL"]),
+                "high_events": len([e for e in active_events if e.severity == "HIGH"]),
+                "breached_limits": len([l for l in risk_limits if l.is_breached])
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"获取风险摘要失败: {str(e)}"
+        )

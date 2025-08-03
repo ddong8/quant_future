@@ -1,0 +1,151 @@
+"""Add position tables
+
+Revision ID: 006
+Revises: 005
+Create Date: 2024-01-01 13:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '006'
+down_revision = '005'
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    # 创建持仓表
+    op.create_table('positions',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('uuid', sa.String(length=36), nullable=True),
+        sa.Column('symbol', sa.String(length=20), nullable=False),
+        sa.Column('position_type', sa.Enum('LONG', 'SHORT', name='positiontype'), nullable=False),
+        sa.Column('status', sa.Enum('OPEN', 'CLOSED', 'SUSPENDED', name='positionstatus'), nullable=True),
+        sa.Column('quantity', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('available_quantity', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('frozen_quantity', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('average_cost', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_cost', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('realized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('unrealized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('current_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('market_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('max_drawdown', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('max_profit', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('stop_loss_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('take_profit_price', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('stop_loss_order_id', sa.Integer(), nullable=True),
+        sa.Column('take_profit_order_id', sa.Integer(), nullable=True),
+        sa.Column('strategy_id', sa.Integer(), nullable=True),
+        sa.Column('backtest_id', sa.Integer(), nullable=True),
+        sa.Column('source', sa.String(length=50), nullable=True),
+        sa.Column('source_id', sa.String(length=100), nullable=True),
+        sa.Column('tags', sa.JSON(), nullable=True),
+        sa.Column('notes', sa.Text(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('opened_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('closed_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['backtest_id'], ['backtests.id'], ),
+        sa.ForeignKeyConstraint(['stop_loss_order_id'], ['orders.id'], ),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['take_profit_order_id'], ['orders.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_positions_id'), 'positions', ['id'], unique=False)
+    op.create_index(op.f('ix_positions_uuid'), 'positions', ['uuid'], unique=True)
+    op.create_index(op.f('ix_positions_symbol'), 'positions', ['symbol'], unique=False)
+    op.create_index(op.f('ix_positions_position_type'), 'positions', ['position_type'], unique=False)
+    op.create_index(op.f('ix_positions_status'), 'positions', ['status'], unique=False)
+    op.create_index(op.f('ix_positions_strategy_id'), 'positions', ['strategy_id'], unique=False)
+    op.create_index(op.f('ix_positions_backtest_id'), 'positions', ['backtest_id'], unique=False)
+    op.create_index(op.f('ix_positions_user_id'), 'positions', ['user_id'], unique=False)
+    op.create_index('idx_position_user_symbol', 'positions', ['user_id', 'symbol'], unique=False)
+    op.create_index('idx_position_user_status', 'positions', ['user_id', 'status'], unique=False)
+    op.create_index('idx_position_strategy', 'positions', ['strategy_id'], unique=False)
+
+    # 创建持仓历史表
+    op.create_table('position_history',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('uuid', sa.String(length=36), nullable=True),
+        sa.Column('position_id', sa.Integer(), nullable=False),
+        sa.Column('action', sa.String(length=50), nullable=False),
+        sa.Column('details', sa.JSON(), nullable=True),
+        sa.Column('quantity_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('average_cost_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_cost_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('realized_pnl_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('unrealized_pnl_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('current_price_snapshot', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['position_id'], ['positions.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_position_history_id'), 'position_history', ['id'], unique=False)
+    op.create_index(op.f('ix_position_history_uuid'), 'position_history', ['uuid'], unique=True)
+    op.create_index(op.f('ix_position_history_position_id'), 'position_history', ['position_id'], unique=False)
+    op.create_index(op.f('ix_position_history_action'), 'position_history', ['action'], unique=False)
+    op.create_index(op.f('ix_position_history_created_at'), 'position_history', ['created_at'], unique=False)
+    op.create_index('idx_position_history_position_action', 'position_history', ['position_id', 'action'], unique=False)
+    op.create_index('idx_position_history_created', 'position_history', ['created_at'], unique=False)
+
+    # 创建持仓汇总表
+    op.create_table('position_summaries',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('symbol', sa.String(length=20), nullable=False),
+        sa.Column('total_quantity', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_cost', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('average_cost', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_realized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_unrealized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_market_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('position_count', sa.Integer(), nullable=True),
+        sa.Column('last_trade_time', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_position_summaries_user_id'), 'position_summaries', ['user_id'], unique=False)
+    op.create_index(op.f('ix_position_summaries_symbol'), 'position_summaries', ['symbol'], unique=False)
+    op.create_index('idx_position_summary_user_symbol', 'position_summaries', ['user_id', 'symbol'], unique=True)
+
+def downgrade():
+    # 删除表和索引
+    op.drop_index('idx_position_summary_user_symbol', table_name='position_summaries')
+    op.drop_index(op.f('ix_position_summaries_symbol'), table_name='position_summaries')
+    op.drop_index(op.f('ix_position_summaries_user_id'), table_name='position_summaries')
+    op.drop_table('position_summaries')
+    
+    op.drop_index('idx_position_history_created', table_name='position_history')
+    op.drop_index('idx_position_history_position_action', table_name='position_history')
+    op.drop_index(op.f('ix_position_history_created_at'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_action'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_position_id'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_uuid'), table_name='position_history')
+    op.drop_index(op.f('ix_position_history_id'), table_name='position_history')
+    op.drop_table('position_history')
+    
+    op.drop_index('idx_position_strategy', table_name='positions')
+    op.drop_index('idx_position_user_status', table_name='positions')
+    op.drop_index('idx_position_user_symbol', table_name='positions')
+    op.drop_index(op.f('ix_positions_user_id'), table_name='positions')
+    op.drop_index(op.f('ix_positions_backtest_id'), table_name='positions')
+    op.drop_index(op.f('ix_positions_strategy_id'), table_name='positions')
+    op.drop_index(op.f('ix_positions_status'), table_name='positions')
+    op.drop_index(op.f('ix_positions_position_type'), table_name='positions')
+    op.drop_index(op.f('ix_positions_symbol'), table_name='positions')
+    op.drop_index(op.f('ix_positions_uuid'), table_name='positions')
+    op.drop_index(op.f('ix_positions_id'), table_name='positions')
+    op.drop_table('positions')
+    
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS positionstatus')
+    op.execute('DROP TYPE IF EXISTS positiontype')

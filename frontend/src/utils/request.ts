@@ -1,93 +1,67 @@
-import axios from 'axios'
-import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import router from '@/router'
-import NProgress from 'nprogress'
-
-// 响应数据类型
-export interface ApiResponse<T = any> {
-  success: boolean
-  data: T
-  message: string
-  code?: string
-  timestamp?: string
-}
 
 // 创建axios实例
-const request: AxiosInstance = axios.create({
-  baseURL: '/api/v1',
-  timeout: 30000,
+const service: AxiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
   }
 })
 
 // 请求拦截器
-request.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
-    // 显示加载进度
-    NProgress.start()
+service.interceptors.request.use(
+  (config) => {
+    const authStore = useAuthStore()
     
     // 添加认证token
-    const authStore = useAuthStore()
     if (authStore.token) {
-      config.headers = config.headers || {}
       config.headers.Authorization = `Bearer ${authStore.token}`
     }
+    
+    // 添加请求ID用于追踪
+    config.headers['X-Request-ID'] = generateRequestId()
     
     return config
   },
   (error) => {
-    NProgress.done()
+    console.error('Request error:', error)
     return Promise.reject(error)
   }
 )
 
 // 响应拦截器
-request.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
-    NProgress.done()
+service.interceptors.response.use(
+  (response: AxiosResponse) => {
+    const { data, status } = response
     
-    const { data } = response
-    
-    // 检查业务状态码
-    if (data.success === false) {
-      // 根据错误码处理不同情况
-      if (data.code === 'UNAUTHORIZED' || data.code === 'TOKEN_EXPIRED') {
-        handleAuthError()
-        return Promise.reject(new Error(data.message || '认证失败'))
-      }
-      
-      // 其他业务错误
-      ElMessage.error(data.message || '请求失败')
-      return Promise.reject(new Error(data.message || '请求失败'))
+    // 处理成功响应
+    if (status >= 200 && status < 300) {
+      return data
     }
     
-    return data
+    return response
   },
-  async (error) => {
-    NProgress.done()
-    
-    const { response } = error
+  (error) => {
+    const { response, message } = error
     
     if (response) {
       const { status, data } = response
       
       switch (status) {
         case 401:
-          // 未授权，尝试刷新token
-          const refreshed = await handleTokenRefresh()
-          if (refreshed) {
-            // 重新发送原请求
-            return request(error.config)
-          } else {
-            handleAuthError()
-          }
+          // 未授权，清除token并跳转到登录页
+          const authStore = useAuthStore()
+          authStore.logout()
+          router.push('/login')
+          ElMessage.error('登录已过期，请重新登录')
           break
           
         case 403:
-          ElMessage.error('权限不足')
+          ElMessage.error('没有权限访问该资源')
           break
           
         case 404:
@@ -95,13 +69,12 @@ request.interceptors.response.use(
           break
           
         case 422:
-          // 参数验证错误
-          const validationErrors = data?.details?.validation_errors
-          if (validationErrors && Array.isArray(validationErrors)) {
-            const errorMessages = validationErrors.map((err: any) => err.msg).join('; ')
-            ElMessage.error(`参数错误: ${errorMessages}`)
+          // 表单验证错误
+          if (data?.errors) {
+            const errorMessages = Object.values(data.errors).flat()
+            ElMessage.error(errorMessages.join(', '))
           } else {
-            ElMessage.error(data?.message || '参数验证失败')
+            ElMessage.error(data?.message || '请求参数错误')
           }
           break
           
@@ -113,80 +86,68 @@ request.interceptors.response.use(
           ElMessage.error('服务器内部错误')
           break
           
-        case 502:
-        case 503:
-        case 504:
-          ElMessage.error('服务暂时不可用，请稍后再试')
-          break
-          
         default:
           ElMessage.error(data?.message || `请求失败 (${status})`)
       }
-    } else if (error.code === 'ECONNABORTED') {
+    } else if (message.includes('timeout')) {
       ElMessage.error('请求超时，请检查网络连接')
-    } else if (error.message === 'Network Error') {
+    } else if (message.includes('Network Error')) {
       ElMessage.error('网络连接失败，请检查网络')
     } else {
-      ElMessage.error(error.message || '请求失败')
+      ElMessage.error('请求失败，请稍后重试')
     }
     
     return Promise.reject(error)
   }
 )
 
-// 处理认证错误
-const handleAuthError = () => {
-  const authStore = useAuthStore()
-  
-  ElMessageBox.confirm(
-    '登录状态已过期，请重新登录',
-    '提示',
-    {
-      confirmButtonText: '重新登录',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(() => {
-    authStore.clearAuth()
-    router.push('/login')
-  }).catch(() => {
-    // 用户取消
-  })
-}
-
-// 处理token刷新
-const handleTokenRefresh = async (): Promise<boolean> => {
-  const authStore = useAuthStore()
-  
-  try {
-    const success = await authStore.refreshAccessToken()
-    return success
-  } catch (error) {
-    return false
-  }
+// 生成请求ID
+function generateRequestId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
 
 // 请求方法封装
-export const http = {
-  get: <T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return request.get(url, config)
+export const request = {
+  get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return service.get(url, config)
   },
   
-  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return request.post(url, data, config)
+  post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    return service.post(url, data, config)
   },
   
-  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return request.put(url, data, config)
+  put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    return service.put(url, data, config)
   },
   
-  delete: <T = any>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return request.delete(url, config)
+  patch<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
+    return service.patch(url, data, config)
   },
   
-  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> => {
-    return request.patch(url, data, config)
+  delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    return service.delete(url, config)
+  },
+  
+  upload<T = any>(url: string, formData: FormData, config?: AxiosRequestConfig): Promise<T> {
+    return service.post(url, formData, {
+      ...config,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...config?.headers
+      }
+    })
+  },
+  
+  download(url: string, config?: AxiosRequestConfig): Promise<Blob> {
+    return service.get(url, {
+      ...config,
+      responseType: 'blob'
+    })
   }
 }
 
-export default request
+// 导出axios实例
+export default service
+
+// 兼容性导出
+export const http = request

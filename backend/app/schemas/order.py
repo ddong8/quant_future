@@ -1,402 +1,339 @@
 """
-订单相关的Pydantic模型
+订单相关的Pydantic模式
 """
-from pydantic import BaseModel, validator
-from typing import List, Optional, Dict, Any
-from datetime import datetime
 
-from ..models.enums import OrderDirection, OrderOffset, OrderStatus
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+from decimal import Decimal
+
+from ..models.order import OrderType, OrderSide, OrderStatus, OrderTimeInForce, OrderPriority
 
 
 class OrderBase(BaseModel):
-    """订单基础模型"""
-    symbol: str
-    direction: OrderDirection
-    offset: OrderOffset
-    volume: int
-    price: float
+    """订单基础模式"""
+    symbol: str = Field(..., min_length=1, max_length=20, description="交易标的")
+    order_type: OrderType = Field(..., description="订单类型")
+    side: OrderSide = Field(..., description="订单方向")
+    quantity: Decimal = Field(..., gt=0, description="订单数量")
+    price: Optional[Decimal] = Field(None, gt=0, description="订单价格")
+    stop_price: Optional[Decimal] = Field(None, gt=0, description="止损价格")
+    time_in_force: OrderTimeInForce = Field(OrderTimeInForce.DAY, description="有效期类型")
+    priority: OrderPriority = Field(OrderPriority.NORMAL, description="订单优先级")
     
-    @validator('symbol')
-    def validate_symbol(cls, v):
-        if not v or len(v.strip()) < 1:
-            raise ValueError('交易品种不能为空')
-        if len(v.strip()) > 20:
-            raise ValueError('交易品种长度不能超过20个字符')
-        return v.strip()
+    # 高级订单参数
+    iceberg_quantity: Optional[Decimal] = Field(None, gt=0, description="冰山单显示数量")
+    trailing_amount: Optional[Decimal] = Field(None, gt=0, description="跟踪止损金额")
+    trailing_percent: Optional[float] = Field(None, gt=0, le=100, description="跟踪止损百分比")
     
-    @validator('volume')
-    def validate_volume(cls, v):
-        if v <= 0:
-            raise ValueError('交易数量必须大于0')
-        if v > 10000:
-            raise ValueError('单笔交易数量不能超过10000手')
-        return v
+    # 时间相关
+    expire_time: Optional[datetime] = Field(None, description="过期时间")
     
+    # 风险控制
+    max_position_size: Optional[Decimal] = Field(None, gt=0, description="最大持仓限制")
+    
+    # 关联信息
+    strategy_id: Optional[int] = Field(None, description="策略ID")
+    backtest_id: Optional[int] = Field(None, description="回测ID")
+    parent_order_id: Optional[int] = Field(None, description="父订单ID")
+    
+    # 执行信息
+    broker: Optional[str] = Field(None, max_length=50, description="券商/交易所")
+    account_id: Optional[str] = Field(None, max_length=100, description="账户ID")
+    
+    # 元数据
+    tags: List[str] = Field(default_factory=list, description="标签")
+    notes: Optional[str] = Field(None, description="备注")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
+
     @validator('price')
-    def validate_price(cls, v):
-        if v <= 0:
-            raise ValueError('价格必须大于0')
-        if v > 1000000:
-            raise ValueError('价格不能超过1000000')
+    def validate_price(cls, v, values):
+        order_type = values.get('order_type')
+        if order_type == OrderType.MARKET and v is not None:
+            raise ValueError('市价单不需要指定价格')
+        if order_type in [OrderType.LIMIT, OrderType.STOP_LIMIT] and v is None:
+            raise ValueError('限价单必须指定价格')
+        return v
+
+    @validator('stop_price')
+    def validate_stop_price(cls, v, values):
+        order_type = values.get('order_type')
+        if order_type in [OrderType.STOP, OrderType.STOP_LIMIT, OrderType.TRAILING_STOP] and v is None:
+            raise ValueError('止损单必须指定止损价格')
+        return v
+
+    @validator('iceberg_quantity')
+    def validate_iceberg_quantity(cls, v, values):
+        if v is not None:
+            quantity = values.get('quantity')
+            if quantity and v >= quantity:
+                raise ValueError('冰山单显示数量必须小于总数量')
+        return v
+
+    @validator('expire_time')
+    def validate_expire_time(cls, v, values):
+        time_in_force = values.get('time_in_force')
+        if time_in_force == OrderTimeInForce.GTD and v is None:
+            raise ValueError('GTD订单必须指定过期时间')
+        if v and v <= datetime.now():
+            raise ValueError('过期时间必须晚于当前时间')
         return v
 
 
 class OrderCreate(OrderBase):
-    """创建订单模型"""
-    strategy_id: int
+    """创建订单模式"""
+    pass
+
+
+class OrderUpdate(BaseModel):
+    """更新订单模式"""
+    quantity: Optional[Decimal] = Field(None, gt=0)
+    price: Optional[Decimal] = Field(None, gt=0)
+    stop_price: Optional[Decimal] = Field(None, gt=0)
+    time_in_force: Optional[OrderTimeInForce] = None
+    priority: Optional[OrderPriority] = None
+    expire_time: Optional[datetime] = None
+    tags: Optional[List[str]] = None
     notes: Optional[str] = None
-    
-    @validator('strategy_id')
-    def validate_strategy_id(cls, v):
-        if v <= 0:
-            raise ValueError('策略ID必须大于0')
-        return v
-    
-    @validator('notes')
-    def validate_notes(cls, v):
-        if v and len(v) > 500:
-            raise ValueError('备注长度不能超过500个字符')
-        return v
+    metadata: Optional[Dict[str, Any]] = None
 
 
-class OrderModify(BaseModel):
-    """修改订单模型"""
-    volume: Optional[int] = None
-    price: Optional[float] = None
-    notes: Optional[str] = None
-    
-    @validator('volume')
-    def validate_volume(cls, v):
-        if v is not None:
-            if v <= 0:
-                raise ValueError('交易数量必须大于0')
-            if v > 10000:
-                raise ValueError('单笔交易数量不能超过10000手')
-        return v
-    
-    @validator('price')
-    def validate_price(cls, v):
-        if v is not None:
-            if v <= 0:
-                raise ValueError('价格必须大于0')
-            if v > 1000000:
-                raise ValueError('价格不能超过1000000')
-        return v
-    
-    @validator('notes')
-    def validate_notes(cls, v):
-        if v and len(v) > 500:
-            raise ValueError('备注长度不能超过500个字符')
-        return v
-
-
-class OrderResponse(BaseModel):
-    """订单响应模型"""
-    id: str
-    strategy_id: int
-    symbol: str
-    direction: str
-    offset: str
-    volume: int
-    price: float
-    status: str
-    filled_volume: int
-    avg_fill_price: float
-    commission: float
-    slippage: float
-    notes: Optional[str]
-    created_at: datetime
-    updated_at: Optional[datetime]
+class OrderResponse(OrderBase):
+    """订单响应模式"""
+    id: int
+    uuid: str
+    status: OrderStatus
+    filled_quantity: Decimal
+    remaining_quantity: Optional[Decimal]
+    avg_fill_price: Optional[Decimal]
+    commission: Decimal
+    commission_asset: Optional[str]
+    total_value: Optional[Decimal]
+    risk_check_passed: bool
+    risk_check_message: Optional[str]
+    source: str
+    source_id: Optional[str]
+    order_id_external: Optional[str]
+    user_id: int
+    submitted_at: Optional[datetime]
+    accepted_at: Optional[datetime]
     filled_at: Optional[datetime]
-    
+    cancelled_at: Optional[datetime]
+    created_at: datetime
+    updated_at: datetime
+    fill_ratio: float
+    is_active: bool
+    is_finished: bool
+
     class Config:
         from_attributes = True
 
 
 class OrderListResponse(BaseModel):
-    """订单列表响应模型"""
-    id: str
-    strategy_id: int
+    """订单列表响应模式"""
+    id: int
+    uuid: str
     symbol: str
-    direction: str
-    offset: str
-    volume: int
-    price: float
-    status: str
-    filled_volume: int
-    avg_fill_price: float
-    commission: float
+    order_type: OrderType
+    side: OrderSide
+    status: OrderStatus
+    quantity: Decimal
+    price: Optional[Decimal]
+    filled_quantity: Decimal
+    avg_fill_price: Optional[Decimal]
+    time_in_force: OrderTimeInForce
+    priority: OrderPriority
+    strategy_id: Optional[int]
+    backtest_id: Optional[int]
+    tags: List[str]
+    user_id: int
     created_at: datetime
-    filled_at: Optional[datetime]
-    
+    updated_at: datetime
+    fill_ratio: float
+    is_active: bool
+
     class Config:
         from_attributes = True
 
 
-class OrderSearchRequest(BaseModel):
-    """订单搜索请求模型"""
-    strategy_id: Optional[int] = None
-    symbol: Optional[str] = None
-    status: Optional[OrderStatus] = None
-    direction: Optional[OrderDirection] = None
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    
-    @validator('symbol')
-    def validate_symbol(cls, v):
-        if v and len(v.strip()) < 1:
-            raise ValueError('交易品种不能为空')
-        return v.strip() if v else None
+class OrderSearchParams(BaseModel):
+    """订单搜索参数"""
+    symbol: Optional[str] = Field(None, description="交易标的")
+    order_type: Optional[OrderType] = Field(None, description="订单类型")
+    side: Optional[OrderSide] = Field(None, description="订单方向")
+    status: Optional[OrderStatus] = Field(None, description="订单状态")
+    strategy_id: Optional[int] = Field(None, description="策略ID")
+    backtest_id: Optional[int] = Field(None, description="回测ID")
+    tags: Optional[List[str]] = Field(None, description="标签筛选")
+    created_after: Optional[datetime] = Field(None, description="创建时间起始")
+    created_before: Optional[datetime] = Field(None, description="创建时间结束")
+    min_quantity: Optional[Decimal] = Field(None, ge=0, description="最小数量")
+    max_quantity: Optional[Decimal] = Field(None, ge=0, description="最大数量")
+    min_price: Optional[Decimal] = Field(None, ge=0, description="最小价格")
+    max_price: Optional[Decimal] = Field(None, ge=0, description="最大价格")
+    sort_by: Optional[str] = Field("created_at", description="排序字段")
+    sort_order: Optional[str] = Field("desc", description="排序方向")
+    page: int = Field(1, ge=1, description="页码")
+    page_size: int = Field(20, ge=1, le=100, description="每页数量")
 
-
-class BatchCancelRequest(BaseModel):
-    """批量撤销请求模型"""
-    order_ids: List[str]
-    
-    @validator('order_ids')
-    def validate_order_ids(cls, v):
-        if not v:
-            raise ValueError('订单ID列表不能为空')
-        if len(v) > 50:
-            raise ValueError('批量操作最多支持50个订单')
+    @validator('sort_by')
+    def validate_sort_by(cls, v):
+        allowed_fields = [
+            'created_at', 'updated_at', 'symbol', 'quantity', 'price',
+            'filled_quantity', 'status', 'priority'
+        ]
+        if v not in allowed_fields:
+            raise ValueError(f'排序字段必须是: {", ".join(allowed_fields)}')
         return v
 
-
-class OrderStatusUpdate(BaseModel):
-    """订单状态更新模型"""
-    status: OrderStatus
-    filled_volume: Optional[int] = None
-    avg_fill_price: Optional[float] = None
-    commission: Optional[float] = None
-    
-    @validator('filled_volume')
-    def validate_filled_volume(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('成交数量不能为负数')
-        return v
-    
-    @validator('avg_fill_price')
-    def validate_avg_fill_price(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError('成交价格必须大于0')
-        return v
-    
-    @validator('commission')
-    def validate_commission(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('手续费不能为负数')
-        return v
+    @validator('sort_order')
+    def validate_sort_order(cls, v):
+        if v.lower() not in ['asc', 'desc']:
+            raise ValueError('排序方向必须是 asc 或 desc')
+        return v.lower()
 
 
-class OrderStatistics(BaseModel):
-    """订单统计模型"""
+class OrderStatsResponse(BaseModel):
+    """订单统计响应模式"""
     total_orders: int
+    active_orders: int
     filled_orders: int
     cancelled_orders: int
-    pending_orders: int
-    buy_orders: int
-    sell_orders: int
-    fill_rate: float
-    avg_fill_time_seconds: Optional[float]
-    symbol_distribution: List[Dict[str, Any]]
+    rejected_orders: int
+    total_volume: Decimal
+    total_value: Decimal
+    avg_fill_ratio: float
+    success_rate: float
 
-
-class PositionBase(BaseModel):
-    """持仓基础模型"""
-    symbol: str
-    direction: str
-    volume: int
-    avg_price: float
-    margin: float
-    margin_rate: float
-
-
-class PositionResponse(BaseModel):
-    """持仓响应模型"""
-    id: int
-    strategy_id: int
-    symbol: str
-    direction: str
-    volume: int
-    avg_price: float
-    unrealized_pnl: float
-    realized_pnl: float
-    margin: float
-    margin_rate: float
-    created_at: datetime
-    updated_at: Optional[datetime]
-    
     class Config:
         from_attributes = True
 
 
-class AccountResponse(BaseModel):
-    """账户响应模型"""
-    id: int
-    user_id: int
-    account_id: str
-    account_name: Optional[str]
-    broker: Optional[str]
-    balance: float
-    available: float
-    margin: float
-    frozen: float
-    realized_pnl: float
-    unrealized_pnl: float
-    total_pnl: float
-    risk_ratio: float
-    is_active: bool
-    created_at: datetime
-    updated_at: Optional[datetime]
-    
-    class Config:
-        from_attributes = True
+class OrderActionRequest(BaseModel):
+    """订单操作请求模式"""
+    action: str = Field(..., description="操作类型: cancel, modify")
+    parameters: Optional[Dict[str, Any]] = Field(None, description="操作参数")
 
-
-class RiskCheckRequest(BaseModel):
-    """风险检查请求模型"""
-    symbol: str
-    direction: OrderDirection
-    offset: OrderOffset
-    volume: int
-    price: float
-    strategy_id: int
-
-
-class RiskCheckResponse(BaseModel):
-    """风险检查响应模型"""
-    passed: bool
-    reason: str
-    warnings: List[str]
-    checks: Dict[str, Any]
-
-
-class RiskSummaryResponse(BaseModel):
-    """风险摘要响应模型"""
-    account_balance: float
-    available_funds: float
-    total_value: float
-    margin_used: float
-    fund_usage_ratio: float
-    overall_risk_ratio: float
-    position_risks: List[Dict[str, Any]]
-    risk_level: str
-    daily_pnl: float
-    risk_warnings: List[str]
-
-
-class RiskParametersUpdate(BaseModel):
-    """风险参数更新模型"""
-    max_position_ratio: Optional[float] = None
-    max_daily_loss: Optional[float] = None
-    max_order_value: Optional[float] = None
-    max_orders_per_minute: Optional[int] = None
-    min_account_balance: Optional[float] = None
-    
-    @validator('max_position_ratio')
-    def validate_max_position_ratio(cls, v):
-        if v is not None and (v <= 0 or v > 1):
-            raise ValueError('最大持仓比例必须在0-1之间')
-        return v
-    
-    @validator('max_daily_loss')
-    def validate_max_daily_loss(cls, v):
-        if v is not None and (v <= 0 or v > 1):
-            raise ValueError('最大日亏损比例必须在0-1之间')
-        return v
-    
-    @validator('max_order_value')
-    def validate_max_order_value(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError('最大订单金额必须大于0')
-        return v
-    
-    @validator('max_orders_per_minute')
-    def validate_max_orders_per_minute(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError('每分钟最大订单数必须大于0')
-        return v
-    
-    @validator('min_account_balance')
-    def validate_min_account_balance(cls, v):
-        if v is not None and v < 0:
-            raise ValueError('最小账户余额不能为负数')
+    @validator('action')
+    def validate_action(cls, v):
+        allowed_actions = ['cancel', 'modify', 'suspend', 'resume']
+        if v not in allowed_actions:
+            raise ValueError(f'操作类型必须是: {", ".join(allowed_actions)}')
         return v
 
 
-class OrderExecutionResult(BaseModel):
-    """订单执行结果模型"""
-    order_id: str
+class OrderActionResponse(BaseModel):
+    """订单操作响应模式"""
+    order_id: int
+    action: str
     success: bool
     message: str
-    broker_order_id: Optional[str] = None
-    execution_time: Optional[datetime] = None
-
-
-class BatchOperationResult(BaseModel):
-    """批量操作结果模型"""
-    results: List[Dict[str, Any]]
-    success_count: int
-    failed_count: int
-
-
-class TradingSignal(BaseModel):
-    """交易信号模型"""
-    strategy_id: int
-    symbol: str
-    signal_type: str  # buy/sell/hold
-    strength: float  # 信号强度 0-1
-    price: float
-    volume: int
-    reason: str
-    timestamp: datetime
-    
-    @validator('strength')
-    def validate_strength(cls, v):
-        if v < 0 or v > 1:
-            raise ValueError('信号强度必须在0-1之间')
-        return v
-    
-    @validator('signal_type')
-    def validate_signal_type(cls, v):
-        allowed_types = ['buy', 'sell', 'hold']
-        if v not in allowed_types:
-            raise ValueError(f'信号类型必须是: {allowed_types}')
-        return v
-
-
-class OrderBookEntry(BaseModel):
-    """订单簿条目模型"""
-    price: float
-    volume: int
-    order_count: int
-
-
-class OrderBook(BaseModel):
-    """订单簿模型"""
-    symbol: str
-    bids: List[OrderBookEntry]  # 买盘
-    asks: List[OrderBookEntry]  # 卖盘
     timestamp: datetime
 
+    class Config:
+        from_attributes = True
 
-class TradeRecord(BaseModel):
-    """成交记录模型"""
-    trade_id: str
-    order_id: str
+
+class OrderFillResponse(BaseModel):
+    """订单成交响应模式"""
+    id: int
+    uuid: str
+    order_id: int
+    fill_id_external: Optional[str]
+    quantity: Decimal
+    price: Decimal
+    value: Decimal
+    commission: Decimal
+    commission_asset: Optional[str]
+    fill_time: datetime
+    liquidity: Optional[str]
+    counterparty: Optional[str]
+    metadata: Dict[str, Any]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrderTemplateBase(BaseModel):
+    """订单模板基础模式"""
+    name: str = Field(..., min_length=1, max_length=100, description="模板名称")
+    description: Optional[str] = Field(None, description="模板描述")
+    category: Optional[str] = Field(None, max_length=50, description="模板分类")
+    template_config: Dict[str, Any] = Field(..., description="模板配置")
+    default_parameters: Dict[str, Any] = Field(default_factory=dict, description="默认参数")
+    tags: List[str] = Field(default_factory=list, description="标签")
+
+
+class OrderTemplateCreate(OrderTemplateBase):
+    """创建订单模板模式"""
+    pass
+
+
+class OrderTemplateUpdate(BaseModel):
+    """更新订单模板模式"""
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = None
+    category: Optional[str] = Field(None, max_length=50)
+    template_config: Optional[Dict[str, Any]] = None
+    default_parameters: Optional[Dict[str, Any]] = None
+    tags: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+
+class OrderTemplateResponse(OrderTemplateBase):
+    """订单模板响应模式"""
+    id: int
+    uuid: str
+    usage_count: int
+    is_official: bool
+    is_active: bool
+    author_id: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class OrderRiskCheckRequest(BaseModel):
+    """订单风险检查请求模式"""
     symbol: str
-    direction: str
-    volume: int
-    price: float
-    commission: float
+    side: OrderSide
+    quantity: Decimal
+    price: Optional[Decimal] = None
+    order_type: OrderType
+    strategy_id: Optional[int] = None
+
+
+class OrderRiskCheckResponse(BaseModel):
+    """订单风险检查响应模式"""
+    passed: bool
+    risk_level: str  # low, medium, high
+    warnings: List[str]
+    errors: List[str]
+    suggestions: List[str]
+    risk_score: float
+    max_allowed_quantity: Optional[Decimal]
+    estimated_margin: Optional[Decimal]
+
+    class Config:
+        from_attributes = True
+
+
+class OrderExecutionReport(BaseModel):
+    """订单执行报告模式"""
+    order_id: int
+    execution_id: str
+    status: OrderStatus
+    filled_quantity: Decimal
+    remaining_quantity: Decimal
+    avg_price: Optional[Decimal]
+    last_fill_price: Optional[Decimal]
+    last_fill_quantity: Optional[Decimal]
+    commission: Decimal
     timestamp: datetime
+    message: Optional[str]
 
-
-class PositionSummary(BaseModel):
-    """持仓汇总模型"""
-    total_positions: int
-    total_market_value: float
-    total_unrealized_pnl: float
-    total_realized_pnl: float
-    positions_by_symbol: Dict[str, Dict[str, Any]]
-    risk_metrics: Dict[str, float]
+    class Config:
+        from_attributes = True

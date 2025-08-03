@@ -65,41 +65,6 @@ class SystemMetric(Base):
         return f"<SystemMetric(id={self.id}, name='{self.metric_name}', value={self.metric_value})>"
 
 
-class Notification(Base):
-    """通知模型"""
-    __tablename__ = "notifications"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    
-    # 通知基本信息
-    title = Column(String(200), nullable=False)
-    content = Column(Text, nullable=False)
-    notification_type = Column(String(20), nullable=False)  # email/sms/webhook/in_app
-    
-    # 接收者信息
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    recipient = Column(String(200), nullable=False)  # 邮箱/手机号/webhook URL等
-    
-    # 关联信息
-    related_type = Column(String(50))  # strategy/backtest/risk_event/system等
-    related_id = Column(Integer)  # 关联对象ID
-    
-    # 发送状态
-    is_sent = Column(Boolean, default=False)
-    sent_at = Column(DateTime(timezone=True))
-    delivery_status = Column(String(20))  # pending/sent/delivered/failed
-    error_message = Column(Text)
-    
-    # 优先级
-    priority = Column(String(20), default="normal")  # low/normal/high/urgent
-    
-    # 时间戳
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
-    def __repr__(self):
-        return f"<Notification(id={self.id}, type='{self.notification_type}', title='{self.title}')>"
-
 
 class ScheduledTask(Base):
     """定时任务模型"""
@@ -272,5 +237,5 @@ class SystemEvent(Base):
     severity = Column(String(20), comment="严重程度")
     source = Column(String(100), comment="事件源")
     user_id = Column(Integer, ForeignKey("users.id"), comment="相关用户ID")
-    event_metadata = Column(JSON, comment="事件元数据")
+    event_model_metadata = Column(JSON, comment="事件元数据")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

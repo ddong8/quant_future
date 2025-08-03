@@ -1,0 +1,186 @@
+"""add settings management tables
+
+Revision ID: 015
+Revises: 014
+Create Date: 2024-01-16 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '015'
+down_revision = '014'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建设置分类表
+    op.create_table('settings_categories',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(50), nullable=False),
+        sa.Column('display_name', sa.String(100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('icon', sa.String(50), nullable=True),
+        sa.Column('sort_order', sa.Integer(), nullable=True, default=0),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('required_permissions', sa.JSON(), nullable=True),
+        sa.Column('min_user_level', sa.Integer(), nullable=True, default=0),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('name')
+    )
+    op.create_index(op.f('ix_settings_categories_id'), 'settings_categories', ['id'], unique=False)
+    
+    # 创建设置项表
+    op.create_table('settings_items',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('category_id', sa.Integer(), nullable=False),
+        sa.Column('key', sa.String(100), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('data_type', sa.String(20), nullable=False),
+        sa.Column('default_value', sa.JSON(), nullable=True),
+        sa.Column('validation_rules', sa.JSON(), nullable=True),
+        sa.Column('options', sa.JSON(), nullable=True),
+        sa.Column('display_type', sa.String(20), nullable=True, default='input'),
+        sa.Column('is_visible', sa.Boolean(), nullable=True, default=True),
+        sa.Column('is_editable', sa.Boolean(), nullable=True, default=True),
+        sa.Column('sort_order', sa.Integer(), nullable=True, default=0),
+        sa.Column('required_permissions', sa.JSON(), nullable=True),
+        sa.Column('min_user_level', sa.Integer(), nullable=True, default=0),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['category_id'], ['settings_categories.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_settings_items_id'), 'settings_items', ['id'], unique=False)
+    op.create_index(op.f('ix_settings_items_key'), 'settings_items', ['key'], unique=False)
+    op.create_index(op.f('ix_settings_items_category_id'), 'settings_items', ['category_id'], unique=False)
+    
+    # 创建用户设置值表
+    op.create_table('user_settings_values',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('settings_item_id', sa.Integer(), nullable=False),
+        sa.Column('value', sa.JSON(), nullable=False),
+        sa.Column('version', sa.Integer(), nullable=True, default=1),
+        sa.Column('is_current', sa.Boolean(), nullable=True, default=True),
+        sa.Column('source', sa.String(50), nullable=True, default='user'),
+        sa.Column('notes', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['settings_item_id'], ['settings_items.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', 'settings_item_id', 'version', name='uq_user_settings_version')
+    )
+    op.create_index(op.f('ix_user_settings_values_id'), 'user_settings_values', ['id'], unique=False)
+    op.create_index('ix_user_settings_current', 'user_settings_values', ['user_id', 'settings_item_id', 'is_current'], unique=False)
+    
+    # 创建设置历史记录表
+    op.create_table('settings_history',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('settings_item_id', sa.Integer(), nullable=False),
+        sa.Column('action', sa.String(20), nullable=False),
+        sa.Column('old_value', sa.JSON(), nullable=True),
+        sa.Column('new_value', sa.JSON(), nullable=True),
+        sa.Column('reason', sa.String(200), nullable=True),
+        sa.Column('source', sa.String(50), nullable=True, default='user'),
+        sa.Column('ip_address', sa.String(45), nullable=True),
+        sa.Column('user_agent', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['settings_item_id'], ['settings_items.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_settings_history_id'), 'settings_history', ['id'], unique=False)
+    op.create_index(op.f('ix_settings_history_user_id'), 'settings_history', ['user_id'], unique=False)
+    op.create_index(op.f('ix_settings_history_created_at'), 'settings_history', ['created_at'], unique=False)
+    
+    # 创建设置模板表
+    op.create_table('settings_templates',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('settings_data', sa.JSON(), nullable=False),
+        sa.Column('target_user_types', sa.JSON(), nullable=True),
+        sa.Column('target_user_levels', sa.JSON(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('is_default', sa.Boolean(), nullable=True, default=False),
+        sa.Column('usage_count', sa.Integer(), nullable=True, default=0),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_by', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_settings_templates_id'), 'settings_templates', ['id'], unique=False)
+    op.create_index(op.f('ix_settings_templates_name'), 'settings_templates', ['name'], unique=False)
+    
+    # 插入默认设置分类
+    op.execute("""
+        INSERT INTO settings_categories (name, display_name, description, icon, sort_order) VALUES
+        ('general', '常规设置', '基本的用户界面和行为设置', 'settings', 1),
+        ('appearance', '外观设置', '主题、布局和显示相关设置', 'palette', 2),
+        ('trading', '交易设置', '交易相关的偏好和默认值', 'trending-up', 3),
+        ('notifications', '通知设置', '各种通知和提醒的配置', 'bell', 4),
+        ('security', '安全设置', '账户安全和隐私相关设置', 'shield', 5),
+        ('advanced', '高级设置', '高级用户功能和实验性功能', 'cog', 6);
+    """)
+    
+    # 插入默认设置项
+    op.execute("""
+        INSERT INTO settings_items (category_id, key, name, description, data_type, default_value, display_type, sort_order) VALUES
+        -- 常规设置
+        (1, 'language', '界面语言', '选择界面显示语言', 'string', '"zh-CN"', 'select', 1),
+        (1, 'timezone', '时区设置', '选择您所在的时区', 'string', '"Asia/Shanghai"', 'select', 2),
+        (1, 'auto_refresh', '自动刷新', '启用数据自动刷新', 'boolean', 'true', 'switch', 3),
+        (1, 'refresh_interval', '刷新间隔', '数据刷新间隔（秒）', 'integer', '30', 'number', 4),
+        
+        -- 外观设置
+        (2, 'theme', '主题模式', '选择界面主题', 'string', '"light"', 'select', 1),
+        (2, 'sidebar_collapsed', '侧边栏折叠', '默认折叠侧边栏', 'boolean', 'false', 'switch', 2),
+        (2, 'animation_enabled', '动画效果', '启用界面动画效果', 'boolean', 'true', 'switch', 3),
+        (2, 'currency_display', '显示货币', '默认显示的货币单位', 'string', '"USD"', 'select', 4),
+        
+        -- 交易设置
+        (3, 'default_order_type', '默认订单类型', '创建订单时的默认类型', 'string', '"MARKET"', 'select', 1),
+        (3, 'confirm_orders', '订单确认', '提交订单前显示确认对话框', 'boolean', 'true', 'switch', 2),
+        (3, 'default_chart_period', '默认图表周期', '图表的默认时间周期', 'string', '"1d"', 'select', 3),
+        (3, 'sound_notifications', '声音通知', '启用交易相关的声音提醒', 'boolean', 'true', 'switch', 4),
+        
+        -- 通知设置
+        (4, 'email_notifications', '邮件通知', '启用邮件通知', 'boolean', 'true', 'switch', 1),
+        (4, 'push_notifications', '推送通知', '启用浏览器推送通知', 'boolean', 'true', 'switch', 2),
+        (4, 'notification_hours', '通知时间段', '接收通知的时间范围', 'object', '{"start": "09:00", "end": "21:00"}', 'time-range', 3),
+        
+        -- 安全设置
+        (5, 'session_timeout', '会话超时', '自动登出时间（分钟）', 'integer', '60', 'number', 1),
+        (5, 'login_notifications', '登录通知', '新设备登录时发送通知', 'boolean', 'true', 'switch', 2),
+        
+        -- 高级设置
+        (6, 'show_advanced_features', '显示高级功能', '显示高级用户功能', 'boolean', 'false', 'switch', 1),
+        (6, 'debug_mode', '调试模式', '启用调试信息显示', 'boolean', 'false', 'switch', 2);
+    """)
+    
+    # 插入默认设置模板
+    op.execute("""
+        INSERT INTO settings_templates (name, description, settings_data, is_default) VALUES
+        ('新手模式', '适合新手用户的推荐设置', '{"theme": "light", "confirm_orders": true, "show_advanced_features": false, "animation_enabled": true, "sound_notifications": true}', true),
+        ('专业模式', '适合专业交易者的高效设置', '{"theme": "dark", "confirm_orders": false, "show_advanced_features": true, "animation_enabled": false, "refresh_interval": 10}', false),
+        ('简约模式', '简洁的界面设置', '{"sidebar_collapsed": true, "animation_enabled": false, "sound_notifications": false, "theme": "light"}', false);
+    """)
+
+
+def downgrade():
+    # 删除创建的表
+    op.drop_table('settings_templates')
+    op.drop_table('settings_history')
+    op.drop_table('user_settings_values')
+    op.drop_table('settings_items')
+    op.drop_table('settings_categories')

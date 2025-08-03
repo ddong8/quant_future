@@ -576,7 +576,9 @@ onMounted(() => {
 onUnmounted(() => {
   stopAutoRefresh()
 })
-</script><style 
+</script>
+
+<style 
 scoped lang="scss">
 .quick-trading-buttons {
   .card-header {

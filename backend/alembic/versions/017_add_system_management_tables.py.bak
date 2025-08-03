@@ -1,0 +1,279 @@
+"""add system management tables
+
+Revision ID: 017
+Revises: 016
+Create Date: 2024-01-18 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '017'
+down_revision = '016'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建数据导出任务表
+    op.create_table('data_export_tasks',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('task_name', sa.String(200), nullable=False),
+        sa.Column('task_id', sa.String(50), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('export_type', sa.String(50), nullable=False),
+        sa.Column('export_format', sa.Enum('csv', 'excel', 'json', 'pdf', 'xml', name='exportformat'), nullable=False),
+        sa.Column('export_config', sa.JSON(), nullable=True),
+        sa.Column('filters', sa.JSON(), nullable=True),
+        sa.Column('date_range', sa.JSON(), nullable=True),
+        sa.Column('status', sa.Enum('pending', 'processing', 'completed', 'failed', 'cancelled', name='exportstatus'), nullable=True, default='pending'),
+        sa.Column('progress', sa.Integer(), nullable=True, default=0),
+        sa.Column('file_path', sa.String(500), nullable=True),
+        sa.Column('file_name', sa.String(200), nullable=True),
+        sa.Column('file_size', sa.Integer(), nullable=True),
+        sa.Column('download_url', sa.String(500), nullable=True),
+        sa.Column('total_records', sa.Integer(), nullable=True),
+        sa.Column('exported_records', sa.Integer(), nullable=True),
+        sa.Column('started_at', sa.DateTime(), nullable=True),
+        sa.Column('completed_at', sa.DateTime(), nullable=True),
+        sa.Column('expires_at', sa.DateTime(), nullable=True),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('error_details', sa.JSON(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('task_id')
+    )
+    op.create_index(op.f('ix_data_export_tasks_id'), 'data_export_tasks', ['id'], unique=False)
+    op.create_index('ix_data_export_tasks_user_status', 'data_export_tasks', ['user_id', 'status'], unique=False)
+    op.create_index('ix_data_export_tasks_created', 'data_export_tasks', ['created_at'], unique=False)
+    op.create_index('ix_data_export_tasks_expires', 'data_export_tasks', ['expires_at'], unique=False)
+    
+    # 创建系统备份表
+    op.create_table('system_backups',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('backup_name', sa.String(200), nullable=False),
+        sa.Column('backup_id', sa.String(50), nullable=False),
+        sa.Column('backup_type', sa.Enum('full', 'incremental', 'differential', name='backuptype'), nullable=False),
+        sa.Column('backup_scope', sa.JSON(), nullable=False),
+        sa.Column('status', sa.Enum('pending', 'running', 'completed', 'failed', 'cancelled', name='backupstatus'), nullable=True, default='pending'),
+        sa.Column('progress', sa.Integer(), nullable=True, default=0),
+        sa.Column('file_path', sa.String(500), nullable=True),
+        sa.Column('file_size', sa.Integer(), nullable=True),
+        sa.Column('compressed_size', sa.Integer(), nullable=True),
+        sa.Column('total_tables', sa.Integer(), nullable=True),
+        sa.Column('backed_up_tables', sa.Integer(), nullable=True),
+        sa.Column('total_records', sa.Integer(), nullable=True),
+        sa.Column('started_at', sa.DateTime(), nullable=True),
+        sa.Column('completed_at', sa.DateTime(), nullable=True),
+        sa.Column('checksum', sa.String(64), nullable=True),
+        sa.Column('is_verified', sa.Boolean(), nullable=True, default=False),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_by', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('backup_id')
+    )
+    op.create_index(op.f('ix_system_backups_id'), 'system_backups', ['id'], unique=False)
+    op.create_index('ix_system_backups_status', 'system_backups', ['status'], unique=False)
+    op.create_index('ix_system_backups_created', 'system_backups', ['created_at'], unique=False)
+    op.create_index('ix_system_backups_type', 'system_backups', ['backup_type'], unique=False)
+    
+    # 创建系统日志表
+    op.create_table('system_logs',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('log_level', sa.Enum('debug', 'info', 'warning', 'error', 'critical', name='loglevel'), nullable=False),
+        sa.Column('logger_name', sa.String(100), nullable=False),
+        sa.Column('module', sa.String(100), nullable=True),
+        sa.Column('message', sa.Text(), nullable=False),
+        sa.Column('exception', sa.Text(), nullable=True),
+        sa.Column('stack_trace', sa.Text(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('session_id', sa.String(100), nullable=True),
+        sa.Column('request_id', sa.String(100), nullable=True),
+        sa.Column('method', sa.String(10), nullable=True),
+        sa.Column('url', sa.String(500), nullable=True),
+        sa.Column('ip_address', sa.String(45), nullable=True),
+        sa.Column('user_agent', sa.Text(), nullable=True),
+        sa.Column('duration_ms', sa.Integer(), nullable=True),
+        sa.Column('memory_usage', sa.Integer(), nullable=True),
+        sa.Column('extra_data', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_logs_id'), 'system_logs', ['id'], unique=False)
+    op.create_index('ix_system_logs_level_created', 'system_logs', ['log_level', 'created_at'], unique=False)
+    op.create_index('ix_system_logs_module_created', 'system_logs', ['module', 'created_at'], unique=False)
+    op.create_index('ix_system_logs_user_created', 'system_logs', ['user_id', 'created_at'], unique=False)
+    op.create_index('ix_system_logs_request', 'system_logs', ['request_id'], unique=False)
+    
+    # 创建系统指标表
+    op.create_table('system_metrics',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('metric_name', sa.String(100), nullable=False),
+        sa.Column('metric_type', sa.String(50), nullable=False),
+        sa.Column('value', sa.Float(), nullable=False),
+        sa.Column('unit', sa.String(20), nullable=True),
+        sa.Column('labels', sa.JSON(), nullable=True),
+        sa.Column('dimensions', sa.JSON(), nullable=True),
+        sa.Column('timestamp', sa.DateTime(), nullable=False),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_metrics_id'), 'system_metrics', ['id'], unique=False)
+    op.create_index('ix_system_metrics_name_timestamp', 'system_metrics', ['metric_name', 'timestamp'], unique=False)
+    op.create_index('ix_system_metrics_type_timestamp', 'system_metrics', ['metric_type', 'timestamp'], unique=False)
+    op.create_index('ix_system_metrics_timestamp', 'system_metrics', ['timestamp'], unique=False)
+    
+    # 创建系统告警表
+    op.create_table('system_alerts',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('alert_name', sa.String(100), nullable=False),
+        sa.Column('alert_type', sa.String(50), nullable=False),
+        sa.Column('severity', sa.String(20), nullable=False),
+        sa.Column('title', sa.String(200), nullable=False),
+        sa.Column('description', sa.Text(), nullable=False),
+        sa.Column('trigger_condition', sa.JSON(), nullable=True),
+        sa.Column('trigger_value', sa.Float(), nullable=True),
+        sa.Column('threshold', sa.Float(), nullable=True),
+        sa.Column('status', sa.String(20), nullable=True, default='active'),
+        sa.Column('is_acknowledged', sa.Boolean(), nullable=True, default=False),
+        sa.Column('acknowledged_by', sa.Integer(), nullable=True),
+        sa.Column('acknowledged_at', sa.DateTime(), nullable=True),
+        sa.Column('is_resolved', sa.Boolean(), nullable=True, default=False),
+        sa.Column('resolved_by', sa.Integer(), nullable=True),
+        sa.Column('resolved_at', sa.DateTime(), nullable=True),
+        sa.Column('resolution_notes', sa.Text(), nullable=True),
+        sa.Column('first_occurred_at', sa.DateTime(), nullable=False),
+        sa.Column('last_occurred_at', sa.DateTime(), nullable=False),
+        sa.Column('occurrence_count', sa.Integer(), nullable=True, default=1),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['acknowledged_by'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['resolved_by'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_alerts_id'), 'system_alerts', ['id'], unique=False)
+    op.create_index('ix_system_alerts_status_severity', 'system_alerts', ['status', 'severity'], unique=False)
+    op.create_index('ix_system_alerts_type_created', 'system_alerts', ['alert_type', 'created_at'], unique=False)
+    op.create_index('ix_system_alerts_occurred', 'system_alerts', ['last_occurred_at'], unique=False)
+    
+    # 创建系统配置表
+    op.create_table('system_configurations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('config_key', sa.String(100), nullable=False),
+        sa.Column('config_name', sa.String(200), nullable=False),
+        sa.Column('config_group', sa.String(50), nullable=True),
+        sa.Column('config_value', sa.Text(), nullable=True),
+        sa.Column('default_value', sa.Text(), nullable=True),
+        sa.Column('data_type', sa.String(20), nullable=True, default='string'),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('validation_rules', sa.JSON(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('is_readonly', sa.Boolean(), nullable=True, default=False),
+        sa.Column('requires_restart', sa.Boolean(), nullable=True, default=False),
+        sa.Column('version', sa.Integer(), nullable=True, default=1),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_by', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['updated_by'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('config_key')
+    )
+    op.create_index(op.f('ix_system_configurations_id'), 'system_configurations', ['id'], unique=False)
+    op.create_index('ix_system_configurations_group', 'system_configurations', ['config_group'], unique=False)
+    op.create_index('ix_system_configurations_active', 'system_configurations', ['is_active'], unique=False)
+    
+    # 创建系统维护窗口表
+    op.create_table('system_maintenance_windows',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('title', sa.String(200), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('maintenance_type', sa.String(50), nullable=False),
+        sa.Column('scheduled_start', sa.DateTime(), nullable=False),
+        sa.Column('scheduled_end', sa.DateTime(), nullable=False),
+        sa.Column('actual_start', sa.DateTime(), nullable=True),
+        sa.Column('actual_end', sa.DateTime(), nullable=True),
+        sa.Column('status', sa.String(20), nullable=True, default='scheduled'),
+        sa.Column('affected_services', sa.JSON(), nullable=True),
+        sa.Column('impact_level', sa.String(20), nullable=True),
+        sa.Column('notify_users', sa.Boolean(), nullable=True, default=True),
+        sa.Column('notification_sent', sa.Boolean(), nullable=True, default=False),
+        sa.Column('executed_by', sa.Integer(), nullable=True),
+        sa.Column('execution_notes', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('created_by', sa.Integer(), nullable=True),
+        sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['executed_by'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_system_maintenance_windows_id'), 'system_maintenance_windows', ['id'], unique=False)
+    op.create_index('ix_system_maintenance_windows_status', 'system_maintenance_windows', ['status'], unique=False)
+    op.create_index('ix_system_maintenance_windows_scheduled', 'system_maintenance_windows', ['scheduled_start', 'scheduled_end'], unique=False)
+    
+    # 插入默认系统配置
+    op.execute("""
+        INSERT INTO system_configurations (config_key, config_name, config_group, config_value, default_value, data_type, description) VALUES
+        -- 系统基础配置
+        ('system.name', '系统名称', 'system', '量化交易平台', '量化交易平台', 'string', '系统显示名称'),
+        ('system.version', '系统版本', 'system', '1.0.0', '1.0.0', 'string', '当前系统版本号'),
+        ('system.maintenance_mode', '维护模式', 'system', 'false', 'false', 'boolean', '是否启用维护模式'),
+        ('system.max_concurrent_users', '最大并发用户数', 'system', '1000', '1000', 'integer', '系统支持的最大并发用户数'),
+        
+        -- 数据库配置
+        ('database.connection_pool_size', '数据库连接池大小', 'database', '20', '20', 'integer', '数据库连接池的大小'),
+        ('database.query_timeout', '查询超时时间', 'database', '30', '30', 'integer', '数据库查询超时时间（秒）'),
+        ('database.backup_retention_days', '备份保留天数', 'database', '30', '30', 'integer', '数据库备份文件保留天数'),
+        
+        -- 缓存配置
+        ('cache.redis_enabled', '启用Redis缓存', 'cache', 'true', 'true', 'boolean', '是否启用Redis缓存'),
+        ('cache.default_ttl', '默认缓存TTL', 'cache', '3600', '3600', 'integer', '默认缓存过期时间（秒）'),
+        
+        -- 日志配置
+        ('logging.level', '日志级别', 'logging', 'INFO', 'INFO', 'string', '系统日志级别'),
+        ('logging.retention_days', '日志保留天数', 'logging', '90', '90', 'integer', '系统日志保留天数'),
+        ('logging.max_file_size', '日志文件最大大小', 'logging', '100MB', '100MB', 'string', '单个日志文件的最大大小'),
+        
+        -- 安全配置
+        ('security.session_timeout', '会话超时时间', 'security', '3600', '3600', 'integer', '用户会话超时时间（秒）'),
+        ('security.max_login_attempts', '最大登录尝试次数', 'security', '5', '5', 'integer', '用户最大登录失败尝试次数'),
+        ('security.password_min_length', '密码最小长度', 'security', '8', '8', 'integer', '用户密码最小长度要求'),
+        
+        -- 性能配置
+        ('performance.api_rate_limit', 'API速率限制', 'performance', '1000', '1000', 'integer', '每分钟API请求限制'),
+        ('performance.max_export_records', '最大导出记录数', 'performance', '100000', '100000', 'integer', '单次数据导出最大记录数'),
+        
+        -- 通知配置
+        ('notification.email_enabled', '启用邮件通知', 'notification', 'true', 'true', 'boolean', '是否启用邮件通知功能'),
+        ('notification.sms_enabled', '启用短信通知', 'notification', 'false', 'false', 'boolean', '是否启用短信通知功能'),
+        ('notification.max_per_hour', '每小时最大通知数', 'notification', '100', '100', 'integer', '每小时最大通知发送数量');
+    """)
+
+
+def downgrade():
+    # 删除创建的表
+    op.drop_table('system_maintenance_windows')
+    op.drop_table('system_configurations')
+    op.drop_table('system_alerts')
+    op.drop_table('system_metrics')
+    op.drop_table('system_logs')
+    op.drop_table('system_backups')
+    op.drop_table('data_export_tasks')
+    
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS exportformat')
+    op.execute('DROP TYPE IF EXISTS exportstatus')
+    op.execute('DROP TYPE IF EXISTS backuptype')
+    op.execute('DROP TYPE IF EXISTS backupstatus')
+    op.execute('DROP TYPE IF EXISTS loglevel')

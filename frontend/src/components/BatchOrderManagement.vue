@@ -776,8 +776,9 @@ watch(selectedOrders, (newVal) => {
 
 // 初始化
 addOrder()
-</script><
-style scoped lang="scss">
+</script>
+
+<style scoped lang="scss">
 .batch-order-management {
   .card-header {
     display: flex;

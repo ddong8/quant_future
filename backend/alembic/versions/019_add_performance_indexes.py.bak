@@ -1,0 +1,151 @@
+"""Add performance indexes
+
+Revision ID: 019
+Revises: 018
+Create Date: 2024-01-20 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+
+# revision identifiers
+revision = '019'
+down_revision = '018'
+branch_labels = None
+depends_on = None
+
+def upgrade():
+    """Add performance indexes for better query performance"""
+    
+    # Orders table indexes
+    op.create_index('idx_orders_user_id_status', 'orders', ['user_id', 'status'])
+    op.create_index('idx_orders_symbol_created_at', 'orders', ['symbol', 'created_at'])
+    op.create_index('idx_orders_status_created_at', 'orders', ['status', 'created_at'])
+    op.create_index('idx_orders_user_id_created_at', 'orders', ['user_id', 'created_at'])
+    
+    # Positions table indexes
+    op.create_index('idx_positions_user_id_status', 'positions', ['user_id', 'status'])
+    op.create_index('idx_positions_symbol_status', 'positions', ['symbol', 'status'])
+    op.create_index('idx_positions_user_id_symbol', 'positions', ['user_id', 'symbol'])
+    op.create_index('idx_positions_updated_at', 'positions', ['updated_at'])
+    
+    # Transactions table indexes
+    op.create_index('idx_transactions_user_id_type', 'transactions', ['user_id', 'type'])
+    op.create_index('idx_transactions_user_id_created_at', 'transactions', ['user_id', 'created_at'])
+    op.create_index('idx_transactions_status_created_at', 'transactions', ['status', 'created_at'])
+    op.create_index('idx_transactions_reference_id', 'transactions', ['reference_id'])
+    
+    # Market data indexes
+    op.create_index('idx_market_data_symbol_timestamp', 'market_data', ['symbol', 'timestamp'])
+    op.create_index('idx_market_data_timestamp', 'market_data', ['timestamp'])
+    op.create_index('idx_market_data_symbol_type', 'market_data', ['symbol', 'data_type'])
+    
+    # Backtests table indexes
+    op.create_index('idx_backtests_user_id_status', 'backtests', ['user_id', 'status'])
+    op.create_index('idx_backtests_strategy_id_created_at', 'backtests', ['strategy_id', 'created_at'])
+    op.create_index('idx_backtests_status_created_at', 'backtests', ['status', 'created_at'])
+    
+    # Strategies table indexes
+    op.create_index('idx_strategies_user_id_status', 'strategies', ['user_id', 'status'])
+    op.create_index('idx_strategies_type_status', 'strategies', ['type', 'status'])
+    op.create_index('idx_strategies_updated_at', 'strategies', ['updated_at'])
+    
+    # Risk monitoring indexes
+    op.create_index('idx_risk_monitoring_user_id_timestamp', 'risk_monitoring', ['user_id', 'timestamp'])
+    op.create_index('idx_risk_monitoring_alert_type_status', 'risk_monitoring', ['alert_type', 'status'])
+    op.create_index('idx_risk_monitoring_timestamp', 'risk_monitoring', ['timestamp'])
+    
+    # Notifications table indexes
+    op.create_index('idx_notifications_user_id_read', 'notifications', ['user_id', 'is_read'])
+    op.create_index('idx_notifications_user_id_created_at', 'notifications', ['user_id', 'created_at'])
+    op.create_index('idx_notifications_type_created_at', 'notifications', ['type', 'created_at'])
+    
+    # Price alerts indexes
+    op.create_index('idx_price_alerts_user_id_active', 'price_alerts', ['user_id', 'is_active'])
+    op.create_index('idx_price_alerts_symbol_active', 'price_alerts', ['symbol', 'is_active'])
+    op.create_index('idx_price_alerts_trigger_price', 'price_alerts', ['trigger_price'])
+    
+    # User settings indexes
+    op.create_index('idx_user_settings_user_id_category', 'user_settings', ['user_id', 'category'])
+    op.create_index('idx_user_settings_updated_at', 'user_settings', ['updated_at'])
+    
+    # System logs indexes (if exists)
+    try:
+        op.create_index('idx_system_logs_level_timestamp', 'system_logs', ['level', 'timestamp'])
+        op.create_index('idx_system_logs_module_timestamp', 'system_logs', ['module', 'timestamp'])
+        op.create_index('idx_system_logs_timestamp', 'system_logs', ['timestamp'])
+    except:
+        pass  # Table might not exist
+    
+    # Data export tasks indexes
+    op.create_index('idx_data_export_tasks_user_id_status', 'data_export_tasks', ['user_id', 'status'])
+    op.create_index('idx_data_export_tasks_status_created_at', 'data_export_tasks', ['status', 'created_at'])
+    op.create_index('idx_data_export_tasks_export_type', 'data_export_tasks', ['export_type'])
+
+def downgrade():
+    """Remove performance indexes"""
+    
+    # Orders table indexes
+    op.drop_index('idx_orders_user_id_status')
+    op.drop_index('idx_orders_symbol_created_at')
+    op.drop_index('idx_orders_status_created_at')
+    op.drop_index('idx_orders_user_id_created_at')
+    
+    # Positions table indexes
+    op.drop_index('idx_positions_user_id_status')
+    op.drop_index('idx_positions_symbol_status')
+    op.drop_index('idx_positions_user_id_symbol')
+    op.drop_index('idx_positions_updated_at')
+    
+    # Transactions table indexes
+    op.drop_index('idx_transactions_user_id_type')
+    op.drop_index('idx_transactions_user_id_created_at')
+    op.drop_index('idx_transactions_status_created_at')
+    op.drop_index('idx_transactions_reference_id')
+    
+    # Market data indexes
+    op.drop_index('idx_market_data_symbol_timestamp')
+    op.drop_index('idx_market_data_timestamp')
+    op.drop_index('idx_market_data_symbol_type')
+    
+    # Backtests table indexes
+    op.drop_index('idx_backtests_user_id_status')
+    op.drop_index('idx_backtests_strategy_id_created_at')
+    op.drop_index('idx_backtests_status_created_at')
+    
+    # Strategies table indexes
+    op.drop_index('idx_strategies_user_id_status')
+    op.drop_index('idx_strategies_type_status')
+    op.drop_index('idx_strategies_updated_at')
+    
+    # Risk monitoring indexes
+    op.drop_index('idx_risk_monitoring_user_id_timestamp')
+    op.drop_index('idx_risk_monitoring_alert_type_status')
+    op.drop_index('idx_risk_monitoring_timestamp')
+    
+    # Notifications table indexes
+    op.drop_index('idx_notifications_user_id_read')
+    op.drop_index('idx_notifications_user_id_created_at')
+    op.drop_index('idx_notifications_type_created_at')
+    
+    # Price alerts indexes
+    op.drop_index('idx_price_alerts_user_id_active')
+    op.drop_index('idx_price_alerts_symbol_active')
+    op.drop_index('idx_price_alerts_trigger_price')
+    
+    # User settings indexes
+    op.drop_index('idx_user_settings_user_id_category')
+    op.drop_index('idx_user_settings_updated_at')
+    
+    # System logs indexes
+    try:
+        op.drop_index('idx_system_logs_level_timestamp')
+        op.drop_index('idx_system_logs_module_timestamp')
+        op.drop_index('idx_system_logs_timestamp')
+    except:
+        pass
+    
+    # Data export tasks indexes
+    op.drop_index('idx_data_export_tasks_user_id_status')
+    op.drop_index('idx_data_export_tasks_status_created_at')
+    op.drop_index('idx_data_export_tasks_export_type')

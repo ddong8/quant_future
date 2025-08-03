@@ -279,13 +279,19 @@ class DatabaseHealthChecker:
         start_time = time.time()
         
         # 并行执行所有检查
-        checks = await asyncio.gather(
+        check_tasks = [
             self.check_postgresql_health(),
-            self.check_influxdb_health(),
             self.check_redis_health(),
             self.check_database_initialization_status(),
-            return_exceptions=True
-        )
+        ]
+        
+        # 在生产环境或明确启用时才检查 InfluxDB
+        import os
+        skip_influxdb = os.getenv("SKIP_INFLUXDB_CHECK", "false").lower() in ("true", "1", "yes")
+        if not skip_influxdb:
+            check_tasks.append(self.check_influxdb_health())
+        
+        checks = await asyncio.gather(*check_tasks, return_exceptions=True)
         
         # 处理检查结果
         results = {}

@@ -72,6 +72,64 @@ class Backtest(Base):
         return f"<Backtest(id={self.id}, name='{self.name}', status='{self.status}')>"
 
 
+class BacktestTemplate(Base):
+    """回测模板模型"""
+    __tablename__ = "backtest_templates"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    
+    # 模板配置
+    config = Column(JSON, nullable=False)  # 模板配置JSON
+    parameters = Column(JSON)  # 默认参数
+    
+    # 模板属性
+    is_public = Column(Boolean, default=False)  # 是否公开
+    is_system = Column(Boolean, default=False)  # 是否系统模板
+    
+    # 创建者
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # 时间戳
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # 关系
+    creator = relationship("User", foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f"<BacktestTemplate(id={self.id}, name='{self.name}')>"
+
+
+class BacktestComparison(Base):
+    """回测对比模型"""
+    __tablename__ = "backtest_comparisons"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    description = Column(Text)
+    
+    # 对比的回测ID列表
+    backtest_ids = Column(JSON, nullable=False)  # 回测ID列表
+    
+    # 对比结果
+    comparison_data = Column(JSON)  # 对比数据JSON
+    
+    # 创建者
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # 时间戳
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # 关系
+    creator = relationship("User", foreign_keys=[created_by])
+    
+    def __repr__(self):
+        return f"<BacktestComparison(id={self.id}, name='{self.name}')>"
+
+
 class BacktestReport(Base):
     """回测报告模型"""
     __tablename__ = "backtest_reports"

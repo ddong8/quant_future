@@ -1,0 +1,187 @@
+"""Add risk management tables
+
+Revision ID: 007
+Revises: 006
+Create Date: 2024-01-01 00:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '007'
+down_revision = '006'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建风险规则表
+    op.create_table('risk_rules',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('rule_type', sa.Enum('POSITION_LIMIT', 'CONCENTRATION', 'VAR_LIMIT', 'DRAWDOWN_LIMIT', 'LEVERAGE_LIMIT', 'LOSS_LIMIT', 'VOLATILITY_LIMIT', 'CORRELATION_LIMIT', 'LIQUIDITY_RISK', 'CUSTOM', name='riskruletype'), nullable=False),
+        sa.Column('conditions', sa.JSON(), nullable=False),
+        sa.Column('actions', sa.JSON(), nullable=False),
+        sa.Column('is_active', sa.Boolean(), nullable=True),
+        sa.Column('priority', sa.Integer(), nullable=True),
+        sa.Column('risk_level', sa.Enum('LOW', 'MEDIUM', 'HIGH', 'CRITICAL', name='risklevel'), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('strategy_id', sa.Integer(), nullable=True),
+        sa.Column('symbol_pattern', sa.String(length=100), nullable=True),
+        sa.Column('effective_from', sa.DateTime(), nullable=True),
+        sa.Column('effective_to', sa.DateTime(), nullable=True),
+        sa.Column('trigger_count', sa.Integer(), nullable=True),
+        sa.Column('last_triggered_at', sa.DateTime(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_by', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_rules_id'), 'risk_rules', ['id'], unique=False)
+    op.create_index(op.f('ix_risk_rules_name'), 'risk_rules', ['name'], unique=False)
+    op.create_index(op.f('ix_risk_rules_rule_type'), 'risk_rules', ['rule_type'], unique=False)
+
+    # 创建风险事件表
+    op.create_table('risk_events',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('rule_id', sa.Integer(), nullable=False),
+        sa.Column('event_type', sa.String(length=50), nullable=False),
+        sa.Column('severity', sa.Enum('LOW', 'MEDIUM', 'HIGH', 'CRITICAL', name='risklevel'), nullable=False),
+        sa.Column('status', sa.Enum('ACTIVE', 'RESOLVED', 'IGNORED', 'ESCALATED', name='riskeventstatus'), nullable=True),
+        sa.Column('title', sa.String(length=200), nullable=False),
+        sa.Column('message', sa.Text(), nullable=False),
+        sa.Column('data', sa.JSON(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=True),
+        sa.Column('strategy_id', sa.Integer(), nullable=True),
+        sa.Column('position_id', sa.Integer(), nullable=True),
+        sa.Column('order_id', sa.Integer(), nullable=True),
+        sa.Column('resolved_at', sa.DateTime(), nullable=True),
+        sa.Column('resolved_by', sa.Integer(), nullable=True),
+        sa.Column('resolution_notes', sa.Text(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ),
+        sa.ForeignKeyConstraint(['position_id'], ['positions.id'], ),
+        sa.ForeignKeyConstraint(['resolved_by'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['risk_rule_id'], ['risk_rules.id'], ),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_events_id'), 'risk_events', ['id'], unique=False)
+    op.create_index(op.f('ix_risk_events_event_type'), 'risk_events', ['event_type'], unique=False)
+    op.create_index(op.f('ix_risk_events_severity'), 'risk_events', ['severity'], unique=False)
+    op.create_index(op.f('ix_risk_events_status'), 'risk_events', ['status'], unique=False)
+    op.create_index(op.f('ix_risk_events_created_at'), 'risk_events', ['created_at'], unique=False)
+
+    # 创建风险指标表
+    op.create_table('risk_metrics',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('strategy_id', sa.Integer(), nullable=True),
+        sa.Column('date', sa.DateTime(), nullable=False),
+        sa.Column('period_type', sa.String(length=20), nullable=True),
+        sa.Column('portfolio_value', sa.DECIMAL(precision=18, scale=8), nullable=False),
+        sa.Column('cash_balance', sa.DECIMAL(precision=18, scale=8), nullable=False),
+        sa.Column('total_exposure', sa.DECIMAL(precision=18, scale=8), nullable=False),
+        sa.Column('net_exposure', sa.DECIMAL(precision=18, scale=8), nullable=False),
+        sa.Column('daily_return', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('cumulative_return', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('volatility', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('max_drawdown', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('current_drawdown', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('var_95', sa.DECIMAL(precision=18, scale=8), nullable=True),
+        sa.Column('var_99', sa.DECIMAL(precision=18, scale=8), nullable=True),
+        sa.Column('cvar_95', sa.DECIMAL(precision=18, scale=8), nullable=True),
+        sa.Column('leverage_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('concentration_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('liquidity_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('sharpe_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('sortino_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('calmar_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_metrics_id'), 'risk_metrics', ['id'], unique=False)
+    op.create_index(op.f('ix_risk_metrics_user_id'), 'risk_metrics', ['user_id'], unique=False)
+    op.create_index(op.f('ix_risk_metrics_strategy_id'), 'risk_metrics', ['strategy_id'], unique=False)
+    op.create_index(op.f('ix_risk_metrics_date'), 'risk_metrics', ['date'], unique=False)
+
+    # 创建风险限额表
+    op.create_table('risk_limits',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('strategy_id', sa.Integer(), nullable=True),
+        sa.Column('limit_type', sa.String(length=50), nullable=False),
+        sa.Column('limit_name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('limit_value', sa.DECIMAL(precision=18, scale=8), nullable=False),
+        sa.Column('current_value', sa.DECIMAL(precision=18, scale=8), nullable=True),
+        sa.Column('utilization_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('is_hard_limit', sa.Boolean(), nullable=True),
+        sa.Column('warning_threshold', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('reset_frequency', sa.String(length=20), nullable=True),
+        sa.Column('last_reset_at', sa.DateTime(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True),
+        sa.Column('is_breached', sa.Boolean(), nullable=True),
+        sa.Column('breach_count', sa.Integer(), nullable=True),
+        sa.Column('last_breach_at', sa.DateTime(), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('created_by', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['created_by'], ['users.id'], ),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_risk_limits_id'), 'risk_limits', ['id'], unique=False)
+    op.create_index(op.f('ix_risk_limits_user_id'), 'risk_limits', ['user_id'], unique=False)
+    op.create_index(op.f('ix_risk_limits_strategy_id'), 'risk_limits', ['strategy_id'], unique=False)
+    op.create_index(op.f('ix_risk_limits_limit_type'), 'risk_limits', ['limit_type'], unique=False)
+
+
+def downgrade():
+    # 删除风险限额表
+    op.drop_index(op.f('ix_risk_limits_limit_type'), table_name='risk_limits')
+    op.drop_index(op.f('ix_risk_limits_strategy_id'), table_name='risk_limits')
+    op.drop_index(op.f('ix_risk_limits_user_id'), table_name='risk_limits')
+    op.drop_index(op.f('ix_risk_limits_id'), table_name='risk_limits')
+    op.drop_table('risk_limits')
+
+    # 删除风险指标表
+    op.drop_index(op.f('ix_risk_metrics_date'), table_name='risk_metrics')
+    op.drop_index(op.f('ix_risk_metrics_strategy_id'), table_name='risk_metrics')
+    op.drop_index(op.f('ix_risk_metrics_user_id'), table_name='risk_metrics')
+    op.drop_index(op.f('ix_risk_metrics_id'), table_name='risk_metrics')
+    op.drop_table('risk_metrics')
+
+    # 删除风险事件表
+    op.drop_index(op.f('ix_risk_events_created_at'), table_name='risk_events')
+    op.drop_index(op.f('ix_risk_events_status'), table_name='risk_events')
+    op.drop_index(op.f('ix_risk_events_severity'), table_name='risk_events')
+    op.drop_index(op.f('ix_risk_events_event_type'), table_name='risk_events')
+    op.drop_index(op.f('ix_risk_events_id'), table_name='risk_events')
+    op.drop_table('risk_events')
+
+    # 删除风险规则表
+    op.drop_index(op.f('ix_risk_rules_rule_type'), table_name='risk_rules')
+    op.drop_index(op.f('ix_risk_rules_name'), table_name='risk_rules')
+    op.drop_index(op.f('ix_risk_rules_id'), table_name='risk_rules')
+    op.drop_table('risk_rules')
+
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS riskeventstatus')
+    op.execute('DROP TYPE IF EXISTS risklevel')
+    op.execute('DROP TYPE IF EXISTS riskruletype')

@@ -1,42 +1,23 @@
 """
 回测管理API路由
 """
-from fastapi import APIRouter, Depends, Query, status, BackgroundTasks
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from ...core.dependencies import (
-    get_db,
-    get_current_user,
-    require_trader_or_admin,
-    get_pagination_params,
-    get_sort_params,
-    PaginationParams,
-    SortParams,
-)
-from ...core.response import (
-    success_response,
-    created_response,
-    paginated_response,
-    deleted_response,
+from ...core.database import get_db
+from ...core.dependencies import get_current_user
+from ...models.user import User
+from ...models.backtest import BacktestStatus
+from ...schemas.backtest import (
+    BacktestCreate, BacktestUpdate, BacktestResponse, BacktestListResponse,
+    BacktestStatsResponse, BacktestSearchRequest,
+    BacktestComparisonRequest, BacktestComparisonResponse
 )
 from ...services.backtest_service import BacktestService
-from ...services.history_service import HistoryService
-from ...schemas.backtest import (
-    BacktestCreate,
-    BacktestUpdate,
-    BacktestResponse,
-    BacktestListResponse,
-    BacktestProgressResponse,
-    BacktestResultsResponse,
-    BacktestStatsResponse,
-    BacktestSearchRequest,
-    BacktestCloneRequest,
-    BacktestComparisonRequest,
-    BacktestComparisonResponse,
-)
-from ...models import User
-from ...models.enums import BacktestStatus
+from ...core.exceptions import ValidationError, NotFoundError
+from ...core.response import success_response, error_response
 
 router = APIRouter()
 
@@ -44,725 +25,558 @@ router = APIRouter()
 @router.post("/", response_model=BacktestResponse, status_code=status.HTTP_201_CREATED)
 async def create_backtest(
     backtest_data: BacktestCreate,
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """创建回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.create_backtest(
-        backtest_data.dict(), 
-        current_user.id
-    )
-    
-    return created_response(
-        data=BacktestResponse.from_orm(backtest).dict(),
-        message="回测创建成功"
-    )
+    try:
+        service = BacktestService(db)
+        backtest = service.create_backtest(backtest_data, current_user.id)
+        return success_response(data=backtest.to_dict(), message="回测创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建回测失败")
 
 
 @router.get("/", response_model=List[BacktestListResponse])
-async def get_backtests_list(
+async def search_backtests(
+    keyword: Optional[str] = Query(None, description="关键词搜索"),
     strategy_id: Optional[int] = Query(None, description="策略ID"),
+    backtest_type: Optional[str] = Query(None, description="回测类型"),
     status: Optional[BacktestStatus] = Query(None, description="回测状态"),
-    keyword: Optional[str] = Query(None, description="搜索关键词"),
-    pagination: PaginationParams = Depends(get_pagination_params),
-    sort_params: SortParams = Depends(get_sort_params),
-    current_user: User = Depends(require_trader_or_admin),
+    tags: Optional[List[str]] = Query(None, description="标签筛选"),
+    is_public: Optional[bool] = Query(None, description="是否公开"),
+    start_date_from: Optional[str] = Query(None, description="开始日期起始"),
+    start_date_to: Optional[str] = Query(None, description="开始日期结束"),
+    created_after: Optional[str] = Query(None, description="创建时间起始"),
+    created_before: Optional[str] = Query(None, description="创建时间结束"),
+    sort_by: str = Query("updated_at", description="排序字段"),
+    sort_order: str = Query("desc", description="排序方向"),
+    page: int = Query(1, ge=1, description="页码"),
+    page_size: int = Query(20, ge=1, le=100, description="每页数量"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取回测列表"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtests, total = backtest_service.get_backtests_list(
-        user_id=current_user.id,
-        strategy_id=strategy_id,
-        status=status,
-        keyword=keyword,
-        pagination=pagination,
-        sort_params=sort_params
-    )
-    
-    backtest_list = [BacktestListResponse.from_orm(bt) for bt in backtests]
-    
-    return paginated_response(
-        data=[bt.dict() for bt in backtest_list],
-        total=total,
-        page=pagination.page,
-        page_size=pagination.page_size,
-        message="获取回测列表成功"
-    )
+    """搜索回测"""
+    try:
+        # 构建搜索参数
+        search_params = BacktestSearchParams(
+            keyword=keyword,
+            strategy_id=strategy_id,
+            backtest_type=backtest_type,
+            status=status,
+            tags=tags or [],
+            is_public=is_public,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            page=page,
+            page_size=page_size
+        )
+        
+        # 处理日期参数
+        if start_date_from:
+            from datetime import datetime
+            search_params.start_date_from = datetime.fromisoformat(start_date_from)
+        if start_date_to:
+            from datetime import datetime
+            search_params.start_date_to = datetime.fromisoformat(start_date_to)
+        if created_after:
+            from datetime import datetime
+            search_params.created_after = datetime.fromisoformat(created_after)
+        if created_before:
+            from datetime import datetime
+            search_params.created_before = datetime.fromisoformat(created_before)
+        
+        service = BacktestService(db)
+        backtests, total = service.search_backtests(search_params, current_user.id)
+        
+        return success_response(
+            data=[backtest.to_dict() for backtest in backtests],
+            message="获取回测列表成功",
+            meta={
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": (total + page_size - 1) // page_size
+            }
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取回测列表失败")
 
 
 @router.get("/stats", response_model=BacktestStatsResponse)
 async def get_backtest_stats(
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取回测统计信息"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    stats = backtest_service.get_backtest_statistics(current_user.id)
-    
-    return success_response(
-        data=stats,
-        message="获取回测统计成功"
-    )
+    try:
+        service = BacktestService(db)
+        stats = service.get_backtest_stats(current_user.id)
+        return success_response(data=stats, message="获取统计信息成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取统计信息失败")
 
 
 @router.get("/{backtest_id}", response_model=BacktestResponse)
-async def get_backtest_by_id(
+async def get_backtest(
     backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """根据ID获取回测详情"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    return success_response(
-        data=BacktestResponse.from_orm(backtest).dict(),
-        message="获取回测详情成功"
-    )
+    """获取回测详情"""
+    try:
+        service = BacktestService(db)
+        backtest = service.get_backtest(backtest_id, current_user.id)
+        return success_response(data=backtest.to_dict(), message="获取回测详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取回测详情失败")
+
+
+@router.get("/uuid/{backtest_uuid}", response_model=BacktestResponse)
+async def get_backtest_by_uuid(
+    backtest_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """通过UUID获取回测详情"""
+    try:
+        service = BacktestService(db)
+        backtest = service.get_backtest_by_uuid(backtest_uuid, current_user.id)
+        return success_response(data=backtest.to_dict(), message="获取回测详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取回测详情失败")
 
 
 @router.put("/{backtest_id}", response_model=BacktestResponse)
 async def update_backtest(
     backtest_id: int,
     backtest_data: BacktestUpdate,
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """更新回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.update_backtest(
-        backtest_id, 
-        backtest_data.dict(exclude_unset=True), 
-        current_user.id
-    )
-    
-    return success_response(
-        data=BacktestResponse.from_orm(backtest).dict(),
-        message="回测更新成功"
-    )
+    try:
+        service = BacktestService(db)
+        backtest = service.update_backtest(backtest_id, backtest_data, current_user.id)
+        return success_response(data=backtest.to_dict(), message="回测更新成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="更新回测失败")
 
 
 @router.delete("/{backtest_id}")
 async def delete_backtest(
     backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """删除回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    success = backtest_service.delete_backtest(backtest_id, current_user.id)
-    
-    if success:
-        return deleted_response(message="回测删除成功")
-
-
-@router.post("/{backtest_id}/start")
-async def start_backtest(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """启动回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    result = await backtest_service.start_backtest(backtest_id, current_user.id)
-    
-    return success_response(
-        data=result,
-        message="回测启动成功"
-    )
-
-
-@router.post("/{backtest_id}/stop")
-async def stop_backtest(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """停止回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    result = backtest_service.stop_backtest(backtest_id, current_user.id)
-    
-    return success_response(
-        data=result,
-        message="回测停止成功"
-    )
-
-
-@router.get("/{backtest_id}/progress", response_model=BacktestProgressResponse)
-async def get_backtest_progress(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取回测进度"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    progress = backtest_service.get_backtest_progress(backtest_id, current_user.id)
-    
-    return success_response(
-        data=progress,
-        message="获取回测进度成功"
-    )
-
-
-@router.get("/{backtest_id}/results", response_model=BacktestResultsResponse)
-async def get_backtest_results(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取回测结果"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    results = backtest_service.get_backtest_results(backtest_id, current_user.id)
-    
-    return success_response(
-        data=results,
-        message="获取回测结果成功"
-    )
-
-
-@router.post("/{backtest_id}/clone", response_model=BacktestResponse)
-async def clone_backtest(
-    backtest_id: int,
-    clone_data: BacktestCloneRequest,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """克隆回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    cloned_backtest = backtest_service.clone_backtest(
-        backtest_id, 
-        clone_data.name, 
-        current_user.id
-    )
-    
-    return created_response(
-        data=BacktestResponse.from_orm(cloned_backtest).dict(),
-        message="回测克隆成功"
-    )
-
-
-@router.post("/compare", response_model=BacktestComparisonResponse)
-async def compare_backtests(
-    comparison_request: BacktestComparisonRequest,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """比较多个回测结果"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    comparison_data = backtest_service.compare_backtests(
-        comparison_request.backtest_ids, 
-        current_user.id
-    )
-    
-    return success_response(
-        data=comparison_data,
-        message="回测比较完成"
-    )
-
-
-@router.get("/{backtest_id}/equity-curve")
-async def get_equity_curve(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取资金曲线数据"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
-        return success_response(
-            data=[],
-            message="回测尚未完成"
-        )
-    
-    return success_response(
-        data=backtest.equity_curve or [],
-        message="获取资金曲线成功"
-    )
-
-
-@router.get("/{backtest_id}/trades")
-async def get_trade_records(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取交易记录"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
-        return success_response(
-            data=[],
-            message="回测尚未完成"
-        )
-    
-    return success_response(
-        data=backtest.trade_records or [],
-        message="获取交易记录成功"
-    )
-
-
-@router.get("/{backtest_id}/daily-returns")
-async def get_daily_returns(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取日收益率数据"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
-        return success_response(
-            data=[],
-            message="回测尚未完成"
-        )
-    
-    return success_response(
-        data=backtest.daily_returns or [],
-        message="获取日收益率成功"
-    )
-
-
-@router.get("/{backtest_id}/performance-metrics")
-async def get_performance_metrics(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取详细性能指标"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
-        return success_response(
-            data={},
-            message="回测尚未完成"
-        )
-    
-    # 构建详细性能指标
-    metrics = {
-        # 收益指标
-        'total_return': backtest.total_return,
-        'annual_return': backtest.annual_return,
-        'final_capital': backtest.final_capital,
-        'initial_capital': backtest.initial_capital,
-        
-        # 风险指标
-        'max_drawdown': backtest.max_drawdown,
-        'sharpe_ratio': backtest.sharpe_ratio,
-        'sortino_ratio': backtest.sortino_ratio,
-        
-        # 交易指标
-        'total_trades': backtest.total_trades,
-        'winning_trades': backtest.winning_trades,
-        'losing_trades': backtest.losing_trades,
-        'win_rate': backtest.win_rate,
-        'avg_win': backtest.avg_win,
-        'avg_loss': backtest.avg_loss,
-        'profit_factor': backtest.profit_factor,
-        
-        # 时间信息
-        'duration_days': (backtest.end_date - backtest.start_date).days,
-        'trading_period': f"{backtest.start_date.strftime('%Y-%m-%d')} 至 {backtest.end_date.strftime('%Y-%m-%d')}",
-        
-        # 策略信息
-        'strategy_id': backtest.strategy_id,
-        'symbols': backtest.symbols,
-        'parameters': backtest.parameters,
-    }
-    
-    return success_response(
-        data=metrics,
-        message="获取性能指标成功"
-    )
-
-
-@router.post("/{backtest_id}/restart")
-async def restart_backtest(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """重新启动回测"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    # 先停止（如果正在运行）
     try:
-        backtest_service.stop_backtest(backtest_id, current_user.id)
-    except:
-        pass  # 忽略停止失败的错误
-    
-    # 重新启动
-    result = await backtest_service.start_backtest(backtest_id, current_user.id)
-    
-    return success_response(
-        data=result,
-        message="回测重新启动成功"
-    )
+        service = BacktestService(db)
+        service.delete_backtest(backtest_id, current_user.id)
+        return success_response(message="回测删除成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="删除回测失败")
 
 
-@router.get("/running/list")
-async def get_running_backtests(
-    current_user: User = Depends(require_trader_or_admin),
+@router.post("/{backtest_id}/execute")
+async def execute_backtest(
+    backtest_id: int,
+    execution_request: dict,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取正在运行的回测列表"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    running_backtests, _ = backtest_service.get_backtests_list(
-        user_id=current_user.id,
-        status=BacktestStatus.RUNNING
-    )
-    
-    running_list = []
-    for backtest in running_backtests:
-        progress = backtest_service.get_backtest_progress(backtest.id, current_user.id)
-        running_list.append({
-            'id': backtest.id,
-            'name': backtest.name,
-            'strategy_id': backtest.strategy_id,
-            'progress': progress['progress'],
-            'started_at': progress['started_at'],
-            'eta': progress['eta']
-        })
-    
-    return success_response(
-        data=running_list,
-        message="获取运行中回测列表成功"
-    )
+    """执行回测操作"""
+    try:
+        service = BacktestService(db)
+        backtest = service.get_backtest(backtest_id, current_user.id)
+        
+        if not backtest:
+            raise NotFoundError("回测不存在或无权限访问")
+        
+        # 验证操作权限
+        if backtest.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="无权限执行此操作")
+        
+        # 根据动作执行相应操作
+        if execution_request.action == "start":
+            if backtest.status != BacktestStatus.PENDING:
+                raise ValidationError("只能启动待执行状态的回测")
+            
+            # 更新状态为运行中
+            service.update_backtest_status(backtest_id, BacktestStatus.RUNNING, 0.0)
+            
+            # 添加后台任务执行回测
+            # background_tasks.add_task(run_backtest_task, backtest_id)
+            
+            return success_response(
+                data={
+                    "backtest_id": backtest_id,
+                    "action": "start",
+                    "success": True,
+                    "message": "回测已开始执行",
+                    "execution_id": f"exec_{backtest_id}_{int(datetime.now().timestamp())}",
+                    "timestamp": datetime.now()
+                },
+                message="回测启动成功"
+            )
+        
+        elif execution_request.action == "stop":
+            if backtest.status != BacktestStatus.RUNNING:
+                raise ValidationError("只能停止运行中的回测")
+            
+            service.update_backtest_status(backtest_id, BacktestStatus.CANCELLED)
+            
+            return success_response(
+                data={
+                    "backtest_id": backtest_id,
+                    "action": "stop",
+                    "success": True,
+                    "message": "回测已停止",
+                    "timestamp": datetime.now()
+                },
+                message="回测停止成功"
+            )
+        
+        elif execution_request.action == "pause":
+            if backtest.status != BacktestStatus.RUNNING:
+                raise ValidationError("只能暂停运行中的回测")
+            
+            service.update_backtest_status(backtest_id, BacktestStatus.PAUSED)
+            
+            return success_response(
+                data={
+                    "backtest_id": backtest_id,
+                    "action": "pause",
+                    "success": True,
+                    "message": "回测已暂停",
+                    "timestamp": datetime.now()
+                },
+                message="回测暂停成功"
+            )
+        
+        elif execution_request.action == "resume":
+            if backtest.status != BacktestStatus.PAUSED:
+                raise ValidationError("只能恢复暂停状态的回测")
+            
+            service.update_backtest_status(backtest_id, BacktestStatus.RUNNING)
+            
+            return success_response(
+                data={
+                    "backtest_id": backtest_id,
+                    "action": "resume",
+                    "success": True,
+                    "message": "回测已恢复",
+                    "timestamp": datetime.now()
+                },
+                message="回测恢复成功"
+            )
+        
+        else:
+            raise ValidationError("不支持的执行动作")
+            
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="执行回测操作失败")
 
 
-@router.post("/batch-stop")
-async def batch_stop_backtests(
-    backtest_ids: List[int],
-    current_user: User = Depends(require_trader_or_admin),
+# 回测模板相关路由
+@router.get("/templates/")
+async def get_backtest_templates(
+    category: Optional[str] = Query(None, description="模板分类"),
+    is_official: Optional[bool] = Query(None, description="是否官方模板"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """批量停止回测"""
-    if len(backtest_ids) > 20:
+    """获取回测模板列表"""
+    try:
+        service = BacktestTemplateService(db)
+        templates = service.get_templates(category, is_official)
         return success_response(
-            data={'error': '批量操作最多支持20个回测'},
-            message="批量停止失败"
+            data=[template.to_dict() for template in templates],
+            message="获取模板列表成功"
         )
-    
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    results = []
-    for backtest_id in backtest_ids:
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取模板列表失败")
+
+
+@router.post("/templates/", status_code=status.HTTP_201_CREATED)
+async def create_backtest_template(
+    template_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """创建回测模板"""
+    try:
+        service = BacktestTemplateService(db)
+        template = service.create_template(template_data, current_user.id)
+        return success_response(data=template.to_dict(), message="模板创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建模板失败")
+
+
+@router.get("/templates/{template_id}")
+async def get_backtest_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取回测模板详情"""
+    try:
+        service = BacktestTemplateService(db)
+        template = service.get_template(template_id)
+        return success_response(data=template.to_dict(), message="获取模板详情成功")
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取模板详情失败")
+
+
+# 回测比较相关路由
+@router.post("/comparisons/", status_code=status.HTTP_201_CREATED)
+async def create_backtest_comparison(
+    comparison_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """创建回测比较"""
+    try:
+        service = BacktestComparisonService(db)
+        comparison = service.create_comparison(comparison_data, current_user.id)
+        return success_response(data=comparison.to_dict(), message="比较创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建比较失败")
+
+
+@router.get("/my", response_model=List[BacktestListResponse])
+async def get_my_backtests(
+    limit: int = Query(10, ge=1, le=50, description="返回数量"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取我的回测列表"""
+    try:
+        service = BacktestService(db)
+        backtests = service.get_user_backtests(current_user.id, limit)
+        return success_response(
+            data=[backtest.to_dict() for backtest in backtests],
+            message="获取我的回测列表成功"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取回测列表失败")
+# 任务管理相关路由
+@router.post("/{backtest_id}/tasks", response_model=dict, status_code=status.HTTP_201_CREATED)
+async def create_backtest_task(
+    backtest_id: int,
+    task_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """创建回测任务"""
+    try:
+        from ...services.backtest_task_service import get_task_service, TaskPriority
+        
+        task_service = get_task_service(db)
+        priority = TaskPriority(task_data.get('priority', 2))  # 默认普通优先级
+        
+        task = task_service.create_task(backtest_id, current_user.id, priority)
+        
+        return success_response(data=task.to_dict(), message="回测任务创建成功")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="创建回测任务失败")
+
+
+@router.get("/tasks/{task_id}", response_model=dict)
+async def get_task_status(
+    task_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取任务状态"""
+    try:
+        from ...services.backtest_task_service import get_task_service
+        
+        task_service = get_task_service(db)
+        task = task_service.get_task_status(task_id, current_user.id)
+        
+        if not task:
+            raise HTTPException(status_code=404, detail="任务不存在或无权限访问")
+        
+        return success_response(data=task.to_dict(), message="获取任务状态成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取任务状态失败")
+
+
+@router.post("/tasks/{task_id}/control", response_model=dict)
+async def control_task(
+    task_id: str,
+    control_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """控制任务执行"""
+    try:
+        from ...services.backtest_task_service import get_task_service, TaskAction
+        
+        action_str = control_data.get('action')
+        if not action_str:
+            raise HTTPException(status_code=400, detail="缺少操作参数")
+        
         try:
-            result = backtest_service.stop_backtest(backtest_id, current_user.id)
-            results.append({
-                'backtest_id': backtest_id,
-                'success': True,
-                'message': '停止成功'
-            })
-        except Exception as e:
-            results.append({
-                'backtest_id': backtest_id,
-                'success': False,
-                'message': str(e)
-            })
-    
-    success_count = len([r for r in results if r['success']])
-    
-    return success_response(
-        data={
-            'results': results,
-            'success_count': success_count,
-            'failed_count': len(results) - success_count
-        },
-        message=f"批量停止完成，成功: {success_count}, 失败: {len(results) - success_count}"
-    )
-# 回测分析和报告相关API
+            action = TaskAction(action_str)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="无效的操作类型")
+        
+        task_service = get_task_service(db)
+        success = task_service.control_task(task_id, action, current_user.id)
+        
+        if success:
+            return success_response(message=f"任务{action_str}操作成功")
+        else:
+            return error_response(message=f"任务{action_str}操作失败")
+            
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except NotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="控制任务失败")
 
-@router.get("/{backtest_id}/analysis")
-async def analyze_backtest_results(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
+
+@router.get("/tasks", response_model=dict)
+async def get_user_tasks(
+    status: Optional[str] = Query(None, description="任务状态筛选"),
+    limit: int = Query(50, ge=1, le=100, description="返回数量限制"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """分析回测结果"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    analysis_result = backtest_service.analyze_backtest_results(backtest_id, current_user.id)
-    
-    return success_response(
-        data=analysis_result,
-        message="回测结果分析完成"
-    )
-
-
-@router.post("/{backtest_id}/report")
-async def generate_backtest_report(
-    backtest_id: int,
-    report_type: str = Query("detailed", description="报告类型: summary/detailed"),
-    format: str = Query("html", description="报告格式: html/pdf"),
-    include_charts: bool = Query(True, description="是否包含图表"),
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """生成回测报告"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    report_result = backtest_service.generate_backtest_report(
-        backtest_id, 
-        current_user.id, 
-        report_type, 
-        format, 
-        include_charts
-    )
-    
-    return success_response(
-        data=report_result,
-        message="回测报告生成成功"
-    )
-
-
-@router.get("/{backtest_id}/charts/{chart_type}")
-async def get_chart_data(
-    backtest_id: int,
-    chart_type: str,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取图表数据
-    
-    支持的图表类型:
-    - equity_curve: 资金曲线
-    - drawdown: 回撤分析
-    - returns_distribution: 收益率分布
-    - monthly_returns: 月度收益热力图
-    - rolling_metrics: 滚动指标
-    - trade_analysis: 交易分析
-    - risk_metrics: 风险指标
-    """
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    chart_data = backtest_service.get_chart_data(backtest_id, current_user.id, chart_type)
-    
-    return success_response(
-        data=chart_data,
-        message=f"获取{chart_type}图表数据成功"
-    )
-
-
-@router.get("/{backtest_id}/attribution")
-async def get_performance_attribution(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取业绩归因分析"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    attribution_result = backtest_service.get_performance_attribution(backtest_id, current_user.id)
-    
-    return success_response(
-        data=attribution_result,
-        message="业绩归因分析完成"
-    )
-
-
-@router.post("/detailed-comparison")
-async def detailed_backtest_comparison(
-    backtest_ids: List[int],
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """详细回测比较"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    comparison_result = backtest_service.compare_backtests_detailed(backtest_ids, current_user.id)
-    
-    return success_response(
-        data=comparison_result,
-        message="详细回测比较完成"
-    )
-
-
-@router.get("/{backtest_id}/rolling-performance")
-async def get_rolling_performance(
-    backtest_id: int,
-    window: int = Query(252, description="滚动窗口大小（交易日）"),
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取滚动性能指标"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    rolling_result = backtest_service.get_rolling_performance(backtest_id, current_user.id, window)
-    
-    return success_response(
-        data=rolling_result,
-        message="获取滚动性能指标成功"
-    )
-
-
-@router.get("/{backtest_id}/risk-analysis")
-async def get_risk_analysis(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取风险分析"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    # 获取风险指标数据
-    risk_data = backtest_service.get_chart_data(backtest_id, current_user.id, "risk_metrics")
-    
-    return success_response(
-        data=risk_data,
-        message="风险分析完成"
-    )
-
-
-@router.get("/{backtest_id}/monthly-analysis")
-async def get_monthly_analysis(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
-    db: Session = Depends(get_db),
-):
-    """获取月度分析"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
+    """获取用户任务列表"""
+    try:
+        from ...services.backtest_task_service import get_task_service
+        from ...models.backtest import BacktestStatus
+        
+        task_service = get_task_service(db)
+        
+        # 状态过滤
+        status_filter = None
+        if status:
+            try:
+                status_filter = BacktestStatus(status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="无效的状态参数")
+        
+        tasks = task_service.get_user_tasks(current_user.id, status_filter, limit)
+        
         return success_response(
-            data={},
-            message="回测尚未完成"
+            data=[task.to_dict() for task in tasks],
+            message="获取任务列表成功"
         )
-    
-    # 获取月度收益数据
-    monthly_data = backtest_service.get_chart_data(backtest_id, current_user.id, "monthly_returns")
-    
-    return success_response(
-        data=monthly_data,
-        message="月度分析完成"
-    )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取任务列表失败")
 
 
-@router.get("/{backtest_id}/trade-analysis")
-async def get_trade_analysis(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
+@router.get("/queue/statistics", response_model=dict)
+async def get_queue_statistics(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取交易分析"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    trade_data = backtest_service.get_chart_data(backtest_id, current_user.id, "trade_analysis")
-    
-    return success_response(
-        data=trade_data,
-        message="交易分析完成"
-    )
+    """获取队列统计信息"""
+    try:
+        from ...services.backtest_task_service import get_task_service
+        
+        task_service = get_task_service(db)
+        stats = task_service.get_queue_statistics()
+        
+        return success_response(data=stats, message="获取队列统计成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取队列统计失败")
 
 
-@router.get("/{backtest_id}/summary-stats")
-async def get_summary_statistics(
-    backtest_id: int,
-    current_user: User = Depends(require_trader_or_admin),
+@router.get("/tasks/history", response_model=dict)
+async def get_task_history(
+    days: int = Query(30, ge=1, le=365, description="历史天数"),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """获取汇总统计"""
-    history_service = HistoryService(db)
-    backtest_service = BacktestService(db, history_service)
-    
-    backtest = backtest_service.get_backtest_by_id(backtest_id, current_user.id)
-    
-    if backtest.status != BacktestStatus.COMPLETED:
-        return success_response(
-            data={},
-            message="回测尚未完成"
-        )
-    
-    # 构建汇总统计
-    summary_stats = {
-        "基本信息": {
-            "回测名称": backtest.name,
-            "策略ID": backtest.strategy_id,
-            "回测期间": f"{backtest.start_date.strftime('%Y-%m-%d')} 至 {backtest.end_date.strftime('%Y-%m-%d')}",
-            "交易天数": (backtest.end_date - backtest.start_date).days,
-            "初始资金": backtest.initial_capital,
-            "最终资金": backtest.final_capital,
-            "交易品种": backtest.symbols,
-        },
-        "收益统计": {
-            "总收益": backtest.final_capital - backtest.initial_capital,
-            "总收益率": backtest.total_return,
-            "年化收益率": backtest.annual_return,
-            "最大回撤": backtest.max_drawdown,
-            "夏普比率": backtest.sharpe_ratio,
-            "索提诺比率": backtest.sortino_ratio,
-        },
-        "交易统计": {
-            "总交易次数": backtest.total_trades,
-            "盈利交易": backtest.winning_trades,
-            "亏损交易": backtest.losing_trades,
-            "胜率": backtest.win_rate,
-            "平均盈利": backtest.avg_win,
-            "平均亏损": backtest.avg_loss,
-            "盈亏比": backtest.profit_factor,
-        },
-        "时间统计": {
-            "创建时间": backtest.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            "开始时间": backtest.started_at.strftime('%Y-%m-%d %H:%M:%S') if backtest.started_at else None,
-            "完成时间": backtest.completed_at.strftime('%Y-%m-%d %H:%M:%S') if backtest.completed_at else None,
-            "执行耗时": str(backtest.completed_at - backtest.started_at) if backtest.started_at and backtest.completed_at else None,
-        }
-    }
-    
-    return success_response(
-        data=summary_stats,
-        message="获取汇总统计成功"
-    )
+    """获取任务历史记录"""
+    try:
+        from ...services.backtest_task_service import get_task_service
+        
+        task_service = get_task_service(db)
+        history = task_service.get_task_history(current_user.id, days)
+        
+        return success_response(data=history, message="获取任务历史成功")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="获取任务历史失败")
+
+
+@router.post("/compare", response_model=dict)
+async def compare_backtests(
+    comparison_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """比较回测结果"""
+    try:
+        from ...services.backtest_task_service import get_task_service
+        
+        backtest_ids = comparison_data.get('backtest_ids', [])
+        if len(backtest_ids) < 2:
+            raise HTTPException(status_code=400, detail="至少需要2个回测进行比较")
+        
+        task_service = get_task_service(db)
+        comparison_result = task_service.compare_backtest_results(backtest_ids, current_user.id)
+        
+        return success_response(data=comparison_result, message="回测比较完成")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="回测比较失败")
+
+
+# WebSocket路由
+from fastapi import WebSocket, WebSocketDisconnect
+from ...core.websocket import websocket_manager, websocket_handler
+
+@router.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    """WebSocket连接端点"""
+    await websocket_manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket_handler.handle_message(websocket, data)
+    except WebSocketDisconnect:
+        websocket_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket连接异常: {str(e)}")
+        websocket_manager.disconnect(websocket)

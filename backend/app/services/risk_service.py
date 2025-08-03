@@ -1,409 +1,545 @@
 """
 风险管理服务
 """
-from typing import Dict, Any, List, Optional
-from datetime import datetime, timedelta
+from typing import Dict, List, Any, Optional, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func
+from sqlalchemy import and_, or_, desc, func
+from datetime import datetime, timedelta
+from decimal import Decimal
+import numpy as np
+import pandas as pd
 import logging
 
-from ..models import Order, Position, Account, Strategy, User
-from ..models.enums import OrderDirection, OrderOffset, OrderStatus
-from ..core.exceptions import ValidationError
+from ..models.risk import RiskRule, RiskEvent, RiskMetrics, RiskLimit
+from ..models.enums import RiskLevel, RiskEventStatus, ActionType
+from ..models.position import Position
+from ..models.order import Order
+from ..models.user import User
+from ..models.strategy import Strategy
+from ..core.database import get_db
+from ..utils.risk_calculator import RiskCalculator
+from ..services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
 
 class RiskService:
-    """风险管理服务类"""
+    """风险管理服务"""
     
     def __init__(self, db: Session):
         self.db = db
+        self.risk_calculator = RiskCalculator()
+        self.notification_service = NotificationService()
+    
+    # ==================== 风险规则管理 ====================
+    
+    def create_risk_rule(self, rule_data: Dict[str, Any], created_by: int) -> RiskRule:
+        """创建风险规则"""
+        try:
+            rule = RiskRule(
+                name=rule_data['name'],
+                description=rule_data.get('description'),
+                rule_type=rule_data['rule_type'],
+                conditions=rule_data['conditions'],
+                actions=rule_data['actions'],
+                is_active=rule_data.get('is_active', True),
+                priority=rule_data.get('priority', 0),
+                risk_level=rule_data.get('risk_level', RiskLevel.MEDIUM),
+                user_id=rule_data.get('user_id'),
+                strategy_id=rule_data.get('strategy_id'),
+                symbol_pattern=rule_data.get('symbol_pattern'),
+                effective_from=rule_data.get('effective_from'),
+                effective_to=rule_data.get('effective_to'),
+                metadata=rule_data.get('metadata', {}),
+                created_by=created_by
+            )
+            
+            self.db.add(rule)
+            self.db.commit()
+            self.db.refresh(rule)
+            
+            logger.info(f"Created risk rule: {rule.name} (ID: {rule.id})")
+            return rule
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error creating risk rule: {e}")
+            raise
+    
+    def get_risk_rules(self, 
+                      user_id: Optional[int] = None,
+                      strategy_id: Optional[int] = None,
+                      rule_type: Optional[str] = None,
+                      is_active: Optional[bool] = None,
+                      skip: int = 0,
+                      limit: int = 100) -> List[RiskRule]:
+        """获取风险规则列表"""
+        query = self.db.query(RiskRule)
         
-        # 默认风险参数
-        self.default_risk_params = {
-            'max_position_ratio': 0.3,  # 单个品种最大持仓比例
-            'max_daily_loss': 0.05,     # 日最大亏损比例
-            'max_order_value': 1000000, # 单笔订单最大金额
-            'max_orders_per_minute': 10, # 每分钟最大订单数
-            'min_account_balance': 10000, # 最小账户余额
-        }
+        if user_id is not None:
+            query = query.filter(or_(RiskRule.user_id == user_id, RiskRule.user_id.is_(None)))
+        
+        if strategy_id is not None:
+            query = query.filter(or_(RiskRule.strategy_id == strategy_id, RiskRule.strategy_id.is_(None)))
+        
+        if rule_type is not None:
+            query = query.filter(RiskRule.rule_type == rule_type)
+        
+        if is_active is not None:
+            query = query.filter(RiskRule.is_active == is_active)
+        
+        return query.order_by(desc(RiskRule.priority), RiskRule.created_at).offset(skip).limit(limit).all()
     
-    def check_order_risk(self, order_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
-        """检查订单风险"""
+    def get_risk_rule(self, rule_id: int) -> Optional[RiskRule]:
+        """获取单个风险规则"""
+        return self.db.query(RiskRule).filter(RiskRule.id == rule_id).first()
+    
+    def update_risk_rule(self, rule_id: int, rule_data: Dict[str, Any]) -> Optional[RiskRule]:
+        """更新风险规则"""
         try:
-            risk_result = {
-                'passed': True,
-                'reason': '',
-                'warnings': [],
-                'checks': {}
-            }
+            rule = self.get_risk_rule(rule_id)
+            if not rule:
+                return None
             
-            # 1. 检查账户资金
-            account_check = self._check_account_balance(order_data, user_id)
-            risk_result['checks']['account_balance'] = account_check
-            if not account_check['passed']:
-                risk_result['passed'] = False
-                risk_result['reason'] = account_check['reason']
-                return risk_result
+            for key, value in rule_data.items():
+                if hasattr(rule, key):
+                    setattr(rule, key, value)
             
-            # 2. 检查持仓比例
-            position_check = self._check_position_ratio(order_data, user_id)
-            risk_result['checks']['position_ratio'] = position_check
-            if not position_check['passed']:
-                risk_result['passed'] = False
-                risk_result['reason'] = position_check['reason']
-                return risk_result
+            self.db.commit()
+            self.db.refresh(rule)
             
-            # 3. 检查订单金额
-            order_value_check = self._check_order_value(order_data)
-            risk_result['checks']['order_value'] = order_value_check
-            if not order_value_check['passed']:
-                risk_result['passed'] = False
-                risk_result['reason'] = order_value_check['reason']
-                return risk_result
-            
-            # 4. 检查交易频率
-            frequency_check = self._check_trading_frequency(order_data, user_id)
-            risk_result['checks']['trading_frequency'] = frequency_check
-            if not frequency_check['passed']:
-                risk_result['passed'] = False
-                risk_result['reason'] = frequency_check['reason']
-                return risk_result
-            
-            # 5. 检查日亏损限制
-            daily_loss_check = self._check_daily_loss_limit(order_data, user_id)
-            risk_result['checks']['daily_loss'] = daily_loss_check
-            if not daily_loss_check['passed']:
-                risk_result['warnings'].append(daily_loss_check['reason'])
-            
-            return risk_result
+            logger.info(f"Updated risk rule: {rule.name} (ID: {rule.id})")
+            return rule
             
         except Exception as e:
-            logger.error(f"风险检查失败: {e}")
-            return {
-                'passed': False,
-                'reason': f'风险检查系统错误: {str(e)}',
-                'warnings': [],
-                'checks': {}
-            }
+            self.db.rollback()
+            logger.error(f"Error updating risk rule {rule_id}: {e}")
+            raise
     
-    def _check_account_balance(self, order_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
-        """检查账户余额"""
+    def delete_risk_rule(self, rule_id: int) -> bool:
+        """删除风险规则"""
         try:
-            # 获取用户账户信息
-            account = self.db.query(Account).filter(Account.user_id == user_id).first()
+            rule = self.get_risk_rule(rule_id)
+            if not rule:
+                return False
             
-            if not account:
-                return {
-                    'passed': False,
-                    'reason': '未找到账户信息'
-                }
+            self.db.delete(rule)
+            self.db.commit()
             
-            # 计算订单所需资金
-            order_value = order_data['volume'] * order_data['price']
-            margin_required = order_value * 0.1  # 假设保证金率10%
-            
-            # 检查可用资金
-            if account.available < margin_required:
-                return {
-                    'passed': False,
-                    'reason': f'可用资金不足，需要 {margin_required:.2f}，可用 {account.available:.2f}'
-                }
-            
-            # 检查最小余额
-            if account.balance < self.default_risk_params['min_account_balance']:
-                return {
-                    'passed': False,
-                    'reason': f'账户余额低于最小要求 {self.default_risk_params["min_account_balance"]}'
-                }
-            
-            return {
-                'passed': True,
-                'reason': '账户资金检查通过',
-                'available_balance': account.available,
-                'required_margin': margin_required
-            }
+            logger.info(f"Deleted risk rule: {rule.name} (ID: {rule.id})")
+            return True
             
         except Exception as e:
-            logger.error(f"账户余额检查失败: {e}")
-            return {
-                'passed': False,
-                'reason': f'账户检查错误: {str(e)}'
-            }
+            self.db.rollback()
+            logger.error(f"Error deleting risk rule {rule_id}: {e}")
+            raise
     
-    def _check_position_ratio(self, order_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
-        """检查持仓比例"""
+    # ==================== 风险监控 ====================
+    
+    def check_risk_rules(self, context: Dict[str, Any]) -> List[RiskEvent]:
+        """检查风险规则并生成事件"""
+        events = []
+        
         try:
-            symbol = order_data['symbol']
-            strategy_id = order_data['strategy_id']
+            # 获取适用的风险规则
+            applicable_rules = self._get_applicable_rules(context)
             
-            # 获取当前持仓
-            current_position = self.db.query(Position).filter(
+            for rule in applicable_rules:
+                if rule.evaluate_conditions(context):
+                    # 创建风险事件
+                    event = self._create_risk_event(rule, context)
+                    events.append(event)
+                    
+                    # 执行风险处置动作
+                    self._execute_risk_actions(rule, event, context)
+                    
+                    # 更新规则统计
+                    rule.trigger_count += 1
+                    rule.last_triggered_at = datetime.now()
+            
+            self.db.commit()
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error checking risk rules: {e}")
+            raise
+        
+        return events
+    
+    def _get_applicable_rules(self, context: Dict[str, Any]) -> List[RiskRule]:
+        """获取适用的风险规则"""
+        query = self.db.query(RiskRule).filter(RiskRule.is_active == True)
+        
+        # 按优先级排序
+        rules = query.order_by(desc(RiskRule.priority)).all()
+        
+        # 过滤适用的规则
+        applicable_rules = []
+        for rule in rules:
+            if rule.is_applicable(context):
+                applicable_rules.append(rule)
+        
+        return applicable_rules
+    
+    def _create_risk_event(self, rule: RiskRule, context: Dict[str, Any]) -> RiskEvent:
+        """创建风险事件"""
+        event = RiskEvent(
+            rule_id=rule.id,
+            event_type=rule.rule_type.value,
+            severity=rule.risk_level,
+            title=f"风险规则触发: {rule.name}",
+            message=self._generate_event_message(rule, context),
+            data=context.copy(),
+            user_id=context.get('user_id'),
+            strategy_id=context.get('strategy_id'),
+            position_id=context.get('position_id'),
+            order_id=context.get('order_id')
+        )
+        
+        self.db.add(event)
+        self.db.flush()  # 获取ID但不提交
+        
+        logger.warning(f"Risk event created: {event.title} (ID: {event.id})")
+        return event
+    
+    def _generate_event_message(self, rule: RiskRule, context: Dict[str, Any]) -> str:
+        """生成事件消息"""
+        base_message = f"风险规则 '{rule.name}' 被触发"
+        
+        if rule.rule_type.value == "POSITION_LIMIT":
+            position_value = context.get('position_value', 0)
+            max_position = rule.conditions.get('max_position', 0)
+            return f"{base_message}：持仓价值 {position_value} 超过限制 {max_position}"
+        
+        elif rule.rule_type.value == "CONCENTRATION":
+            concentration = context.get('concentration', 0)
+            max_concentration = rule.conditions.get('max_concentration', 0)
+            return f"{base_message}：集中度 {concentration:.2%} 超过限制 {max_concentration:.2%}"
+        
+        elif rule.rule_type.value == "VAR_LIMIT":
+            var_value = context.get('var_value', 0)
+            max_var = rule.conditions.get('max_var', 0)
+            return f"{base_message}：VaR值 {var_value} 超过限制 {max_var}"
+        
+        elif rule.rule_type.value == "DRAWDOWN_LIMIT":
+            drawdown = context.get('drawdown', 0)
+            max_drawdown = rule.conditions.get('max_drawdown', 0)
+            return f"{base_message}：回撤 {abs(drawdown):.2%} 超过限制 {max_drawdown:.2%}"
+        
+        elif rule.rule_type.value == "LEVERAGE_LIMIT":
+            leverage = context.get('leverage', 0)
+            max_leverage = rule.conditions.get('max_leverage', 0)
+            return f"{base_message}：杠杆率 {leverage:.2f} 超过限制 {max_leverage:.2f}"
+        
+        elif rule.rule_type.value == "LOSS_LIMIT":
+            loss = context.get('loss', 0)
+            max_loss = rule.conditions.get('max_loss', 0)
+            return f"{base_message}：亏损 {abs(loss)} 超过限制 {max_loss}"
+        
+        else:
+            return base_message
+    
+    def _execute_risk_actions(self, rule: RiskRule, event: RiskEvent, context: Dict[str, Any]):
+        """执行风险处置动作"""
+        actions = rule.actions
+        if not actions:
+            return
+        
+        for action in actions:
+            action_type = action.get('type')
+            action_params = action.get('params', {})
+            
+            try:
+                if action_type == ActionType.ALERT.value:
+                    self._send_alert(event, action_params)
+                
+                elif action_type == ActionType.BLOCK_ORDER.value:
+                    self._block_order(context, action_params)
+                
+                elif action_type == ActionType.FORCE_CLOSE.value:
+                    self._force_close_position(context, action_params)
+                
+                elif action_type == ActionType.REDUCE_POSITION.value:
+                    self._reduce_position(context, action_params)
+                
+                elif action_type == ActionType.SUSPEND_TRADING.value:
+                    self._suspend_trading(context, action_params)
+                
+                elif action_type == ActionType.NOTIFY_ADMIN.value:
+                    self._notify_admin(event, action_params)
+                
+                logger.info(f"Executed risk action: {action_type} for event {event.id}")
+                
+            except Exception as e:
+                logger.error(f"Error executing risk action {action_type}: {e}")
+    
+    def _send_alert(self, event: RiskEvent, params: Dict[str, Any]):
+        """发送告警"""
+        self.notification_service.send_risk_alert(
+            user_id=event.user_id,
+            title=event.title,
+            message=event.message,
+            severity=event.severity.value,
+            data=event.data
+        )
+    
+    def _block_order(self, context: Dict[str, Any], params: Dict[str, Any]):
+        """阻止订单"""
+        order_id = context.get('order_id')
+        if order_id:
+            # 这里应该调用订单服务来取消或阻止订单
+            logger.info(f"Blocking order {order_id}")
+    
+    def _force_close_position(self, context: Dict[str, Any], params: Dict[str, Any]):
+        """强制平仓"""
+        position_id = context.get('position_id')
+        if position_id:
+            # 这里应该调用交易服务来强制平仓
+            logger.info(f"Force closing position {position_id}")
+    
+    def _reduce_position(self, context: Dict[str, Any], params: Dict[str, Any]):
+        """减仓"""
+        position_id = context.get('position_id')
+        reduce_ratio = params.get('reduce_ratio', 0.5)
+        if position_id:
+            # 这里应该调用交易服务来减仓
+            logger.info(f"Reducing position {position_id} by {reduce_ratio:.2%}")
+    
+    def _suspend_trading(self, context: Dict[str, Any], params: Dict[str, Any]):
+        """暂停交易"""
+        user_id = context.get('user_id')
+        strategy_id = context.get('strategy_id')
+        duration = params.get('duration_minutes', 60)
+        
+        # 这里应该调用用户服务来暂停交易
+        logger.info(f"Suspending trading for user {user_id}, strategy {strategy_id} for {duration} minutes")
+    
+    def _notify_admin(self, event: RiskEvent, params: Dict[str, Any]):
+        """通知管理员"""
+        self.notification_service.send_admin_notification(
+            title=f"严重风险事件: {event.title}",
+            message=event.message,
+            severity=event.severity.value,
+            data=event.data
+        )
+    
+    # ==================== 风险事件管理 ====================
+    
+    def get_risk_events(self,
+                       user_id: Optional[int] = None,
+                       strategy_id: Optional[int] = None,
+                       event_type: Optional[str] = None,
+                       severity: Optional[str] = None,
+                       status: Optional[str] = None,
+                       start_date: Optional[datetime] = None,
+                       end_date: Optional[datetime] = None,
+                       skip: int = 0,
+                       limit: int = 100) -> List[RiskEvent]:
+        """获取风险事件列表"""
+        query = self.db.query(RiskEvent)
+        
+        if user_id is not None:
+            query = query.filter(RiskEvent.user_id == user_id)
+        
+        if strategy_id is not None:
+            query = query.filter(RiskEvent.strategy_id == strategy_id)
+        
+        if event_type is not None:
+            query = query.filter(RiskEvent.event_type == event_type)
+        
+        if severity is not None:
+            query = query.filter(RiskEvent.severity == severity)
+        
+        if status is not None:
+            query = query.filter(RiskEvent.status == status)
+        
+        if start_date is not None:
+            query = query.filter(RiskEvent.created_at >= start_date)
+        
+        if end_date is not None:
+            query = query.filter(RiskEvent.created_at <= end_date)
+        
+        return query.order_by(desc(RiskEvent.created_at)).offset(skip).limit(limit).all()
+    
+    def get_risk_event(self, event_id: int) -> Optional[RiskEvent]:
+        """获取单个风险事件"""
+        return self.db.query(RiskEvent).filter(RiskEvent.id == event_id).first()
+    
+    def resolve_risk_event(self, event_id: int, resolved_by: int, notes: str = None) -> Optional[RiskEvent]:
+        """解决风险事件"""
+        try:
+            event = self.get_risk_event(event_id)
+            if not event:
+                return None
+            
+            event.resolve(resolved_by, notes)
+            self.db.commit()
+            
+            logger.info(f"Resolved risk event {event_id} by user {resolved_by}")
+            return event
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error resolving risk event {event_id}: {e}")
+            raise
+    
+    def escalate_risk_event(self, event_id: int) -> Optional[RiskEvent]:
+        """升级风险事件"""
+        try:
+            event = self.get_risk_event(event_id)
+            if not event:
+                return None
+            
+            event.escalate()
+            self.db.commit()
+            
+            # 发送升级通知
+            self._notify_admin(event, {'escalated': True})
+            
+            logger.info(f"Escalated risk event {event_id}")
+            return event
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error escalating risk event {event_id}: {e}")
+            raise
+    
+    # ==================== 风险指标计算 ====================
+    
+    def calculate_risk_metrics(self, user_id: int, strategy_id: Optional[int] = None, 
+                             date: Optional[datetime] = None) -> RiskMetrics:
+        """计算风险指标"""
+        if date is None:
+            date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        try:
+            # 获取用户持仓数据
+            positions = self._get_user_positions(user_id, strategy_id)
+            
+            # 获取历史价格数据
+            price_data = self._get_price_data(positions, date)
+            
+            # 计算基础指标
+            portfolio_value = self.risk_calculator.calculate_portfolio_value(positions, price_data)
+            cash_balance = self._get_cash_balance(user_id)
+            total_exposure = self.risk_calculator.calculate_total_exposure(positions, price_data)
+            net_exposure = self.risk_calculator.calculate_net_exposure(positions, price_data)
+            
+            # 计算收益指标
+            daily_return = self.risk_calculator.calculate_daily_return(user_id, date)
+            cumulative_return = self.risk_calculator.calculate_cumulative_return(user_id, date)
+            
+            # 计算风险指标
+            volatility = self.risk_calculator.calculate_volatility(user_id, date)
+            max_drawdown = self.risk_calculator.calculate_max_drawdown(user_id, date)
+            current_drawdown = self.risk_calculator.calculate_current_drawdown(user_id, date)
+            var_95 = self.risk_calculator.calculate_var(positions, price_data, confidence=0.95)
+            var_99 = self.risk_calculator.calculate_var(positions, price_data, confidence=0.99)
+            cvar_95 = self.risk_calculator.calculate_cvar(positions, price_data, confidence=0.95)
+            
+            # 计算杠杆和集中度
+            leverage_ratio = self.risk_calculator.calculate_leverage_ratio(total_exposure, portfolio_value)
+            concentration_ratio = self.risk_calculator.calculate_concentration_ratio(positions, price_data)
+            
+            # 计算流动性指标
+            liquidity_ratio = self.risk_calculator.calculate_liquidity_ratio(positions)
+            
+            # 计算其他指标
+            sharpe_ratio = self.risk_calculator.calculate_sharpe_ratio(user_id, date)
+            sortino_ratio = self.risk_calculator.calculate_sortino_ratio(user_id, date)
+            calmar_ratio = self.risk_calculator.calculate_calmar_ratio(user_id, date)
+            
+            # 创建或更新风险指标记录
+            metrics = self.db.query(RiskMetrics).filter(
                 and_(
-                    Position.strategy_id == strategy_id,
-                    Position.symbol == symbol
+                    RiskMetrics.user_id == user_id,
+                    RiskMetrics.strategy_id == strategy_id,
+                    RiskMetrics.date == date
                 )
             ).first()
             
-            # 获取账户总价值
-            account = self.db.query(Account).filter(Account.user_id == user_id).first()
-            if not account:
-                return {
-                    'passed': False,
-                    'reason': '未找到账户信息'
-                }
-            
-            total_value = account.balance + account.unrealized_pnl
-            
-            # 计算新订单后的持仓价值
-            order_value = order_data['volume'] * order_data['price']
-            current_position_value = 0
-            
-            if current_position:
-                current_position_value = current_position.volume * order_data['price']
-            
-            # 根据订单类型计算新的持仓价值
-            if order_data['offset'] == OrderOffset.OPEN:
-                new_position_value = current_position_value + order_value
-            else:
-                new_position_value = max(0, current_position_value - order_value)
-            
-            # 检查持仓比例
-            position_ratio = new_position_value / total_value if total_value > 0 else 0
-            max_ratio = self.default_risk_params['max_position_ratio']
-            
-            if position_ratio > max_ratio:
-                return {
-                    'passed': False,
-                    'reason': f'持仓比例超限，当前 {position_ratio:.2%}，最大允许 {max_ratio:.2%}'
-                }
-            
-            return {
-                'passed': True,
-                'reason': '持仓比例检查通过',
-                'current_ratio': position_ratio,
-                'max_ratio': max_ratio
-            }
-            
-        except Exception as e:
-            logger.error(f"持仓比例检查失败: {e}")
-            return {
-                'passed': False,
-                'reason': f'持仓检查错误: {str(e)}'
-            }
-    
-    def _check_order_value(self, order_data: Dict[str, Any]) -> Dict[str, Any]:
-        """检查订单金额"""
-        try:
-            order_value = order_data['volume'] * order_data['price']
-            max_value = self.default_risk_params['max_order_value']
-            
-            if order_value > max_value:
-                return {
-                    'passed': False,
-                    'reason': f'订单金额超限，当前 {order_value:.2f}，最大允许 {max_value:.2f}'
-                }
-            
-            return {
-                'passed': True,
-                'reason': '订单金额检查通过',
-                'order_value': order_value,
-                'max_value': max_value
-            }
-            
-        except Exception as e:
-            logger.error(f"订单金额检查失败: {e}")
-            return {
-                'passed': False,
-                'reason': f'订单金额检查错误: {str(e)}'
-            }
-    
-    def _check_trading_frequency(self, order_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
-        """检查交易频率"""
-        try:
-            strategy_id = order_data['strategy_id']
-            
-            # 检查最近1分钟的订单数量
-            one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
-            
-            recent_orders_count = self.db.query(Order).join(Strategy).filter(
-                and_(
-                    Strategy.user_id == user_id,
-                    Order.strategy_id == strategy_id,
-                    Order.created_at >= one_minute_ago
+            if not metrics:
+                metrics = RiskMetrics(
+                    user_id=user_id,
+                    strategy_id=strategy_id,
+                    date=date
                 )
-            ).count()
+                self.db.add(metrics)
             
-            max_orders = self.default_risk_params['max_orders_per_minute']
+            # 更新指标值
+            metrics.portfolio_value = portfolio_value
+            metrics.cash_balance = cash_balance
+            metrics.total_exposure = total_exposure
+            metrics.net_exposure = net_exposure
+            metrics.daily_return = daily_return
+            metrics.cumulative_return = cumulative_return
+            metrics.volatility = volatility
+            metrics.max_drawdown = max_drawdown
+            metrics.current_drawdown = current_drawdown
+            metrics.var_95 = var_95
+            metrics.var_99 = var_99
+            metrics.cvar_95 = cvar_95
+            metrics.leverage_ratio = leverage_ratio
+            metrics.concentration_ratio = concentration_ratio
+            metrics.liquidity_ratio = liquidity_ratio
+            metrics.sharpe_ratio = sharpe_ratio
+            metrics.sortino_ratio = sortino_ratio
+            metrics.calmar_ratio = calmar_ratio
             
-            if recent_orders_count >= max_orders:
-                return {
-                    'passed': False,
-                    'reason': f'交易频率过高，1分钟内已下单 {recent_orders_count} 次，最大允许 {max_orders} 次'
-                }
+            self.db.commit()
+            self.db.refresh(metrics)
             
-            return {
-                'passed': True,
-                'reason': '交易频率检查通过',
-                'recent_orders': recent_orders_count,
-                'max_orders': max_orders
-            }
-            
-        except Exception as e:
-            logger.error(f"交易频率检查失败: {e}")
-            return {
-                'passed': False,
-                'reason': f'交易频率检查错误: {str(e)}'
-            }
-    
-    def _check_daily_loss_limit(self, order_data: Dict[str, Any], user_id: int) -> Dict[str, Any]:
-        """检查日亏损限制"""
-        try:
-            # 获取今日已实现盈亏
-            today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-            
-            account = self.db.query(Account).filter(Account.user_id == user_id).first()
-            if not account:
-                return {
-                    'passed': False,
-                    'reason': '未找到账户信息'
-                }
-            
-            # 计算今日盈亏（简化计算）
-            today_pnl = account.realized_pnl  # 这里应该是今日的实现盈亏
-            
-            # 检查是否超过日亏损限制
-            max_daily_loss = account.balance * self.default_risk_params['max_daily_loss']
-            
-            if today_pnl < -max_daily_loss:
-                return {
-                    'passed': False,
-                    'reason': f'今日亏损已达限制，当前亏损 {abs(today_pnl):.2f}，限制 {max_daily_loss:.2f}'
-                }
-            
-            return {
-                'passed': True,
-                'reason': '日亏损检查通过',
-                'today_pnl': today_pnl,
-                'max_loss': max_daily_loss
-            }
+            logger.info(f"Calculated risk metrics for user {user_id}, strategy {strategy_id}")
+            return metrics
             
         except Exception as e:
-            logger.error(f"日亏损检查失败: {e}")
-            return {
-                'passed': True,  # 检查失败时不阻止交易，只记录警告
-                'reason': f'日亏损检查错误: {str(e)}'
-            }
+            self.db.rollback()
+            logger.error(f"Error calculating risk metrics: {e}")
+            raise
     
-    def get_risk_summary(self, user_id: int) -> Dict[str, Any]:
-        """获取风险摘要"""
-        try:
-            account = self.db.query(Account).filter(Account.user_id == user_id).first()
-            if not account:
-                return {'error': '未找到账户信息'}
-            
-            # 计算各项风险指标
-            total_value = account.balance + account.unrealized_pnl
-            
-            # 持仓风险
-            positions = self.db.query(Position).join(Strategy).filter(
-                Strategy.user_id == user_id
-            ).all()
-            
-            position_risks = []
-            total_position_value = 0
-            
-            for position in positions:
-                position_value = position.volume * position.avg_price  # 简化计算
-                position_ratio = position_value / total_value if total_value > 0 else 0
-                total_position_value += position_value
-                
-                position_risks.append({
-                    'symbol': position.symbol,
-                    'value': position_value,
-                    'ratio': position_ratio,
-                    'risk_level': 'high' if position_ratio > 0.2 else 'medium' if position_ratio > 0.1 else 'low'
-                })
-            
-            # 整体风险度
-            overall_risk_ratio = total_position_value / total_value if total_value > 0 else 0
-            
-            # 资金使用率
-            fund_usage_ratio = account.margin / account.balance if account.balance > 0 else 0
-            
-            return {
-                'account_balance': account.balance,
-                'available_funds': account.available,
-                'total_value': total_value,
-                'margin_used': account.margin,
-                'fund_usage_ratio': fund_usage_ratio,
-                'overall_risk_ratio': overall_risk_ratio,
-                'position_risks': position_risks,
-                'risk_level': self._calculate_risk_level(overall_risk_ratio, fund_usage_ratio),
-                'daily_pnl': account.realized_pnl + account.unrealized_pnl,
-                'risk_warnings': self._generate_risk_warnings(account, overall_risk_ratio, fund_usage_ratio)
-            }
-            
-        except Exception as e:
-            logger.error(f"获取风险摘要失败: {e}")
-            return {'error': f'风险摘要计算错误: {str(e)}'}
+    def get_risk_metrics(self,
+                        user_id: int,
+                        strategy_id: Optional[int] = None,
+                        start_date: Optional[datetime] = None,
+                        end_date: Optional[datetime] = None,
+                        period_type: str = 'daily') -> List[RiskMetrics]:
+        """获取风险指标历史数据"""
+        query = self.db.query(RiskMetrics).filter(
+            RiskMetrics.user_id == user_id,
+            RiskMetrics.period_type == period_type
+        )
+        
+        if strategy_id is not None:
+            query = query.filter(RiskMetrics.strategy_id == strategy_id)
+        
+        if start_date is not None:
+            query = query.filter(RiskMetrics.date >= start_date)
+        
+        if end_date is not None:
+            query = query.filter(RiskMetrics.date <= end_date)
+        
+        return query.order_by(RiskMetrics.date).all()
     
-    def _calculate_risk_level(self, position_ratio: float, fund_usage_ratio: float) -> str:
-        """计算风险等级"""
-        if position_ratio > 0.5 or fund_usage_ratio > 0.8:
-            return 'high'
-        elif position_ratio > 0.3 or fund_usage_ratio > 0.6:
-            return 'medium'
-        else:
-            return 'low'
+    def _get_user_positions(self, user_id: int, strategy_id: Optional[int] = None) -> List[Position]:
+        """获取用户持仓"""
+        query = self.db.query(Position).filter(Position.user_id == user_id)
+        
+        if strategy_id is not None:
+            query = query.filter(Position.strategy_id == strategy_id)
+        
+        return query.all()
     
-    def _generate_risk_warnings(self, account: Account, position_ratio: float, fund_usage_ratio: float) -> List[str]:
-        """生成风险警告"""
-        warnings = []
-        
-        if position_ratio > 0.4:
-            warnings.append(f"持仓比例过高 ({position_ratio:.1%})，建议降低仓位")
-        
-        if fund_usage_ratio > 0.7:
-            warnings.append(f"资金使用率过高 ({fund_usage_ratio:.1%})，建议增加保证金")
-        
-        if account.available < account.balance * 0.2:
-            warnings.append("可用资金不足，建议减少持仓或增加资金")
-        
-        if account.unrealized_pnl < -account.balance * 0.1:
-            warnings.append("未实现亏损较大，建议检查持仓风险")
-        
-        return warnings
+    def _get_price_data(self, positions: List[Position], date: datetime) -> Dict[str, float]:
+        """获取价格数据"""
+        # 这里应该从市场数据服务获取价格数据
+        # 暂时返回模拟数据
+        price_data = {}
+        for position in positions:
+            price_data[position.symbol] = 100.0  # 模拟价格
+        return price_data
     
-    def update_risk_parameters(self, user_id: int, risk_params: Dict[str, Any]) -> Dict[str, Any]:
-        """更新风险参数"""
-        try:
-            # 这里应该将风险参数存储到数据库中
-            # 为简化，暂时只更新内存中的参数
-            
-            allowed_params = [
-                'max_position_ratio', 'max_daily_loss', 'max_order_value',
-                'max_orders_per_minute', 'min_account_balance'
-            ]
-            
-            updated_params = {}
-            for param, value in risk_params.items():
-                if param in allowed_params:
-                    self.default_risk_params[param] = value
-                    updated_params[param] = value
-            
-            logger.info(f"用户 {user_id} 风险参数更新: {updated_params}")
-            
-            return {
-                'success': True,
-                'updated_params': updated_params,
-                'current_params': self.default_risk_params
-            }
-            
-        except Exception as e:
-            logger.error(f"更新风险参数失败: {e}")
-            return {
-                'success': False,
-                'error': str(e)
-            }
+    def _get_cash_balance(self, user_id: int) -> Decimal:
+        """获取现金余额"""
+        # 这里应该从账户服务获取现金余额
+        # 暂时返回模拟数据
+        return Decimal('10000.00')

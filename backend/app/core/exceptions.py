@@ -288,3 +288,7 @@ def business_logic_error(message: str, error_code: str = "BUSINESS_LOGIC_ERROR")
 def system_error(message: str = "系统错误") -> SystemError:
     """创建系统错误"""
     return SystemError(message=message)
+
+
+# 为了向后兼容，添加别名
+PermissionError = AuthorizationError

@@ -1,397 +1,422 @@
+/**
+ * 策略状态管理
+ */
+
 import { defineStore } from 'pinia'
-import { ref, computed, readonly } from 'vue'
+import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
+import { StrategyApi } from '@/api/strategy'
 import type {
   Strategy,
-  StrategyFile,
-  StrategyTemplate,
-  StrategyCategory,
-  CreateStrategyRequest,
-  UpdateStrategyRequest
+  StrategyListItem,
+  StrategyCreateRequest,
+  StrategyUpdateRequest,
+  StrategySearchParams,
+  StrategyVersion,
+  StrategyStats,
+  StrategyExecutionRequest,
+  StrategyStatus
 } from '@/types/strategy'
-import { strategyApi } from '@/api/strategy'
-import { ElMessage } from 'element-plus'
 
 export const useStrategyStore = defineStore('strategy', () => {
   // 状态
-  const strategies = ref<Strategy[]>([])
+  const strategies = ref<StrategyListItem[]>([])
   const currentStrategy = ref<Strategy | null>(null)
-  const strategyFiles = ref<StrategyFile[]>([])
-  const templates = ref<StrategyTemplate[]>([])
-  const categories = ref<StrategyCategory[]>([])
+  const strategyVersions = ref<StrategyVersion[]>([])
+  const strategyStats = ref<StrategyStats | null>(null)
   const loading = ref(false)
+  const searchParams = ref<StrategySearchParams>({
+    page: 1,
+    page_size: 20,
+    sort_by: 'updated_at',
+    sort_order: 'desc'
+  })
   const total = ref(0)
-  const currentPage = ref(1)
-  const pageSize = ref(20)
 
   // 计算属性
-  const activeStrategies = computed(() => 
-    strategies.value.filter(s => s.status === 'active')
-  )
-  
-  const draftStrategies = computed(() => 
-    strategies.value.filter(s => s.status === 'draft')
-  )
-  
-  const runningStrategies = computed(() => 
-    strategies.value.filter(s => s.runtime?.is_running)
-  )
+  const hasStrategies = computed(() => strategies.value.length > 0)
+  const totalPages = computed(() => Math.ceil(total.value / (searchParams.value.page_size || 20)))
+  const runningStrategies = computed(() => strategies.value.filter(s => s.is_running))
+  const activeStrategies = computed(() => strategies.value.filter(s => s.status === 'active'))
+  const draftStrategies = computed(() => strategies.value.filter(s => s.status === 'draft'))
 
-  // 获取策略列表
-  const fetchStrategies = async (params?: {
-    page?: number
-    page_size?: number
-    category?: string
-    status?: string
-    search?: string
-    user_id?: number
-    is_public?: boolean
-  }) => {
+  // 操作方法
+  const fetchStrategies = async (params?: StrategySearchParams) => {
     try {
       loading.value = true
-      const response = await strategyApi.getStrategies(params)
+      
+      if (params) {
+        searchParams.value = { ...searchParams.value, ...params }
+      }
+      
+      const response = await StrategyApi.getStrategies(searchParams.value)
       
       if (response.success) {
-        strategies.value = response.data.strategies
+        strategies.value = response.data.items
         total.value = response.data.total
-        currentPage.value = response.data.page
-        pageSize.value = response.data.page_size
+      } else {
+        ElMessage.error(response.message || '获取策略列表失败')
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '获取策略列表失败')
+    } catch (error) {
+      console.error('获取策略列表失败:', error)
+      ElMessage.error('获取策略列表失败')
     } finally {
       loading.value = false
     }
   }
 
-  // 获取单个策略
+  const fetchMyStrategies = async (status?: StrategyStatus) => {
+    try {
+      loading.value = true
+      const response = await StrategyApi.getMyStrategies(status)
+      
+      if (response.success) {
+        strategies.value = response.data
+      } else {
+        ElMessage.error(response.message || '获取我的策略失败')
+      }
+    } catch (error) {
+      console.error('获取我的策略失败:', error)
+      ElMessage.error('获取我的策略失败')
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const fetchStrategyStats = async () => {
+    try {
+      const response = await StrategyApi.getStrategyStats()
+      
+      if (response.success) {
+        strategyStats.value = response.data
+      } else {
+        ElMessage.error(response.message || '获取策略统计失败')
+      }
+    } catch (error) {
+      console.error('获取策略统计失败:', error)
+      ElMessage.error('获取策略统计失败')
+    }
+  }
+
   const fetchStrategy = async (id: number) => {
     try {
       loading.value = true
-      const response = await strategyApi.getStrategy(id)
+      const response = await StrategyApi.getStrategy(id)
       
       if (response.success) {
-        currentStrategy.value = response.data.strategy
-        return response.data.strategy
+        currentStrategy.value = response.data
+        return response.data
+      } else {
+        ElMessage.error(response.message || '获取策略详情失败')
+        return null
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '获取策略详情失败')
-      throw error
+    } catch (error) {
+      console.error('获取策略详情失败:', error)
+      ElMessage.error('获取策略详情失败')
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  // 创建策略
-  const createStrategy = async (data: CreateStrategyRequest) => {
+  const fetchStrategyByUuid = async (uuid: string) => {
     try {
       loading.value = true
-      const response = await strategyApi.createStrategy(data)
+      const response = await StrategyApi.getStrategyByUuid(uuid)
       
       if (response.success) {
-        strategies.value.unshift(response.data.strategy)
-        total.value += 1
+        currentStrategy.value = response.data
+        return response.data
+      } else {
+        ElMessage.error(response.message || '获取策略详情失败')
+        return null
+      }
+    } catch (error) {
+      console.error('获取策略详情失败:', error)
+      ElMessage.error('获取策略详情失败')
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const createStrategy = async (data: StrategyCreateRequest) => {
+    try {
+      loading.value = true
+      const response = await StrategyApi.createStrategy(data)
+      
+      if (response.success) {
         ElMessage.success('策略创建成功')
-        return response.data.strategy
+        // 刷新策略列表
+        await fetchMyStrategies()
+        return response.data
+      } else {
+        ElMessage.error(response.message || '创建策略失败')
+        return null
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '创建策略失败')
-      throw error
+    } catch (error) {
+      console.error('创建策略失败:', error)
+      ElMessage.error('创建策略失败')
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  // 更新策略
-  const updateStrategy = async (id: number, data: UpdateStrategyRequest) => {
+  const updateStrategy = async (id: number, data: StrategyUpdateRequest) => {
     try {
       loading.value = true
-      const response = await strategyApi.updateStrategy(id, data)
+      const response = await StrategyApi.updateStrategy(id, data)
       
       if (response.success) {
+        ElMessage.success('策略更新成功')
+        
+        // 更新当前策略
+        if (currentStrategy.value && currentStrategy.value.id === id) {
+          currentStrategy.value = response.data
+        }
+        
+        // 更新策略列表中的项
         const index = strategies.value.findIndex(s => s.id === id)
         if (index !== -1) {
-          strategies.value[index] = response.data.strategy
+          strategies.value[index] = { ...strategies.value[index], ...response.data }
         }
         
-        if (currentStrategy.value?.id === id) {
-          currentStrategy.value = response.data.strategy
-        }
-        
-        ElMessage.success('策略更新成功')
-        return response.data.strategy
+        return response.data
+      } else {
+        ElMessage.error(response.message || '更新策略失败')
+        return null
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '更新策略失败')
-      throw error
+    } catch (error) {
+      console.error('更新策略失败:', error)
+      ElMessage.error('更新策略失败')
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  // 删除策略
   const deleteStrategy = async (id: number) => {
     try {
       loading.value = true
-      const response = await strategyApi.deleteStrategy(id)
+      const response = await StrategyApi.deleteStrategy(id)
       
       if (response.success) {
-        strategies.value = strategies.value.filter(s => s.id !== id)
-        total.value -= 1
+        ElMessage.success('策略删除成功')
         
-        if (currentStrategy.value?.id === id) {
+        // 从列表中移除
+        strategies.value = strategies.value.filter(s => s.id !== id)
+        
+        // 如果删除的是当前策略，清空当前策略
+        if (currentStrategy.value && currentStrategy.value.id === id) {
           currentStrategy.value = null
         }
         
-        ElMessage.success('策略删除成功')
+        return true
+      } else {
+        ElMessage.error(response.message || '删除策略失败')
+        return false
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '删除策略失败')
-      throw error
+    } catch (error) {
+      console.error('删除策略失败:', error)
+      ElMessage.error('删除策略失败')
+      return false
     } finally {
       loading.value = false
     }
   }
 
-  // 克隆策略
-  const cloneStrategy = async (id: number, name: string) => {
+  const copyStrategy = async (id: number, newName?: string) => {
     try {
       loading.value = true
-      const response = await strategyApi.cloneStrategy(id, name)
+      const response = await StrategyApi.copyStrategy(id, newName)
       
       if (response.success) {
-        strategies.value.unshift(response.data.strategy)
-        total.value += 1
-        ElMessage.success('策略克隆成功')
-        return response.data.strategy
+        ElMessage.success('策略复制成功')
+        // 刷新策略列表
+        await fetchMyStrategies()
+        return response.data
+      } else {
+        ElMessage.error(response.message || '复制策略失败')
+        return null
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '克隆策略失败')
-      throw error
+    } catch (error) {
+      console.error('复制策略失败:', error)
+      ElMessage.error('复制策略失败')
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  // 启动策略
-  const startStrategy = async (id: number, config?: any) => {
+  const executeStrategy = async (id: number, request: StrategyExecutionRequest) => {
     try {
-      const response = await strategyApi.startStrategy(id, config)
+      loading.value = true
+      const response = await StrategyApi.executeStrategy(id, request)
       
       if (response.success) {
+        const actionText = {
+          start: '启动',
+          stop: '停止',
+          pause: '暂停',
+          resume: '恢复'
+        }[request.action] || request.action
+        
+        ElMessage.success(`策略${actionText}成功`)
+        
         // 更新策略状态
-        const strategy = strategies.value.find(s => s.id === id)
-        if (strategy) {
-          strategy.status = 'active'
-          if (strategy.runtime) {
-            strategy.runtime.is_running = true
-            strategy.runtime.start_time = new Date().toISOString()
-          }
+        if (currentStrategy.value && currentStrategy.value.id === id) {
+          currentStrategy.value.is_running = request.action === 'start' || request.action === 'resume'
         }
         
-        ElMessage.success('策略启动成功')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '启动策略失败')
-      throw error
-    }
-  }
-
-  // 停止策略
-  const stopStrategy = async (id: number) => {
-    try {
-      const response = await strategyApi.stopStrategy(id)
-      
-      if (response.success) {
-        // 更新策略状态
-        const strategy = strategies.value.find(s => s.id === id)
-        if (strategy) {
-          strategy.status = 'stopped'
-          if (strategy.runtime) {
-            strategy.runtime.is_running = false
-          }
-        }
-        
-        ElMessage.success('策略停止成功')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '停止策略失败')
-      throw error
-    }
-  }
-
-  // 获取策略文件
-  const fetchStrategyFiles = async (strategyId: number) => {
-    try {
-      const response = await strategyApi.getStrategyFiles(strategyId)
-      
-      if (response.success) {
-        strategyFiles.value = response.data.files
-        return response.data.files
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '获取策略文件失败')
-      throw error
-    }
-  }
-
-  // 创建策略文件
-  const createStrategyFile = async (strategyId: number, data: {
-    filename: string
-    content: string
-    file_type: string
-  }) => {
-    try {
-      const response = await strategyApi.createStrategyFile(strategyId, data)
-      
-      if (response.success) {
-        strategyFiles.value.push(response.data.file)
-        ElMessage.success('文件创建成功')
-        return response.data.file
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '创建文件失败')
-      throw error
-    }
-  }
-
-  // 更新策略文件
-  const updateStrategyFile = async (strategyId: number, fileId: number, data: {
-    filename?: string
-    content?: string
-  }) => {
-    try {
-      const response = await strategyApi.updateStrategyFile(strategyId, fileId, data)
-      
-      if (response.success) {
-        const index = strategyFiles.value.findIndex(f => f.id === fileId)
+        const index = strategies.value.findIndex(s => s.id === id)
         if (index !== -1) {
-          strategyFiles.value[index] = response.data.file
+          strategies.value[index].is_running = request.action === 'start' || request.action === 'resume'
         }
         
-        ElMessage.success('文件更新成功')
-        return response.data.file
+        return response.data
+      } else {
+        ElMessage.error(response.message || '策略操作失败')
+        return null
       }
-    } catch (error: any) {
-      ElMessage.error(error.message || '更新文件失败')
-      throw error
-    }
-  }
-
-  // 删除策略文件
-  const deleteStrategyFile = async (strategyId: number, fileId: number) => {
-    try {
-      const response = await strategyApi.deleteStrategyFile(strategyId, fileId)
-      
-      if (response.success) {
-        strategyFiles.value = strategyFiles.value.filter(f => f.id !== fileId)
-        ElMessage.success('文件删除成功')
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '删除文件失败')
-      throw error
-    }
-  }
-
-  // 获取模板
-  const fetchTemplates = async (params?: {
-    category?: string
-    difficulty?: string
-    search?: string
-  }) => {
-    try {
-      const response = await strategyApi.getTemplates(params)
-      
-      if (response.success) {
-        templates.value = response.data.templates
-        return response.data.templates
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '获取模板失败')
-      throw error
-    }
-  }
-
-  // 获取分类
-  const fetchCategories = async () => {
-    try {
-      const response = await strategyApi.getCategories()
-      
-      if (response.success) {
-        categories.value = response.data.categories
-        return response.data.categories
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '获取分类失败')
-      throw error
-    }
-  }
-
-  // 从模板创建策略
-  const createFromTemplate = async (templateId: number, data: {
-    name: string
-    description?: string
-    config?: any
-  }) => {
-    try {
-      loading.value = true
-      const response = await strategyApi.createFromTemplate(templateId, data)
-      
-      if (response.success) {
-        strategies.value.unshift(response.data.strategy)
-        total.value += 1
-        ElMessage.success('从模板创建策略成功')
-        return response.data.strategy
-      }
-    } catch (error: any) {
-      ElMessage.error(error.message || '从模板创建策略失败')
-      throw error
+    } catch (error) {
+      console.error('策略操作失败:', error)
+      ElMessage.error('策略操作失败')
+      return null
     } finally {
       loading.value = false
     }
   }
 
-  // 清空状态
-  const clearState = () => {
+  const fetchStrategyVersions = async (id: number) => {
+    try {
+      const response = await StrategyApi.getStrategyVersions(id)
+      
+      if (response.success) {
+        strategyVersions.value = response.data
+        return response.data
+      } else {
+        ElMessage.error(response.message || '获取策略版本失败')
+        return []
+      }
+    } catch (error) {
+      console.error('获取策略版本失败:', error)
+      ElMessage.error('获取策略版本失败')
+      return []
+    }
+  }
+
+  const restoreStrategyVersion = async (strategyId: number, versionId: number) => {
+    try {
+      loading.value = true
+      const response = await StrategyApi.restoreStrategyVersion(strategyId, versionId)
+      
+      if (response.success) {
+        ElMessage.success('版本恢复成功')
+        
+        // 更新当前策略
+        if (currentStrategy.value && currentStrategy.value.id === strategyId) {
+          currentStrategy.value = response.data
+        }
+        
+        // 刷新版本列表
+        await fetchStrategyVersions(strategyId)
+        
+        return response.data
+      } else {
+        ElMessage.error(response.message || '版本恢复失败')
+        return null
+      }
+    } catch (error) {
+      console.error('版本恢复失败:', error)
+      ElMessage.error('版本恢复失败')
+      return null
+    } finally {
+      loading.value = false
+    }
+  }
+
+  const searchStrategies = async (keyword: string) => {
+    await fetchStrategies({ ...searchParams.value, keyword, page: 1 })
+  }
+
+  const filterStrategies = async (filters: Partial<StrategySearchParams>) => {
+    await fetchStrategies({ ...searchParams.value, ...filters, page: 1 })
+  }
+
+  const changePage = async (page: number) => {
+    await fetchStrategies({ ...searchParams.value, page })
+  }
+
+  const changePageSize = async (pageSize: number) => {
+    await fetchStrategies({ ...searchParams.value, page_size: pageSize, page: 1 })
+  }
+
+  const sortStrategies = async (sortBy: string, sortOrder: 'asc' | 'desc') => {
+    await fetchStrategies({ ...searchParams.value, sort_by: sortBy, sort_order: sortOrder, page: 1 })
+  }
+
+  const clearCurrentStrategy = () => {
+    currentStrategy.value = null
+  }
+
+  const clearStrategies = () => {
+    strategies.value = []
+    total.value = 0
+  }
+
+  const reset = () => {
     strategies.value = []
     currentStrategy.value = null
-    strategyFiles.value = []
+    strategyVersions.value = []
+    strategyStats.value = null
+    loading.value = false
+    searchParams.value = {
+      page: 1,
+      page_size: 20,
+      sort_by: 'updated_at',
+      sort_order: 'desc'
+    }
     total.value = 0
-    currentPage.value = 1
   }
 
   return {
     // 状态
-    strategies: readonly(strategies),
-    currentStrategy: readonly(currentStrategy),
-    strategyFiles: readonly(strategyFiles),
-    templates: readonly(templates),
-    categories: readonly(categories),
-    loading: readonly(loading),
-    total: readonly(total),
-    currentPage: readonly(currentPage),
-    pageSize: readonly(pageSize),
+    strategies,
+    currentStrategy,
+    strategyVersions,
+    strategyStats,
+    loading,
+    searchParams,
+    total,
     
     // 计算属性
+    hasStrategies,
+    totalPages,
+    runningStrategies,
     activeStrategies,
     draftStrategies,
-    runningStrategies,
     
     // 方法
     fetchStrategies,
+    fetchMyStrategies,
+    fetchStrategyStats,
     fetchStrategy,
+    fetchStrategyByUuid,
     createStrategy,
     updateStrategy,
     deleteStrategy,
-    cloneStrategy,
-    startStrategy,
-    stopStrategy,
-    fetchStrategyFiles,
-    createStrategyFile,
-    updateStrategyFile,
-    deleteStrategyFile,
-    fetchTemplates,
-    fetchCategories,
-    createFromTemplate,
-    clearState
+    copyStrategy,
+    executeStrategy,
+    fetchStrategyVersions,
+    restoreStrategyVersion,
+    searchStrategies,
+    filterStrategies,
+    changePage,
+    changePageSize,
+    sortStrategies,
+    clearCurrentStrategy,
+    clearStrategies,
+    reset
   }
 })

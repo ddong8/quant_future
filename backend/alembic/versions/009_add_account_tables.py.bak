@@ -1,0 +1,175 @@
+"""Add account management tables
+
+Revision ID: 009
+Revises: 008
+Create Date: 2024-01-01 00:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '009'
+down_revision = '008'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建账户表
+    op.create_table('accounts',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('account_number', sa.String(length=50), nullable=False),
+        sa.Column('account_name', sa.String(length=100), nullable=False),
+        sa.Column('account_type', sa.Enum('CASH', 'MARGIN', 'FUTURES', 'OPTIONS', name='accounttype'), nullable=False),
+        sa.Column('status', sa.Enum('ACTIVE', 'INACTIVE', 'SUSPENDED', 'CLOSED', name='accountstatus'), nullable=True),
+        sa.Column('base_currency', sa.String(length=10), nullable=False),
+        sa.Column('cash_balance', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('available_cash', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('frozen_cash', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('margin_balance', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('maintenance_margin', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('initial_margin', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('margin_ratio', sa.DECIMAL(precision=10, scale=6), nullable=True),
+        sa.Column('total_assets', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_liabilities', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('net_assets', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('market_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('realized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('unrealized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_deposits', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_withdrawals', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_fees', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('max_position_value', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('max_daily_loss', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('risk_level', sa.String(length=20), nullable=True),
+        sa.Column('settings', sa.JSON(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.Column('last_activity_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('account_number')
+    )
+    op.create_index(op.f('ix_accounts_id'), 'accounts', ['id'], unique=False)
+    op.create_index(op.f('ix_accounts_user_id'), 'accounts', ['user_id'], unique=False)
+    op.create_index(op.f('ix_accounts_account_number'), 'accounts', ['account_number'], unique=False)
+    op.create_index(op.f('ix_accounts_account_type'), 'accounts', ['account_type'], unique=False)
+    op.create_index(op.f('ix_accounts_status'), 'accounts', ['status'], unique=False)
+
+    # 创建交易流水表
+    op.create_table('transactions',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('account_id', sa.Integer(), nullable=False),
+        sa.Column('transaction_id', sa.String(length=100), nullable=False),
+        sa.Column('transaction_type', sa.Enum('DEPOSIT', 'WITHDRAWAL', 'TRADE_BUY', 'TRADE_SELL', 'DIVIDEND', 'INTEREST', 'FEE', 'TAX', 'ADJUSTMENT', 'TRANSFER_IN', 'TRANSFER_OUT', name='transactiontype'), nullable=False),
+        sa.Column('status', sa.Enum('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED', 'CANCELLED', name='transactionstatus'), nullable=True),
+        sa.Column('amount', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('currency', sa.String(length=10), nullable=False),
+        sa.Column('exchange_rate', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('balance_before', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('balance_after', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('order_id', sa.Integer(), nullable=True),
+        sa.Column('position_id', sa.Integer(), nullable=True),
+        sa.Column('symbol', sa.String(length=20), nullable=True),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('reference_id', sa.String(length=100), nullable=True),
+        sa.Column('fee_amount', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('tax_amount', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('transaction_time', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['account_id'], ['accounts.id'], ),
+        sa.ForeignKeyConstraint(['order_id'], ['orders.id'], ),
+        sa.ForeignKeyConstraint(['position_id'], ['positions.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('transaction_id')
+    )
+    op.create_index(op.f('ix_transactions_id'), 'transactions', ['id'], unique=False)
+    op.create_index(op.f('ix_transactions_account_id'), 'transactions', ['account_id'], unique=False)
+    op.create_index(op.f('ix_transactions_transaction_id'), 'transactions', ['transaction_id'], unique=False)
+    op.create_index(op.f('ix_transactions_transaction_type'), 'transactions', ['transaction_type'], unique=False)
+    op.create_index(op.f('ix_transactions_status'), 'transactions', ['status'], unique=False)
+    op.create_index(op.f('ix_transactions_transaction_time'), 'transactions', ['transaction_time'], unique=False)
+
+    # 创建账户余额快照表
+    op.create_table('account_balances',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('account_id', sa.Integer(), nullable=False),
+        sa.Column('snapshot_date', sa.DateTime(), nullable=False),
+        sa.Column('snapshot_type', sa.String(length=20), nullable=True),
+        sa.Column('cash_balance', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('available_cash', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('frozen_cash', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_assets', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_liabilities', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('net_assets', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('market_value', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('realized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('unrealized_pnl', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_pnl', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('daily_pnl', sa.DECIMAL(precision=20, scale=8), nullable=True),
+        sa.Column('total_deposits', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_withdrawals', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('total_fees', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('created_at', sa.DateTime(), nullable=True),
+        sa.ForeignKeyConstraint(['account_id'], ['accounts.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_account_balances_id'), 'account_balances', ['id'], unique=False)
+    op.create_index(op.f('ix_account_balances_account_id'), 'account_balances', ['account_id'], unique=False)
+    op.create_index(op.f('ix_account_balances_snapshot_date'), 'account_balances', ['snapshot_date'], unique=False)
+
+    # 为现有表添加account_id字段
+    op.add_column('positions', sa.Column('account_id', sa.Integer(), nullable=True))
+    op.add_column('orders', sa.Column('account_id', sa.Integer(), nullable=True))
+    
+    # 创建外键约束
+    op.create_foreign_key('fk_positions_account_id', 'positions', 'accounts', ['account_id'], ['id'])
+    op.create_foreign_key('fk_orders_account_id', 'orders', 'accounts', ['account_id'], ['id'])
+    
+    # 为users表添加accounts关系（如果需要）
+    # 这通常在模型中定义，不需要在迁移中创建
+
+
+def downgrade():
+    # 删除外键约束
+    op.drop_constraint('fk_orders_account_id', 'orders', type_='foreignkey')
+    op.drop_constraint('fk_positions_account_id', 'positions', type_='foreignkey')
+    
+    # 删除添加的列
+    op.drop_column('orders', 'account_id')
+    op.drop_column('positions', 'account_id')
+
+    # 删除账户余额快照表
+    op.drop_index(op.f('ix_account_balances_snapshot_date'), table_name='account_balances')
+    op.drop_index(op.f('ix_account_balances_account_id'), table_name='account_balances')
+    op.drop_index(op.f('ix_account_balances_id'), table_name='account_balances')
+    op.drop_table('account_balances')
+
+    # 删除交易流水表
+    op.drop_index(op.f('ix_transactions_transaction_time'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_status'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_transaction_type'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_transaction_id'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_account_id'), table_name='transactions')
+    op.drop_index(op.f('ix_transactions_id'), table_name='transactions')
+    op.drop_table('transactions')
+
+    # 删除账户表
+    op.drop_index(op.f('ix_accounts_status'), table_name='accounts')
+    op.drop_index(op.f('ix_accounts_account_type'), table_name='accounts')
+    op.drop_index(op.f('ix_accounts_account_number'), table_name='accounts')
+    op.drop_index(op.f('ix_accounts_user_id'), table_name='accounts')
+    op.drop_index(op.f('ix_accounts_id'), table_name='accounts')
+    op.drop_table('accounts')
+
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS transactionstatus')
+    op.execute('DROP TYPE IF EXISTS transactiontype')
+    op.execute('DROP TYPE IF EXISTS accountstatus')
+    op.execute('DROP TYPE IF EXISTS accounttype')

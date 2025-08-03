@@ -2,6 +2,7 @@
 统一的API响应格式
 """
 from typing import Any, Dict, List, Optional, Union
+from datetime import datetime
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from fastapi import status
@@ -17,7 +18,7 @@ class BaseResponse(BaseModel):
     
     class Config:
         json_encoders = {
-            # 自定义JSON编码器
+            datetime: lambda v: v.isoformat() if v else None
         }
 
 
@@ -33,6 +34,11 @@ class SuccessResponse(BaseResponse):
             timestamp=time.time(),
             **kwargs
         )
+    
+    class Config:
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 
 class ErrorResponse(BaseResponse):
@@ -101,11 +107,15 @@ def success_response(
     headers: Optional[Dict[str, str]] = None,
 ) -> JSONResponse:
     """创建成功响应"""
+    import json
     response_data = SuccessResponse(data=data, message=message)
+    
+    # 使用 Pydantic 的 JSON 编码器
+    content = json.loads(response_data.json(by_alias=True))
     
     return JSONResponse(
         status_code=status_code,
-        content=response_data.dict(),
+        content=content,
         headers=headers or {},
     )
 

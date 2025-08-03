@@ -27,7 +27,9 @@ export interface LoginResponse {
   refresh_token: string
   token_type: string
   expires_in: number
-  user: User
+  user_id: number
+  username: string
+  role: string
 }
 
 // 注册请求

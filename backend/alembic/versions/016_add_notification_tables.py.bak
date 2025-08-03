@@ -1,0 +1,227 @@
+"""add notification tables
+
+Revision ID: 016
+Revises: 015
+Create Date: 2024-01-17 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '016'
+down_revision = '015'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # 创建通知模板表
+    op.create_table('notification_templates',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('code', sa.String(50), nullable=False),
+        sa.Column('type', sa.Enum('trade', 'risk', 'system', 'market', 'account', 'security', name='notificationtype'), nullable=False),
+        sa.Column('title_template', sa.String(200), nullable=False),
+        sa.Column('content_template', sa.Text(), nullable=False),
+        sa.Column('channels', sa.JSON(), nullable=False),
+        sa.Column('variables', sa.JSON(), nullable=True),
+        sa.Column('default_priority', sa.Enum('low', 'normal', 'high', 'urgent', name='notificationpriority'), nullable=True, default='normal'),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('code')
+    )
+    op.create_index(op.f('ix_notification_templates_id'), 'notification_templates', ['id'], unique=False)
+    
+    # 创建通知消息表
+    op.create_table('notifications',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('template_id', sa.Integer(), nullable=True),
+        sa.Column('type', sa.Enum('trade', 'risk', 'system', 'market', 'account', 'security', name='notificationtype'), nullable=False),
+        sa.Column('title', sa.String(200), nullable=False),
+        sa.Column('content', sa.Text(), nullable=False),
+        sa.Column('channel', sa.Enum('in_app', 'email', 'sms', 'push', 'webhook', name='notificationchannel'), nullable=False),
+        sa.Column('priority', sa.Enum('low', 'normal', 'high', 'urgent', name='notificationpriority'), nullable=True, default='normal'),
+        sa.Column('status', sa.Enum('pending', 'sent', 'delivered', 'read', 'failed', 'cancelled', name='notificationstatus'), nullable=True, default='pending'),
+        sa.Column('recipient', sa.String(200), nullable=True),
+        sa.Column('sent_at', sa.DateTime(), nullable=True),
+        sa.Column('delivered_at', sa.DateTime(), nullable=True),
+        sa.Column('read_at', sa.DateTime(), nullable=True),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('retry_count', sa.Integer(), nullable=True, default=0),
+        sa.Column('max_retries', sa.Integer(), nullable=True, default=3),
+        sa.Column('metadata', sa.JSON(), nullable=True),
+        sa.Column('variables', sa.JSON(), nullable=True),
+        sa.Column('expires_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['template_id'], ['notification_templates.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notifications_id'), 'notifications', ['id'], unique=False)
+    op.create_index('ix_notifications_user_status', 'notifications', ['user_id', 'status'], unique=False)
+    op.create_index('ix_notifications_type_created', 'notifications', ['type', 'created_at'], unique=False)
+    op.create_index('ix_notifications_channel_status', 'notifications', ['channel', 'status'], unique=False)
+    
+    # 创建通知偏好表
+    op.create_table('notification_preferences',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('enabled', sa.Boolean(), nullable=True, default=True),
+        sa.Column('quiet_hours_enabled', sa.Boolean(), nullable=True, default=False),
+        sa.Column('quiet_hours_start', sa.String(5), nullable=True, default='22:00'),
+        sa.Column('quiet_hours_end', sa.String(5), nullable=True, default='08:00'),
+        sa.Column('email_enabled', sa.Boolean(), nullable=True, default=True),
+        sa.Column('sms_enabled', sa.Boolean(), nullable=True, default=False),
+        sa.Column('push_enabled', sa.Boolean(), nullable=True, default=True),
+        sa.Column('in_app_enabled', sa.Boolean(), nullable=True, default=True),
+        sa.Column('trade_notifications', sa.JSON(), nullable=True),
+        sa.Column('risk_notifications', sa.JSON(), nullable=True),
+        sa.Column('system_notifications', sa.JSON(), nullable=True),
+        sa.Column('market_notifications', sa.JSON(), nullable=True),
+        sa.Column('account_notifications', sa.JSON(), nullable=True),
+        sa.Column('security_notifications', sa.JSON(), nullable=True),
+        sa.Column('max_notifications_per_hour', sa.Integer(), nullable=True, default=10),
+        sa.Column('digest_enabled', sa.Boolean(), nullable=True, default=False),
+        sa.Column('digest_frequency', sa.String(20), nullable=True, default='daily'),
+        sa.Column('digest_time', sa.String(5), nullable=True, default='09:00'),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id')
+    )
+    op.create_index(op.f('ix_notification_preferences_id'), 'notification_preferences', ['id'], unique=False)
+    
+    # 创建通知规则表
+    op.create_table('notification_rules',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('name', sa.String(100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('event_type', sa.String(50), nullable=False),
+        sa.Column('conditions', sa.JSON(), nullable=False),
+        sa.Column('template_code', sa.String(50), nullable=True),
+        sa.Column('channels', sa.JSON(), nullable=False),
+        sa.Column('priority', sa.Enum('low', 'normal', 'high', 'urgent', name='notificationpriority'), nullable=True, default='normal'),
+        sa.Column('rate_limit', sa.Integer(), nullable=True),
+        sa.Column('max_per_day', sa.Integer(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True, default=True),
+        sa.Column('trigger_count', sa.Integer(), nullable=True, default=0),
+        sa.Column('last_triggered_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notification_rules_id'), 'notification_rules', ['id'], unique=False)
+    
+    # 创建通知队列表
+    op.create_table('notification_queue',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('notification_id', sa.Integer(), nullable=False),
+        sa.Column('queue_name', sa.String(50), nullable=False),
+        sa.Column('scheduled_at', sa.DateTime(), nullable=False),
+        sa.Column('priority', sa.Integer(), nullable=True, default=0),
+        sa.Column('status', sa.String(20), nullable=True, default='queued'),
+        sa.Column('processed_at', sa.DateTime(), nullable=True),
+        sa.Column('retry_count', sa.Integer(), nullable=True, default=0),
+        sa.Column('next_retry_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['notification_id'], ['notifications.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notification_queue_id'), 'notification_queue', ['id'], unique=False)
+    op.create_index('ix_notification_queue_scheduled', 'notification_queue', ['scheduled_at', 'status'], unique=False)
+    op.create_index('ix_notification_queue_priority', 'notification_queue', ['priority', 'created_at'], unique=False)
+    
+    # 创建通知日志表
+    op.create_table('notification_logs',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('notification_id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('action', sa.String(50), nullable=False),
+        sa.Column('status', sa.String(20), nullable=False),
+        sa.Column('message', sa.Text(), nullable=True),
+        sa.Column('channel', sa.String(20), nullable=True),
+        sa.Column('provider', sa.String(50), nullable=True),
+        sa.Column('response_code', sa.String(20), nullable=True),
+        sa.Column('response_message', sa.Text(), nullable=True),
+        sa.Column('response_data', sa.JSON(), nullable=True),
+        sa.Column('duration_ms', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['notification_id'], ['notifications.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_notification_logs_id'), 'notification_logs', ['id'], unique=False)
+    op.create_index('ix_notification_logs_notification', 'notification_logs', ['notification_id'], unique=False)
+    op.create_index('ix_notification_logs_user_action', 'notification_logs', ['user_id', 'action'], unique=False)
+    op.create_index('ix_notification_logs_created', 'notification_logs', ['created_at'], unique=False)
+    
+    # 创建通知摘要表
+    op.create_table('notification_digests',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('digest_type', sa.String(20), nullable=False),
+        sa.Column('period_start', sa.DateTime(), nullable=False),
+        sa.Column('period_end', sa.DateTime(), nullable=False),
+        sa.Column('total_notifications', sa.Integer(), nullable=True, default=0),
+        sa.Column('unread_notifications', sa.Integer(), nullable=True, default=0),
+        sa.Column('notification_summary', sa.JSON(), nullable=True),
+        sa.Column('is_sent', sa.Boolean(), nullable=True, default=False),
+        sa.Column('sent_at', sa.DateTime(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('user_id', 'digest_type', 'period_start', name='uq_user_digest_period')
+    )
+    op.create_index(op.f('ix_notification_digests_id'), 'notification_digests', ['id'], unique=False)
+    op.create_index('ix_notification_digests_user_period', 'notification_digests', ['user_id', 'period_start', 'period_end'], unique=False)
+    
+    # 插入默认通知模板
+    op.execute("""
+        INSERT INTO notification_templates (name, code, type, title_template, content_template, channels, variables, default_priority) VALUES
+        -- 交易通知模板
+        ('订单成交通知', 'order_filled', 'trade', '订单成交通知', '您的{{order_type}}订单已成交，标的：{{symbol}}，数量：{{quantity}}，价格：{{price}}', '["in_app", "email", "push"]', '{"order_type": "订单类型", "symbol": "标的代码", "quantity": "数量", "price": "价格"}', 'normal'),
+        ('持仓平仓通知', 'position_closed', 'trade', '持仓平仓通知', '您的{{symbol}}持仓已平仓，盈亏：{{pnl}}', '["in_app", "email"]', '{"symbol": "标的代码", "pnl": "盈亏金额"}', 'normal'),
+        ('止损触发通知', 'stop_loss_triggered', 'trade', '止损触发通知', '您的{{symbol}}持仓触发止损，已自动平仓', '["in_app", "email", "sms", "push"]', '{"symbol": "标的代码"}', 'high'),
+        
+        -- 风险通知模板
+        ('保证金不足通知', 'margin_call', 'risk', '保证金不足通知', '您的账户保证金不足，当前保证金率：{{margin_ratio}}%，请及时补充资金', '["in_app", "email", "sms", "push"]', '{"margin_ratio": "保证金率"}', 'urgent'),
+        ('大额亏损通知', 'large_loss', 'risk', '大额亏损提醒', '您的账户今日亏损已达{{loss_amount}}，请注意风险控制', '["in_app", "email", "push"]', '{"loss_amount": "亏损金额"}', 'high'),
+        
+        -- 系统通知模板
+        ('系统维护通知', 'system_maintenance', 'system', '系统维护通知', '系统将于{{start_time}}至{{end_time}}进行维护，期间可能影响交易', '["in_app", "email"]', '{"start_time": "开始时间", "end_time": "结束时间"}', 'normal'),
+        ('安全提醒', 'security_alert', 'security', '安全提醒', '检测到您的账户在{{location}}登录，如非本人操作请及时修改密码', '["in_app", "email", "sms"]', '{"location": "登录地点"}', 'high'),
+        
+        -- 市场通知模板
+        ('价格提醒', 'price_alert', 'market', '价格提醒', '{{symbol}}价格已{{direction}}至{{price}}，当前价格：{{current_price}}', '["in_app", "push"]', '{"symbol": "标的代码", "direction": "方向", "price": "目标价格", "current_price": "当前价格"}', 'normal'),
+        
+        -- 账户通知模板
+        ('资金变动通知', 'account_balance_change', 'account', '资金变动通知', '您的账户资金发生变动，变动金额：{{amount}}，当前余额：{{balance}}', '["in_app", "email"]', '{"amount": "变动金额", "balance": "当前余额"}', 'normal');
+    """)
+
+
+def downgrade():
+    # 删除创建的表
+    op.drop_table('notification_digests')
+    op.drop_table('notification_logs')
+    op.drop_table('notification_queue')
+    op.drop_table('notification_rules')
+    op.drop_table('notification_preferences')
+    op.drop_table('notifications')
+    op.drop_table('notification_templates')
+    
+    # 删除枚举类型
+    op.execute('DROP TYPE IF EXISTS notificationtype')
+    op.execute('DROP TYPE IF EXISTS notificationchannel')
+    op.execute('DROP TYPE IF EXISTS notificationpriority')
+    op.execute('DROP TYPE IF EXISTS notificationstatus')

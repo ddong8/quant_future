@@ -229,6 +229,10 @@ async def system_info():
 # 注册API路由
 app.include_router(api_router, prefix="/api/v1")
 
+# 注册WebSocket路由
+from .websocket.routes import router as websocket_router
+app.include_router(websocket_router)
+
 
 if __name__ == "__main__":
     import uvicorn

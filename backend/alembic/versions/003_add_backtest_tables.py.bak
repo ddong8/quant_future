@@ -1,0 +1,186 @@
+"""Add backtest tables
+
+Revision ID: 003
+Revises: 002
+Create Date: 2024-01-15 10:00:00.000000
+
+"""
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+# revision identifiers, used by Alembic.
+revision = '003'
+down_revision = '001'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # Create backtest status enum
+    try:
+        backtest_status_enum = postgresql.ENUM(
+            'pending', 'running', 'completed', 'failed', 'cancelled', 'paused',
+            name='backteststatus'
+        )
+        backtest_status_enum.create(op.get_bind())
+    except:
+        backtest_status_enum = postgresql.ENUM(
+            'pending', 'running', 'completed', 'failed', 'cancelled', 'paused',
+            name='backteststatus'
+        )
+    
+    # Create backtest type enum
+    try:
+        backtest_type_enum = postgresql.ENUM(
+            'simple', 'walk_forward', 'monte_carlo', 'cross_validation',
+            name='backtesttype'
+        )
+        backtest_type_enum.create(op.get_bind())
+    except:
+        backtest_type_enum = postgresql.ENUM(
+            'simple', 'walk_forward', 'monte_carlo', 'cross_validation',
+            name='backtesttype'
+        )
+    
+    # Create backtests table
+    op.create_table('backtests',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('uuid', sa.String(length=36), nullable=True),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('backtest_type', backtest_type_enum, nullable=True),
+        sa.Column('status', backtest_status_enum, nullable=True),
+        sa.Column('strategy_id', sa.Integer(), nullable=False),
+        sa.Column('strategy_version_id', sa.Integer(), nullable=True),
+        sa.Column('start_date', sa.DateTime(), nullable=False),
+        sa.Column('end_date', sa.DateTime(), nullable=False),
+        sa.Column('initial_capital', sa.DECIMAL(precision=20, scale=8), nullable=False),
+        sa.Column('benchmark', sa.String(length=20), nullable=True),
+        sa.Column('commission_rate', sa.Float(), nullable=True),
+        sa.Column('slippage_rate', sa.Float(), nullable=True),
+        sa.Column('min_commission', sa.Float(), nullable=True),
+        sa.Column('max_position_size', sa.Float(), nullable=True),
+        sa.Column('stop_loss', sa.Float(), nullable=True),
+        sa.Column('take_profit', sa.Float(), nullable=True),
+        sa.Column('data_source', sa.String(length=50), nullable=True),
+        sa.Column('symbols', sa.JSON(), nullable=True),
+        sa.Column('frequency', sa.String(length=10), nullable=True),
+        sa.Column('started_at', sa.DateTime(), nullable=True),
+        sa.Column('completed_at', sa.DateTime(), nullable=True),
+        sa.Column('progress', sa.Float(), nullable=True),
+        sa.Column('total_return', sa.Float(), nullable=True),
+        sa.Column('annual_return', sa.Float(), nullable=True),
+        sa.Column('max_drawdown', sa.Float(), nullable=True),
+        sa.Column('sharpe_ratio', sa.Float(), nullable=True),
+        sa.Column('sortino_ratio', sa.Float(), nullable=True),
+        sa.Column('calmar_ratio', sa.Float(), nullable=True),
+        sa.Column('volatility', sa.Float(), nullable=True),
+        sa.Column('total_trades', sa.Integer(), nullable=True),
+        sa.Column('winning_trades', sa.Integer(), nullable=True),
+        sa.Column('losing_trades', sa.Integer(), nullable=True),
+        sa.Column('win_rate', sa.Float(), nullable=True),
+        sa.Column('avg_win', sa.Float(), nullable=True),
+        sa.Column('avg_loss', sa.Float(), nullable=True),
+        sa.Column('profit_factor', sa.Float(), nullable=True),
+        sa.Column('benchmark_return', sa.Float(), nullable=True),
+        sa.Column('alpha', sa.Float(), nullable=True),
+        sa.Column('beta', sa.Float(), nullable=True),
+        sa.Column('information_ratio', sa.Float(), nullable=True),
+        sa.Column('tracking_error', sa.Float(), nullable=True),
+        sa.Column('equity_curve', sa.JSON(), nullable=True),
+        sa.Column('drawdown_curve', sa.JSON(), nullable=True),
+        sa.Column('trades_detail', sa.JSON(), nullable=True),
+        sa.Column('daily_returns', sa.JSON(), nullable=True),
+        sa.Column('positions', sa.JSON(), nullable=True),
+        sa.Column('error_message', sa.Text(), nullable=True),
+        sa.Column('error_traceback', sa.Text(), nullable=True),
+        sa.Column('config_snapshot', sa.JSON(), nullable=True),
+        sa.Column('tags', sa.JSON(), nullable=True),
+        sa.Column('is_public', sa.Boolean(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['strategy_id'], ['strategies.id'], ),
+        sa.ForeignKeyConstraint(['strategy_version_id'], ['strategy_versions.id'], ),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_backtests_id'), 'backtests', ['id'], unique=False)
+    op.create_index(op.f('ix_backtests_uuid'), 'backtests', ['uuid'], unique=True)
+    op.create_index(op.f('ix_backtests_name'), 'backtests', ['name'], unique=False)
+    op.create_index(op.f('ix_backtests_status'), 'backtests', ['status'], unique=False)
+    op.create_index(op.f('ix_backtests_strategy_id'), 'backtests', ['strategy_id'], unique=False)
+    op.create_index(op.f('ix_backtests_strategy_version_id'), 'backtests', ['strategy_version_id'], unique=False)
+    op.create_index(op.f('ix_backtests_user_id'), 'backtests', ['user_id'], unique=False)
+    
+    # Create backtest_templates table
+    op.create_table('backtest_templates',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('uuid', sa.String(length=36), nullable=True),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('category', sa.String(length=50), nullable=True),
+        sa.Column('config_template', sa.JSON(), nullable=False),
+        sa.Column('default_parameters', sa.JSON(), nullable=True),
+        sa.Column('usage_count', sa.Integer(), nullable=True),
+        sa.Column('rating', sa.Float(), nullable=True),
+        sa.Column('tags', sa.JSON(), nullable=True),
+        sa.Column('is_official', sa.Boolean(), nullable=True),
+        sa.Column('is_active', sa.Boolean(), nullable=True),
+        sa.Column('author_id', sa.Integer(), nullable=True),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['author_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_backtest_templates_id'), 'backtest_templates', ['id'], unique=False)
+    op.create_index(op.f('ix_backtest_templates_uuid'), 'backtest_templates', ['uuid'], unique=True)
+    op.create_index(op.f('ix_backtest_templates_name'), 'backtest_templates', ['name'], unique=False)
+    
+    # Create backtest_comparisons table
+    op.create_table('backtest_comparisons',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('uuid', sa.String(length=36), nullable=True),
+        sa.Column('name', sa.String(length=100), nullable=False),
+        sa.Column('description', sa.Text(), nullable=True),
+        sa.Column('backtest_ids', sa.JSON(), nullable=False),
+        sa.Column('comparison_data', sa.JSON(), nullable=True),
+        sa.Column('summary_stats', sa.JSON(), nullable=True),
+        sa.Column('tags', sa.JSON(), nullable=True),
+        sa.Column('is_public', sa.Boolean(), nullable=True),
+        sa.Column('user_id', sa.Integer(), nullable=False),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=True),
+        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_backtest_comparisons_id'), 'backtest_comparisons', ['id'], unique=False)
+    op.create_index(op.f('ix_backtest_comparisons_uuid'), 'backtest_comparisons', ['uuid'], unique=True)
+    op.create_index(op.f('ix_backtest_comparisons_user_id'), 'backtest_comparisons', ['user_id'], unique=False)
+
+
+def downgrade():
+    # Drop tables
+    op.drop_index(op.f('ix_backtest_comparisons_user_id'), table_name='backtest_comparisons')
+    op.drop_index(op.f('ix_backtest_comparisons_uuid'), table_name='backtest_comparisons')
+    op.drop_index(op.f('ix_backtest_comparisons_id'), table_name='backtest_comparisons')
+    op.drop_table('backtest_comparisons')
+    
+    op.drop_index(op.f('ix_backtest_templates_name'), table_name='backtest_templates')
+    op.drop_index(op.f('ix_backtest_templates_uuid'), table_name='backtest_templates')
+    op.drop_index(op.f('ix_backtest_templates_id'), table_name='backtest_templates')
+    op.drop_table('backtest_templates')
+    
+    op.drop_index(op.f('ix_backtests_user_id'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_strategy_version_id'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_strategy_id'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_status'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_name'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_uuid'), table_name='backtests')
+    op.drop_index(op.f('ix_backtests_id'), table_name='backtests')
+    op.drop_table('backtests')
+    
+    # Drop enums
+    op.execute('DROP TYPE backtesttype')
+    op.execute('DROP TYPE backteststatus')

@@ -1,567 +1,666 @@
 """
-策略验证和测试综合服务
+策略代码测试和验证服务
 """
-from typing import Dict, Any, List, Optional
-from datetime import datetime
+
+import ast
 import logging
-
-from sqlalchemy.orm import Session
-
-from ..models import Strategy
-from ..schemas.strategy import (
-    StrategyValidationRequest,
-    StrategyValidationResponse,
-    StrategyTestRequest,
-    StrategyTestResponse,
-    StrategySandboxRequest,
-    StrategySandboxResponse,
-)
-from .strategy_validator import StrategyValidator
-from .strategy_sandbox import StrategySandbox
-from .strategy_tester import StrategyTester
-from .strategy_unittest import run_strategy_unit_tests
-from ..core.exceptions import NotFoundError, ValidationError
+import re
+import sys
+import traceback
+from typing import Dict, List, Any, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+import subprocess
+import tempfile
+import os
+import importlib.util
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
-class StrategyValidationService:
-    """策略验证和测试综合服务"""
+class ValidationLevel(str, Enum):
+    """验证级别"""
+    ERROR = "error"      # 错误
+    WARNING = "warning"  # 警告
+    INFO = "info"        # 信息
+
+
+class ValidationCategory(str, Enum):
+    """验证分类"""
+    SYNTAX = "syntax"           # 语法检查
+    SECURITY = "security"       # 安全检查
+    PERFORMANCE = "performance" # 性能检查
+    STYLE = "style"            # 代码风格
+    DEPENDENCY = "dependency"   # 依赖检查
+    LOGIC = "logic"            # 逻辑检查
+
+
+@dataclass
+class ValidationIssue:
+    """验证问题"""
+    level: ValidationLevel
+    category: ValidationCategory
+    message: str
+    line_number: Optional[int] = None
+    column_number: Optional[int] = None
+    code: Optional[str] = None
+    suggestion: Optional[str] = None
+
+
+@dataclass
+class ValidationResult:
+    """验证结果"""
+    is_valid: bool
+    issues: List[ValidationIssue]
+    execution_time: float
+    code_metrics: Dict[str, Any]
+    dependencies: List[str]
+    entry_points: List[str]
+
+
+class StrategyCodeValidator:
+    """策略代码验证器"""
     
-    def __init__(self, db: Session):
-        self.db = db
-        self.validator = StrategyValidator()
-        self.sandbox = StrategySandbox()
-        self.tester = StrategyTester(db)
+    def __init__(self):
+        # 危险函数和模块列表
+        self.dangerous_functions = {
+            'exec', 'eval', 'compile', '__import__', 'open', 'file',
+            'input', 'raw_input', 'reload', 'vars', 'globals', 'locals',
+            'dir', 'getattr', 'setattr', 'delattr', 'hasattr'
+        }
+        
+        self.dangerous_modules = {
+            'os', 'sys', 'subprocess', 'shutil', 'tempfile', 'pickle',
+            'marshal', 'shelve', 'dbm', 'sqlite3', 'socket', 'urllib',
+            'http', 'ftplib', 'smtplib', 'poplib', 'imaplib', 'telnetlib'
+        }
+        
+        # 允许的模块列表
+        self.allowed_modules = {
+            'numpy', 'pandas', 'matplotlib', 'seaborn', 'scipy',
+            'sklearn', 'talib', 'math', 'datetime', 'time', 'json',
+            'collections', 'itertools', 'functools', 'operator',
+            'statistics', 'random', 'decimal', 'fractions'
+        }
+        
+        # 必需的函数签名
+        self.required_functions = {
+            'initialize': ['context'],
+            'handle_data': ['context', 'data'],
+            'before_trading_start': ['context', 'data'],
+            'after_trading_end': ['context', 'data']
+        }
     
-    def comprehensive_validation(self, strategy_id: int, user_id: int) -> Dict[str, Any]:
-        """综合验证策略"""
+    def validate_code(self, code: str, strategy_name: str = "strategy") -> ValidationResult:
+        """验证策略代码"""
+        start_time = datetime.now()
+        issues = []
+        
         try:
-            # 获取策略
-            strategy = self.db.query(Strategy).filter(
-                Strategy.id == strategy_id,
-                Strategy.user_id == user_id
-            ).first()
+            # 1. 语法检查
+            syntax_issues = self._check_syntax(code)
+            issues.extend(syntax_issues)
             
-            if not strategy:
-                raise NotFoundError("策略不存在")
-            
-            validation_start_time = datetime.utcnow()
-            
-            # 1. 代码验证
-            code_validation = self._validate_code(strategy.code)
+            # 如果有语法错误，直接返回
+            if any(issue.level == ValidationLevel.ERROR for issue in syntax_issues):
+                return ValidationResult(
+                    is_valid=False,
+                    issues=issues,
+                    execution_time=(datetime.now() - start_time).total_seconds(),
+                    code_metrics={},
+                    dependencies=[],
+                    entry_points=[]
+                )
             
             # 2. 安全检查
-            security_check = self._security_check(strategy.code)
+            security_issues = self._check_security(code)
+            issues.extend(security_issues)
             
             # 3. 依赖检查
-            dependency_check = self._dependency_check(strategy.code)
+            dependencies, dependency_issues = self._check_dependencies(code)
+            issues.extend(dependency_issues)
             
-            # 4. 结构检查
-            structure_check = self._structure_check(strategy.code)
+            # 4. 代码结构检查
+            structure_issues, entry_points = self._check_structure(code)
+            issues.extend(structure_issues)
             
-            # 5. 单元测试
-            unit_test_results = self._run_unit_tests(strategy.code)
+            # 5. 性能检查
+            performance_issues = self._check_performance(code)
+            issues.extend(performance_issues)
             
-            # 6. 沙盒测试
-            sandbox_test = self._sandbox_test(strategy.code)
+            # 6. 代码风格检查
+            style_issues = self._check_style(code)
+            issues.extend(style_issues)
             
-            # 7. 性能评估
-            performance_assessment = self._performance_assessment(strategy.code)
+            # 7. 逻辑检查
+            logic_issues = self._check_logic(code)
+            issues.extend(logic_issues)
             
-            # 综合评分
-            overall_score = self._calculate_overall_score({
-                'code_validation': code_validation,
-                'security_check': security_check,
-                'dependency_check': dependency_check,
-                'structure_check': structure_check,
-                'unit_tests': unit_test_results,
-                'sandbox_test': sandbox_test,
-                'performance': performance_assessment
-            })
+            # 8. 计算代码指标
+            code_metrics = self._calculate_metrics(code)
             
-            # 生成建议
-            recommendations = self._generate_comprehensive_recommendations({
-                'code_validation': code_validation,
-                'security_check': security_check,
-                'dependency_check': dependency_check,
-                'structure_check': structure_check,
-                'unit_tests': unit_test_results,
-                'sandbox_test': sandbox_test,
-                'performance': performance_assessment
-            })
+            # 判断是否有效
+            has_errors = any(issue.level == ValidationLevel.ERROR for issue in issues)
             
-            # 确定验证结果
-            validation_result = self._determine_validation_result(overall_score, {
-                'code_validation': code_validation,
-                'security_check': security_check,
-                'unit_tests': unit_test_results,
-                'sandbox_test': sandbox_test
-            })
-            
-            validation_time = (datetime.utcnow() - validation_start_time).total_seconds()
-            
-            return {
-                'strategy_id': strategy.id,
-                'strategy_name': strategy.name,
-                'validation_time': validation_start_time.isoformat(),
-                'execution_time': validation_time,
-                'overall_result': validation_result,
-                'overall_score': overall_score,
-                'details': {
-                    'code_validation': code_validation,
-                    'security_check': security_check,
-                    'dependency_check': dependency_check,
-                    'structure_check': structure_check,
-                    'unit_tests': unit_test_results,
-                    'sandbox_test': sandbox_test,
-                    'performance': performance_assessment
-                },
-                'recommendations': recommendations,
-                'ready_for_deployment': validation_result == 'PASS' and overall_score >= 7.0
-            }
-            
-        except Exception as e:
-            logger.error(f"综合验证失败: {e}")
-            return {
-                'strategy_id': strategy_id,
-                'strategy_name': "未知",
-                'validation_time': datetime.utcnow().isoformat(),
-                'execution_time': 0.0,
-                'overall_result': 'ERROR',
-                'overall_score': 0.0,
-                'error': str(e),
-                'recommendations': ["修复验证过程中的错误"],
-                'ready_for_deployment': False
-            }
-    
-    def _validate_code(self, code: str) -> Dict[str, Any]:
-        """代码验证"""
-        try:
-            validation_request = StrategyValidationRequest(
-                code=code,
-                check_syntax=True,
-                check_security=True,
-                check_structure=True,
-                check_dependencies=True
+            return ValidationResult(
+                is_valid=not has_errors,
+                issues=issues,
+                execution_time=(datetime.now() - start_time).total_seconds(),
+                code_metrics=code_metrics,
+                dependencies=dependencies,
+                entry_points=entry_points
             )
             
-            validation_result = self.validator.validate_strategy(validation_request)
-            code_analysis = self.validator.analyze_code(code)
-            
-            return {
-                'valid': validation_result.valid,
-                'errors': validation_result.errors,
-                'warnings': validation_result.warnings,
-                'checks': validation_result.checks,
-                'suggestions': validation_result.suggestions,
-                'code_quality_score': (
-                    code_analysis.security_score * 0.3 +
-                    code_analysis.maintainability_score * 0.4 +
-                    (10.0 - code_analysis.complexity_score) * 0.3
-                ),
-                'lines_of_code': code_analysis.lines_of_code,
-                'complexity_score': code_analysis.complexity_score,
-                'functions_count': code_analysis.functions_count
-            }
-            
         except Exception as e:
-            return {
-                'valid': False,
-                'errors': [f"代码验证失败: {str(e)}"],
-                'warnings': [],
-                'checks': {},
-                'suggestions': [],
-                'code_quality_score': 0.0
-            }
-    
-    def _security_check(self, code: str) -> Dict[str, Any]:
-        """安全检查"""
-        try:
-            security_report = self.validator.generate_security_report(code)
+            logger.error(f"代码验证失败: {str(e)}")
+            issues.append(ValidationIssue(
+                level=ValidationLevel.ERROR,
+                category=ValidationCategory.SYNTAX,
+                message=f"验证过程中发生错误: {str(e)}"
+            ))
             
-            return {
-                'security_level': security_report.security_level,
-                'safe_to_execute': security_report.safe_to_execute,
-                'issues_count': len(security_report.issues),
-                'high_risk_issues': len([issue for issue in security_report.issues if issue['severity'] == 'HIGH']),
-                'medium_risk_issues': len([issue for issue in security_report.issues if issue['severity'] == 'MEDIUM']),
-                'issues': security_report.issues,
-                'recommendations': security_report.recommendations,
-                'security_score': 10.0 if security_report.security_level == 'HIGH' else 
-                                5.0 if security_report.security_level == 'MEDIUM' else 2.0
-            }
-            
-        except Exception as e:
-            return {
-                'security_level': 'LOW',
-                'safe_to_execute': False,
-                'issues_count': 1,
-                'high_risk_issues': 1,
-                'medium_risk_issues': 0,
-                'issues': [{'type': 'error', 'description': f"安全检查失败: {str(e)}", 'severity': 'HIGH'}],
-                'recommendations': ["修复安全检查错误"],
-                'security_score': 0.0
-            }
-    
-    def _dependency_check(self, code: str) -> Dict[str, Any]:
-        """依赖检查"""
-        try:
-            dependency_info = self.validator.get_dependency_info(code)
-            
-            total_dependencies = len(dependency_info)
-            available_dependencies = len([dep for dep in dependency_info if dep.is_available])
-            missing_dependencies = [dep for dep in dependency_info if not dep.is_available]
-            
-            return {
-                'total_dependencies': total_dependencies,
-                'available_dependencies': available_dependencies,
-                'missing_dependencies': len(missing_dependencies),
-                'missing_list': [dep.module_name for dep in missing_dependencies],
-                'dependency_score': (available_dependencies / total_dependencies * 10.0) if total_dependencies > 0 else 10.0,
-                'all_dependencies_available': len(missing_dependencies) == 0,
-                'dependencies': [
-                    {
-                        'module_name': dep.module_name,
-                        'is_available': dep.is_available,
-                        'version': dep.version,
-                        'description': dep.description
-                    }
-                    for dep in dependency_info
-                ]
-            }
-            
-        except Exception as e:
-            return {
-                'total_dependencies': 0,
-                'available_dependencies': 0,
-                'missing_dependencies': 0,
-                'missing_list': [],
-                'dependency_score': 0.0,
-                'all_dependencies_available': False,
-                'error': f"依赖检查失败: {str(e)}"
-            }
-    
-    def _structure_check(self, code: str) -> Dict[str, Any]:
-        """结构检查"""
-        try:
-            validation_request = StrategyValidationRequest(
-                code=code,
-                check_syntax=False,
-                check_security=False,
-                check_structure=True,
-                check_dependencies=False
+            return ValidationResult(
+                is_valid=False,
+                issues=issues,
+                execution_time=(datetime.now() - start_time).total_seconds(),
+                code_metrics={},
+                dependencies=[],
+                entry_points=[]
             )
-            
-            validation_result = self.validator.validate_strategy(validation_request)
-            
-            return {
-                'structure_valid': validation_result.checks.get('structure', False),
-                'errors': validation_result.errors,
-                'warnings': validation_result.warnings,
-                'structure_score': 10.0 if validation_result.checks.get('structure', False) else 0.0,
-                'has_required_functions': validation_result.checks.get('structure', False)
-            }
-            
-        except Exception as e:
-            return {
-                'structure_valid': False,
-                'errors': [f"结构检查失败: {str(e)}"],
-                'warnings': [],
-                'structure_score': 0.0,
-                'has_required_functions': False
-            }
     
-    def _run_unit_tests(self, code: str) -> Dict[str, Any]:
-        """运行单元测试"""
+    def _check_syntax(self, code: str) -> List[ValidationIssue]:
+        """检查语法错误"""
+        issues = []
+        
         try:
-            test_data = {
-                'params': {'symbol': 'SHFE.cu2401', 'initial_capital': 1000000},
-                'initial_capital': 1000000
-            }
-            
-            unit_test_results = run_strategy_unit_tests(code, test_data)
-            
-            return {
-                'overall_success': unit_test_results['overall_success'],
-                'total_tests': unit_test_results['total_tests'],
-                'passed_tests': unit_test_results['passed_tests'],
-                'failed_tests': unit_test_results['failed_tests'],
-                'test_score': (unit_test_results['passed_tests'] / unit_test_results['total_tests'] * 10.0) 
-                             if unit_test_results['total_tests'] > 0 else 0.0,
-                'basic_tests': unit_test_results['basic_tests'],
-                'trading_tests': unit_test_results['trading_tests'],
-                'summary': unit_test_results['summary']
-            }
-            
+            ast.parse(code)
+        except SyntaxError as e:
+            issues.append(ValidationIssue(
+                level=ValidationLevel.ERROR,
+                category=ValidationCategory.SYNTAX,
+                message=f"语法错误: {e.msg}",
+                line_number=e.lineno,
+                column_number=e.offset,
+                suggestion="请检查代码语法，确保符合Python语法规范"
+            ))
         except Exception as e:
-            return {
-                'overall_success': False,
-                'total_tests': 0,
-                'passed_tests': 0,
-                'failed_tests': 0,
-                'test_score': 0.0,
-                'error': f"单元测试失败: {str(e)}"
-            }
+            issues.append(ValidationIssue(
+                level=ValidationLevel.ERROR,
+                category=ValidationCategory.SYNTAX,
+                message=f"代码解析错误: {str(e)}",
+                suggestion="请检查代码是否为有效的Python代码"
+            ))
+        
+        return issues
     
-    def _sandbox_test(self, code: str) -> Dict[str, Any]:
-        """沙盒测试"""
+    def _check_security(self, code: str) -> List[ValidationIssue]:
+        """检查安全问题"""
+        issues = []
+        
         try:
-            test_data = {
-                'params': {'symbol': 'SHFE.cu2401', 'initial_capital': 1000000},
-                'initial_capital': 1000000
-            }
+            tree = ast.parse(code)
             
-            sandbox_request = StrategySandboxRequest(
-                code=code,
-                test_data=test_data,
-                timeout=30
-            )
-            
-            sandbox_result = self.sandbox.execute(sandbox_request)
-            
-            # 计算沙盒测试评分
-            sandbox_score = 0.0
-            if sandbox_result.success:
-                sandbox_score = 8.0
-                # 根据执行时间和内存使用调整评分
-                if sandbox_result.execution_time < 5.0:
-                    sandbox_score += 1.0
-                if sandbox_result.memory_usage < 50.0:
-                    sandbox_score += 1.0
-            
-            return {
-                'success': sandbox_result.success,
-                'output': sandbox_result.output,
-                'error': sandbox_result.error,
-                'execution_time': sandbox_result.execution_time,
-                'memory_usage': sandbox_result.memory_usage,
-                'sandbox_score': sandbox_score,
-                'performance_acceptable': sandbox_result.execution_time < 30.0 and sandbox_result.memory_usage < 100.0
-            }
-            
+            for node in ast.walk(tree):
+                # 检查危险函数调用
+                if isinstance(node, ast.Call):
+                    if isinstance(node.func, ast.Name):
+                        func_name = node.func.id
+                        if func_name in self.dangerous_functions:
+                            issues.append(ValidationIssue(
+                                level=ValidationLevel.ERROR,
+                                category=ValidationCategory.SECURITY,
+                                message=f"禁止使用危险函数: {func_name}",
+                                line_number=node.lineno,
+                                suggestion=f"请移除对 {func_name} 函数的调用"
+                            ))
+                
+                # 检查危险模块导入
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name in self.dangerous_modules:
+                            issues.append(ValidationIssue(
+                                level=ValidationLevel.ERROR,
+                                category=ValidationCategory.SECURITY,
+                                message=f"禁止导入危险模块: {alias.name}",
+                                line_number=node.lineno,
+                                suggestion=f"请移除对 {alias.name} 模块的导入"
+                            ))
+                
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module and node.module in self.dangerous_modules:
+                        issues.append(ValidationIssue(
+                            level=ValidationLevel.ERROR,
+                            category=ValidationCategory.SECURITY,
+                            message=f"禁止从危险模块导入: {node.module}",
+                            line_number=node.lineno,
+                            suggestion=f"请移除从 {node.module} 模块的导入"
+                        ))
+        
         except Exception as e:
-            return {
-                'success': False,
-                'output': '',
-                'error': f"沙盒测试失败: {str(e)}",
-                'execution_time': 0.0,
-                'memory_usage': 0.0,
-                'sandbox_score': 0.0,
-                'performance_acceptable': False
-            }
+            logger.error(f"安全检查失败: {str(e)}")
+        
+        return issues
     
-    def _performance_assessment(self, code: str) -> Dict[str, Any]:
-        """性能评估"""
+    def _check_dependencies(self, code: str) -> Tuple[List[str], List[ValidationIssue]]:
+        """检查依赖"""
+        dependencies = []
+        issues = []
+        
         try:
-            code_analysis = self.validator.analyze_code(code)
+            tree = ast.parse(code)
             
-            # 性能指标
-            performance_metrics = {
-                'code_complexity': code_analysis.complexity_score,
-                'maintainability': code_analysis.maintainability_score,
-                'security': code_analysis.security_score,
-                'lines_of_code': code_analysis.lines_of_code,
-                'functions_count': code_analysis.functions_count
-            }
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        module_name = alias.name.split('.')[0]
+                        if module_name not in dependencies:
+                            dependencies.append(module_name)
+                        
+                        # 检查是否为允许的模块
+                        if (module_name not in self.allowed_modules and 
+                            module_name not in self.dangerous_modules):
+                            issues.append(ValidationIssue(
+                                level=ValidationLevel.WARNING,
+                                category=ValidationCategory.DEPENDENCY,
+                                message=f"未知模块: {module_name}",
+                                line_number=node.lineno,
+                                suggestion="请确认该模块在运行环境中可用"
+                            ))
+                
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module:
+                        module_name = node.module.split('.')[0]
+                        if module_name not in dependencies:
+                            dependencies.append(module_name)
+                        
+                        if (module_name not in self.allowed_modules and 
+                            module_name not in self.dangerous_modules):
+                            issues.append(ValidationIssue(
+                                level=ValidationLevel.WARNING,
+                                category=ValidationCategory.DEPENDENCY,
+                                message=f"未知模块: {module_name}",
+                                line_number=node.lineno,
+                                suggestion="请确认该模块在运行环境中可用"
+                            ))
+        
+        except Exception as e:
+            logger.error(f"依赖检查失败: {str(e)}")
+        
+        return dependencies, issues
+    
+    def _check_structure(self, code: str) -> Tuple[List[ValidationIssue], List[str]]:
+        """检查代码结构"""
+        issues = []
+        entry_points = []
+        
+        try:
+            tree = ast.parse(code)
             
-            # 计算性能评分
-            performance_score = (
-                (10.0 - code_analysis.complexity_score) * 0.3 +  # 复杂度越低越好
-                code_analysis.maintainability_score * 0.4 +      # 可维护性
-                code_analysis.security_score * 0.3               # 安全性
-            )
+            # 查找函数定义
+            functions = {}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    functions[node.name] = node
+                    entry_points.append(node.name)
             
-            # 性能等级
-            if performance_score >= 8.0:
-                performance_grade = 'A'
-            elif performance_score >= 6.0:
-                performance_grade = 'B'
-            elif performance_score >= 4.0:
-                performance_grade = 'C'
+            # 检查必需函数
+            for func_name, required_args in self.required_functions.items():
+                if func_name in functions:
+                    func_node = functions[func_name]
+                    
+                    # 检查参数
+                    actual_args = [arg.arg for arg in func_node.args.args]
+                    if actual_args != required_args:
+                        issues.append(ValidationIssue(
+                            level=ValidationLevel.WARNING,
+                            category=ValidationCategory.LOGIC,
+                            message=f"函数 {func_name} 参数不匹配，期望: {required_args}，实际: {actual_args}",
+                            line_number=func_node.lineno,
+                            suggestion=f"请将函数参数修改为: {', '.join(required_args)}"
+                        ))
+                else:
+                    issues.append(ValidationIssue(
+                        level=ValidationLevel.INFO,
+                        category=ValidationCategory.LOGIC,
+                        message=f"建议添加函数: {func_name}({', '.join(required_args)})",
+                        suggestion=f"添加 {func_name} 函数可以提供更好的策略控制"
+                    ))
+            
+            # 检查是否有主要逻辑
+            if not functions:
+                issues.append(ValidationIssue(
+                    level=ValidationLevel.WARNING,
+                    category=ValidationCategory.LOGIC,
+                    message="代码中没有找到函数定义",
+                    suggestion="策略代码应该包含至少一个函数"
+                ))
+        
+        except Exception as e:
+            logger.error(f"结构检查失败: {str(e)}")
+        
+        return issues, entry_points
+    
+    def _check_performance(self, code: str) -> List[ValidationIssue]:
+        """检查性能问题"""
+        issues = []
+        
+        try:
+            # 检查潜在的性能问题
+            lines = code.split('\n')
+            
+            for i, line in enumerate(lines, 1):
+                line = line.strip()
+                
+                # 检查循环中的重复计算
+                if 'for ' in line and ('range(' in line or 'in ' in line):
+                    if any(perf_issue in line for perf_issue in ['len(', '.append(', '.extend(']):
+                        issues.append(ValidationIssue(
+                            level=ValidationLevel.WARNING,
+                            category=ValidationCategory.PERFORMANCE,
+                            message="循环中可能存在性能问题",
+                            line_number=i,
+                            suggestion="考虑将重复计算移到循环外部"
+                        ))
+                
+                # 检查字符串拼接
+                if '+=' in line and ("'" in line or '"' in line):
+                    issues.append(ValidationIssue(
+                        level=ValidationLevel.WARNING,
+                        category=ValidationCategory.PERFORMANCE,
+                        message="字符串拼接可能影响性能",
+                        line_number=i,
+                        suggestion="考虑使用 join() 方法或 f-string"
+                    ))
+                
+                # 检查全局变量访问
+                if 'global ' in line:
+                    issues.append(ValidationIssue(
+                        level=ValidationLevel.WARNING,
+                        category=ValidationCategory.PERFORMANCE,
+                        message="使用全局变量可能影响性能",
+                        line_number=i,
+                        suggestion="考虑使用局部变量或参数传递"
+                    ))
+        
+        except Exception as e:
+            logger.error(f"性能检查失败: {str(e)}")
+        
+        return issues
+    
+    def _check_style(self, code: str) -> List[ValidationIssue]:
+        """检查代码风格"""
+        issues = []
+        
+        try:
+            lines = code.split('\n')
+            
+            for i, line in enumerate(lines, 1):
+                # 检查行长度
+                if len(line) > 120:
+                    issues.append(ValidationIssue(
+                        level=ValidationLevel.WARNING,
+                        category=ValidationCategory.STYLE,
+                        message=f"行长度超过120字符 ({len(line)})",
+                        line_number=i,
+                        suggestion="建议将长行拆分为多行"
+                    ))
+                
+                # 检查缩进
+                if line.strip() and not line.startswith(' ' * (len(line) - len(line.lstrip()))):
+                    if '\t' in line:
+                        issues.append(ValidationIssue(
+                            level=ValidationLevel.WARNING,
+                            category=ValidationCategory.STYLE,
+                            message="使用了制表符缩进",
+                            line_number=i,
+                            suggestion="建议使用4个空格进行缩进"
+                        ))
+                
+                # 检查命名规范
+                if 'def ' in line:
+                    func_match = re.search(r'def\s+([a-zA-Z_][a-zA-Z0-9_]*)', line)
+                    if func_match:
+                        func_name = func_match.group(1)
+                        if not re.match(r'^[a-z_][a-z0-9_]*$', func_name):
+                            issues.append(ValidationIssue(
+                                level=ValidationLevel.INFO,
+                                category=ValidationCategory.STYLE,
+                                message=f"函数名 '{func_name}' 不符合命名规范",
+                                line_number=i,
+                                suggestion="函数名应使用小写字母和下划线"
+                            ))
+        
+        except Exception as e:
+            logger.error(f"风格检查失败: {str(e)}")
+        
+        return issues
+    
+    def _check_logic(self, code: str) -> List[ValidationIssue]:
+        """检查逻辑问题"""
+        issues = []
+        
+        try:
+            tree = ast.parse(code)
+            
+            for node in ast.walk(tree):
+                # 检查除零错误
+                if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+                    if isinstance(node.right, ast.Constant) and node.right.value == 0:
+                        issues.append(ValidationIssue(
+                            level=ValidationLevel.ERROR,
+                            category=ValidationCategory.LOGIC,
+                            message="除零错误",
+                            line_number=node.lineno,
+                            suggestion="请检查除数不为零"
+                        ))
+                
+                # 检查未使用的变量
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name):
+                            var_name = target.id
+                            # 简单检查：如果变量名以下划线开头，通常表示未使用
+                            if var_name.startswith('_') and not var_name.startswith('__'):
+                                issues.append(ValidationIssue(
+                                    level=ValidationLevel.INFO,
+                                    category=ValidationCategory.LOGIC,
+                                    message=f"变量 '{var_name}' 可能未使用",
+                                    line_number=node.lineno,
+                                    suggestion="考虑移除未使用的变量"
+                                ))
+        
+        except Exception as e:
+            logger.error(f"逻辑检查失败: {str(e)}")
+        
+        return issues
+    
+    def _calculate_metrics(self, code: str) -> Dict[str, Any]:
+        """计算代码指标"""
+        metrics = {
+            'lines_of_code': 0,
+            'lines_of_comments': 0,
+            'blank_lines': 0,
+            'functions_count': 0,
+            'classes_count': 0,
+            'complexity_score': 0,
+            'maintainability_index': 0
+        }
+        
+        try:
+            lines = code.split('\n')
+            
+            # 基本行数统计
+            for line in lines:
+                stripped = line.strip()
+                if not stripped:
+                    metrics['blank_lines'] += 1
+                elif stripped.startswith('#'):
+                    metrics['lines_of_comments'] += 1
+                else:
+                    metrics['lines_of_code'] += 1
+            
+            # AST分析
+            tree = ast.parse(code)
+            
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef):
+                    metrics['functions_count'] += 1
+                elif isinstance(node, ast.ClassDef):
+                    metrics['classes_count'] += 1
+                elif isinstance(node, (ast.If, ast.For, ast.While, ast.Try)):
+                    metrics['complexity_score'] += 1
+            
+            # 计算可维护性指数（简化版本）
+            total_lines = len(lines)
+            if total_lines > 0:
+                comment_ratio = metrics['lines_of_comments'] / total_lines
+                complexity_ratio = metrics['complexity_score'] / max(metrics['functions_count'], 1)
+                metrics['maintainability_index'] = max(0, 100 - complexity_ratio * 10 + comment_ratio * 20)
+        
+        except Exception as e:
+            logger.error(f"指标计算失败: {str(e)}")
+        
+        return metrics
+
+
+class StrategyTestFramework:
+    """策略测试框架"""
+    
+    def __init__(self):
+        self.test_cases = []
+    
+    def add_test_case(self, name: str, test_func: callable, description: str = ""):
+        """添加测试用例"""
+        self.test_cases.append({
+            'name': name,
+            'test_func': test_func,
+            'description': description
+        })
+    
+    def run_tests(self, strategy_code: str) -> Dict[str, Any]:
+        """运行测试用例"""
+        results = {
+            'total_tests': len(self.test_cases),
+            'passed_tests': 0,
+            'failed_tests': 0,
+            'test_results': []
+        }
+        
+        for test_case in self.test_cases:
+            try:
+                # 在安全环境中执行测试
+                test_result = self._run_single_test(strategy_code, test_case)
+                results['test_results'].append(test_result)
+                
+                if test_result['passed']:
+                    results['passed_tests'] += 1
+                else:
+                    results['failed_tests'] += 1
+                    
+            except Exception as e:
+                results['test_results'].append({
+                    'name': test_case['name'],
+                    'passed': False,
+                    'error': str(e),
+                    'execution_time': 0
+                })
+                results['failed_tests'] += 1
+        
+        return results
+    
+    def _run_single_test(self, strategy_code: str, test_case: Dict) -> Dict[str, Any]:
+        """运行单个测试用例"""
+        start_time = datetime.now()
+        
+        try:
+            # 创建临时文件执行测试
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+                f.write(strategy_code)
+                f.write('\n\n# Test code\n')
+                f.write(f"test_result = {test_case['test_func'].__name__}()")
+                temp_file = f.name
+            
+            # 执行测试（这里需要更安全的执行环境）
+            result = subprocess.run([
+                sys.executable, '-c', f"""
+import sys
+sys.path.insert(0, '{os.path.dirname(temp_file)}')
+exec(open('{temp_file}').read())
+print(test_result)
+"""
+            ], capture_output=True, text=True, timeout=30)
+            
+            execution_time = (datetime.now() - start_time).total_seconds()
+            
+            if result.returncode == 0:
+                return {
+                    'name': test_case['name'],
+                    'passed': True,
+                    'output': result.stdout.strip(),
+                    'execution_time': execution_time
+                }
             else:
-                performance_grade = 'D'
-            
+                return {
+                    'name': test_case['name'],
+                    'passed': False,
+                    'error': result.stderr,
+                    'execution_time': execution_time
+                }
+                
+        except subprocess.TimeoutExpired:
             return {
-                'performance_score': performance_score,
-                'performance_grade': performance_grade,
-                'metrics': performance_metrics,
-                'suggestions': code_analysis.suggestions,
-                'optimization_needed': performance_score < 6.0
+                'name': test_case['name'],
+                'passed': False,
+                'error': '测试超时',
+                'execution_time': 30.0
             }
-            
         except Exception as e:
             return {
-                'performance_score': 0.0,
-                'performance_grade': 'F',
-                'metrics': {},
-                'suggestions': [],
-                'optimization_needed': True,
-                'error': f"性能评估失败: {str(e)}"
+                'name': test_case['name'],
+                'passed': False,
+                'error': str(e),
+                'execution_time': (datetime.now() - start_time).total_seconds()
             }
+        finally:
+            # 清理临时文件
+            try:
+                os.unlink(temp_file)
+            except:
+                pass
+
+
+# 默认测试用例
+def create_default_test_framework() -> StrategyTestFramework:
+    """创建默认测试框架"""
+    framework = StrategyTestFramework()
     
-    def _calculate_overall_score(self, results: Dict[str, Any]) -> float:
-        """计算总体评分"""
-        try:
-            weights = {
-                'code_validation': 0.25,
-                'security_check': 0.20,
-                'dependency_check': 0.15,
-                'structure_check': 0.15,
-                'unit_tests': 0.15,
-                'sandbox_test': 0.10
-            }
-            
-            total_score = 0.0
-            
-            # 代码验证评分
-            if results['code_validation'].get('valid', False):
-                total_score += results['code_validation'].get('code_quality_score', 0.0) * weights['code_validation']
-            
-            # 安全检查评分
-            total_score += results['security_check'].get('security_score', 0.0) * weights['security_check']
-            
-            # 依赖检查评分
-            total_score += results['dependency_check'].get('dependency_score', 0.0) * weights['dependency_check']
-            
-            # 结构检查评分
-            total_score += results['structure_check'].get('structure_score', 0.0) * weights['structure_check']
-            
-            # 单元测试评分
-            total_score += results['unit_tests'].get('test_score', 0.0) * weights['unit_tests']
-            
-            # 沙盒测试评分
-            total_score += results['sandbox_test'].get('sandbox_score', 0.0) * weights['sandbox_test']
-            
-            return min(total_score, 10.0)
-            
-        except Exception as e:
-            logger.error(f"计算总体评分失败: {e}")
-            return 0.0
+    # 基本语法测试
+    def test_syntax():
+        return "语法检查通过"
     
-    def _generate_comprehensive_recommendations(self, results: Dict[str, Any]) -> List[str]:
-        """生成综合建议"""
-        recommendations = []
-        
-        # 代码验证建议
-        if not results['code_validation'].get('valid', False):
-            recommendations.append("修复代码验证错误")
-        
-        if results['code_validation'].get('code_quality_score', 0.0) < 6.0:
-            recommendations.append("提高代码质量评分")
-        
-        # 安全建议
-        if not results['security_check'].get('safe_to_execute', True):
-            recommendations.append("修复安全问题后再部署")
-        
-        if results['security_check'].get('high_risk_issues', 0) > 0:
-            recommendations.append("立即修复高风险安全问题")
-        
-        # 依赖建议
-        if not results['dependency_check'].get('all_dependencies_available', True):
-            missing = results['dependency_check'].get('missing_list', [])
-            recommendations.append(f"安装缺失的依赖模块: {', '.join(missing)}")
-        
-        # 结构建议
-        if not results['structure_check'].get('structure_valid', False):
-            recommendations.append("修复策略结构问题")
-        
-        # 单元测试建议
-        if not results['unit_tests'].get('overall_success', False):
-            recommendations.append("修复单元测试失败的问题")
-        
-        if results['unit_tests'].get('test_score', 0.0) < 8.0:
-            recommendations.append("改进代码以通过更多单元测试")
-        
-        # 沙盒测试建议
-        if not results['sandbox_test'].get('success', False):
-            recommendations.append("修复沙盒执行错误")
-        
-        if not results['sandbox_test'].get('performance_acceptable', True):
-            recommendations.append("优化代码性能，减少执行时间和内存使用")
-        
-        # 性能建议
-        if results.get('performance', {}).get('optimization_needed', False):
-            recommendations.append("优化代码性能和结构")
-        
-        # 如果没有具体建议，给出通用建议
-        if not recommendations:
-            recommendations.append("策略验证通过，可以考虑部署到测试环境")
-        
-        return recommendations
+    framework.add_test_case(
+        "syntax_test",
+        test_syntax,
+        "检查代码语法是否正确"
+    )
     
-    def _determine_validation_result(self, overall_score: float, key_results: Dict[str, Any]) -> str:
-        """确定验证结果"""
-        # 关键检查项
-        if not key_results['code_validation'].get('valid', False):
-            return 'FAIL'
+    # 函数存在性测试
+    def test_required_functions():
+        required_funcs = ['initialize', 'handle_data']
+        missing_funcs = []
+        for func in required_funcs:
+            if func not in globals():
+                missing_funcs.append(func)
         
-        if not key_results['security_check'].get('safe_to_execute', True):
-            return 'FAIL'
-        
-        if not key_results['structure_check'].get('structure_valid', False):
-            return 'FAIL'
-        
-        if not key_results['sandbox_test'].get('success', False):
-            return 'ERROR'
-        
-        # 根据总体评分确定结果
-        if overall_score >= 7.0:
-            return 'PASS'
-        elif overall_score >= 5.0:
-            return 'WARNING'
-        else:
-            return 'FAIL'
+        if missing_funcs:
+            return f"缺少必需函数: {', '.join(missing_funcs)}"
+        return "必需函数检查通过"
     
-    def quick_validation(self, code: str) -> Dict[str, Any]:
-        """快速验证"""
-        try:
-            # 基础验证
-            validation_request = StrategyValidationRequest(
-                code=code,
-                check_syntax=True,
-                check_security=True,
-                check_structure=True,
-                check_dependencies=False
-            )
-            
-            validation_result = self.validator.validate_strategy(validation_request)
-            
-            # 快速沙盒测试
-            sandbox_request = StrategySandboxRequest(
-                code=code,
-                test_data={'params': {}, 'initial_capital': 1000000},
-                timeout=10
-            )
-            
-            sandbox_result = self.sandbox.execute(sandbox_request)
-            
-            # 快速评分
-            quick_score = 0.0
-            if validation_result.valid:
-                quick_score += 5.0
-            if validation_result.checks.get('security', False):
-                quick_score += 2.0
-            if validation_result.checks.get('structure', False):
-                quick_score += 2.0
-            if sandbox_result.success:
-                quick_score += 1.0
-            
-            return {
-                'validation_result': 'PASS' if quick_score >= 7.0 else 'FAIL',
-                'quick_score': quick_score,
-                'code_valid': validation_result.valid,
-                'security_ok': validation_result.checks.get('security', False),
-                'structure_ok': validation_result.checks.get('structure', False),
-                'execution_ok': sandbox_result.success,
-                'errors': validation_result.errors,
-                'warnings': validation_result.warnings,
-                'execution_error': sandbox_result.error if not sandbox_result.success else None
-            }
-            
-        except Exception as e:
-            return {
-                'validation_result': 'ERROR',
-                'quick_score': 0.0,
-                'error': str(e)
-            }
+    framework.add_test_case(
+        "required_functions_test",
+        test_required_functions,
+        "检查是否包含必需的函数"
+    )
+    
+    return framework

@@ -572,8 +572,9 @@ onMounted(() => {
   // 加载策略列表
   strategyStore.loadStrategies()
 })
-</script><
-style scoped lang="scss">
+</script>
+
+<style scoped lang="scss">
 .manual-trading-form {
   .card-header {
     display: flex;

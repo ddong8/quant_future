@@ -19,8 +19,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # 复制并安装Python依赖
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com && \
+    pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/ --trusted-host mirrors.aliyun.com
 
 # 运行阶段
 FROM python:3.11-slim as runtime
@@ -64,5 +64,9 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD curl -f http://localhost:8000/api/v1/health/ || exit 1
 
-# 启动命令（会被docker-compose覆盖）
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# 复制启动脚本
+COPY --chown=appuser:appuser docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
+# 启动命令
+CMD ["/app/docker-entrypoint.sh"]

@@ -151,7 +151,9 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         
         # 在生产环境中检查是否使用了默认密钥
-        if not cls.DEBUG and v == "default-secret-key-change-in-production":
+        import os
+        debug_mode = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
+        if not debug_mode and v == "default-secret-key-change-in-production":
             raise ValueError("Must change SECRET_KEY in production environment")
         
         return v
@@ -179,8 +181,15 @@ class Settings(BaseSettings):
         return v.upper()
     
     @validator("JWT_ACCESS_TOKEN_EXPIRE_MINUTES", pre=True)
-    def validate_jwt_expire_minutes(cls, v: int) -> int:
+    def validate_jwt_expire_minutes(cls, v) -> int:
         """验证 JWT 过期时间"""
+        # 转换为整数
+        if isinstance(v, str):
+            try:
+                v = int(v)
+            except ValueError:
+                raise ValueError("JWT_ACCESS_TOKEN_EXPIRE_MINUTES must be a valid integer")
+        
         if v <= 0:
             raise ValueError("JWT_ACCESS_TOKEN_EXPIRE_MINUTES must be positive")
         if v > 1440:  # 24小时
@@ -188,15 +197,29 @@ class Settings(BaseSettings):
         return v
     
     @validator("MAX_DAILY_LOSS_PERCENT", pre=True)
-    def validate_max_daily_loss(cls, v: float) -> float:
+    def validate_max_daily_loss(cls, v) -> float:
         """验证最大日损失百分比"""
+        # 转换为浮点数
+        if isinstance(v, str):
+            try:
+                v = float(v)
+            except ValueError:
+                raise ValueError("MAX_DAILY_LOSS_PERCENT must be a valid number")
+        
         if v <= 0 or v > 100:
             raise ValueError("MAX_DAILY_LOSS_PERCENT must be between 0 and 100")
         return v
     
     @validator("MAX_POSITION_PERCENT", pre=True)
-    def validate_max_position(cls, v: float) -> float:
+    def validate_max_position(cls, v) -> float:
         """验证最大持仓百分比"""
+        # 转换为浮点数
+        if isinstance(v, str):
+            try:
+                v = float(v)
+            except ValueError:
+                raise ValueError("MAX_POSITION_PERCENT must be a valid number")
+        
         if v <= 0 or v > 100:
             raise ValueError("MAX_POSITION_PERCENT must be between 0 and 100")
         return v

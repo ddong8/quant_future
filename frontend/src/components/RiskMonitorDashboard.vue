@@ -644,7 +644,9 @@ onUnmounted(() => {
   riskDecompositionChart?.dispose()
   positionRiskChart?.dispose()
 })
-</script><style 
+</script>
+
+<style 
 scoped lang="scss">
 .risk-monitor-dashboard {
   .risk-overview {
