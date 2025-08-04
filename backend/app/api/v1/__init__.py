@@ -26,6 +26,7 @@ from .monitoring import router as monitoring_router
 from .logs import router as logs_router
 from .reports import router as reports_router
 from .health import router as health_router
+from .dashboard import router as dashboard_router
 
 # 创建API路由器
 api_router = APIRouter()
@@ -53,4 +54,5 @@ api_router.include_router(websocket_router, prefix="/ws", tags=["WebSocket"])
 api_router.include_router(monitoring_router, prefix="/monitoring", tags=["系统监控"])
 api_router.include_router(logs_router, prefix="/logs", tags=["日志管理"])
 api_router.include_router(reports_router, prefix="/reports", tags=["报告生成"])
+api_router.include_router(dashboard_router, prefix="/dashboard", tags=["仪表板"])
 api_router.include_router(health_router, tags=["健康检查"])

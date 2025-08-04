@@ -3,6 +3,7 @@ WebSocket路由处理
 """
 
 import logging
+import json
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, status
 from fastapi.security import HTTPBearer
 from typing import Optional
@@ -81,6 +82,39 @@ async def websocket_endpoint(
     except Exception as e:
         logger.error(f"WebSocket连接出错: {e}")
         await connection_manager.disconnect(connection_id)
+
+
+@router.websocket("/market")
+async def websocket_market_endpoint(websocket: WebSocket):
+    """市场数据WebSocket连接端点"""
+    
+    try:
+        # 接受连接
+        await websocket.accept()
+        
+        # 发送连接成功消息
+        await websocket.send_text(json.dumps({
+            "type": "connection",
+            "status": "connected",
+            "message": "市场数据连接已建立"
+        }))
+        
+        while True:
+            # 接收消息
+            message = await websocket.receive_text()
+            
+            # 回显消息
+            await websocket.send_text(json.dumps({
+                "type": "echo",
+                "message": f"收到消息: {message}"
+            }))
+    
+    except WebSocketDisconnect:
+        logger.info("WebSocket连接断开")
+    
+    except Exception as e:
+        logger.error(f"市场数据WebSocket连接出错: {e}")
+        await websocket.close()
 
 
 @router.get("/ws/stats")

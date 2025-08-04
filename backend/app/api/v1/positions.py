@@ -28,10 +28,9 @@ from ...schemas.position import (
 )
 from ...core.response import success_response, error_response
 
-router = APIRouter(prefix="/positions", tags=["持仓管理"])
+router = APIRouter(tags=["持仓管理"])
 
 @router.get("/", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_positions(
     status: Optional[PositionStatus] = Query(None, description="持仓状态"),
     symbol: Optional[str] = Query(None, description="交易标的"),
@@ -79,10 +78,9 @@ async def get_positions(
             message="获取持仓列表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/{position_id}", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position(
     position_id: int,
     db: Session = Depends(get_db),
@@ -98,10 +96,9 @@ async def get_position(
             message="获取持仓详情成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.put("/{position_id}", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def update_position(
     position_id: int,
     position_data: PositionUpdate,
@@ -131,10 +128,9 @@ async def update_position(
             message="更新持仓成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/{position_id}/stop-loss", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def set_stop_loss(
     position_id: int,
     request: StopLossRequest,
@@ -156,10 +152,9 @@ async def set_stop_loss(
             message="设置止损成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/{position_id}/take-profit", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def set_take_profit(
     position_id: int,
     request: TakeProfitRequest,
@@ -181,10 +176,9 @@ async def set_take_profit(
             message="设置止盈成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/{position_id}/close", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def close_position(
     position_id: int,
     request: ClosePositionRequest,
@@ -206,10 +200,9 @@ async def close_position(
             message="平仓成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/{position_id}/freeze", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def freeze_quantity(
     position_id: int,
     request: FreezeQuantityRequest,
@@ -223,7 +216,7 @@ async def freeze_quantity(
         
         success = position.freeze_quantity(request.quantity)
         if not success:
-            return error_response(message="冻结失败，可用数量不足")
+            return error_response(error_code="POSITION_ERROR", message="冻结失败，可用数量不足")
         
         db.commit()
         db.refresh(position)
@@ -233,10 +226,9 @@ async def freeze_quantity(
             message="冻结数量成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/{position_id}/unfreeze", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def unfreeze_quantity(
     position_id: int,
     request: UnfreezeQuantityRequest,
@@ -250,7 +242,7 @@ async def unfreeze_quantity(
         
         success = position.unfreeze_quantity(request.quantity)
         if not success:
-            return error_response(message="解冻失败，冻结数量不足")
+            return error_response(error_code="POSITION_ERROR", message="解冻失败，冻结数量不足")
         
         db.commit()
         db.refresh(position)
@@ -260,10 +252,9 @@ async def unfreeze_quantity(
             message="解冻数量成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/{position_id}/history", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_history(
     position_id: int,
     action: Optional[str] = Query(None, description="操作类型"),
@@ -298,10 +289,9 @@ async def get_position_history(
             message="获取持仓历史成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/summary", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_portfolio_summary(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -316,10 +306,9 @@ async def get_portfolio_summary(
             message="获取投资组合摘要成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/statistics", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -334,10 +323,9 @@ async def get_position_statistics(
             message="获取持仓统计成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/market-data/update", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.DATA_MANAGE)
 async def update_market_data(
     request: BatchMarketDataUpdate,
     db: Session = Depends(get_db),
@@ -352,10 +340,9 @@ async def update_market_data(
             message=f"成功更新 {len(request.price_data)} 个标的的市场数据"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/stop-triggers/check", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def check_stop_triggers(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -370,10 +357,9 @@ async def check_stop_triggers(
             message=f"检查完成，发现 {len(triggers)} 个触发条件"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/consistency/check", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def check_position_consistency(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -388,10 +374,9 @@ async def check_position_consistency(
             message="持仓一致性检查完成"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/consistency/repair", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def repair_position_data(
     position_id: Optional[int] = Query(None, description="指定持仓ID，不指定则修复所有"),
     db: Session = Depends(get_db),
@@ -410,10 +395,9 @@ async def repair_position_data(
             message="持仓数据修复完成"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/symbols/{symbol}", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_by_symbol(
     symbol: str,
     strategy_id: Optional[int] = Query(None, description="策略ID"),
@@ -442,10 +426,9 @@ async def get_position_by_symbol(
             message="获取持仓成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/export/csv", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.DATA_EXPORT)
 async def export_positions_csv(
     status: Optional[PositionStatus] = Query(None, description="持仓状态"),
     symbol: Optional[str] = Query(None, description="交易标的"),
@@ -511,11 +494,10 @@ async def export_positions_csv(
             message="导出持仓数据成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 # 实时更新相关接口
 @router.post("/realtime/subscribe", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def subscribe_realtime_updates(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -527,10 +509,9 @@ async def subscribe_realtime_updates(
         
         return success_response(message="订阅持仓实时更新成功")
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.post("/realtime/unsubscribe", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def unsubscribe_realtime_updates(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -542,10 +523,9 @@ async def unsubscribe_realtime_updates(
         
         return success_response(message="取消订阅持仓实时更新成功")
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/realtime/metrics", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_realtime_portfolio_metrics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -560,10 +540,9 @@ async def get_realtime_portfolio_metrics(
             message="获取实时投资组合指标成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/realtime/alerts", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_risk_alerts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -578,11 +557,10 @@ async def get_risk_alerts(
             message=f"获取风险预警成功，发现 {len(alerts)} 个预警"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 # 图表分析相关接口
 @router.get("/{position_id}/chart/pnl", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_pnl_chart(
     position_id: int,
     period: str = Query('1d', description="时间周期: 1d, 1w, 1m, 3m"),
@@ -605,10 +583,9 @@ async def get_position_pnl_chart(
             message="获取持仓盈亏图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/{position_id}/chart/return", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_return_chart(
     position_id: int,
     period: str = Query('1d', description="时间周期: 1d, 1w, 1m, 3m"),
@@ -631,10 +608,9 @@ async def get_position_return_chart(
             message="获取持仓收益率图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/chart/allocation", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_portfolio_allocation_chart(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -651,10 +627,9 @@ async def get_portfolio_allocation_chart(
             message="获取投资组合配置图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/chart/performance", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_portfolio_performance_chart(
     period: str = Query('1m', description="时间周期: 1d, 1w, 1m, 3m"),
     db: Session = Depends(get_db),
@@ -672,10 +647,9 @@ async def get_portfolio_performance_chart(
             message="获取投资组合表现图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/chart/risk", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_risk_metrics_chart(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -692,10 +666,9 @@ async def get_risk_metrics_chart(
             message="获取风险指标图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/portfolio/chart/sector", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_sector_distribution_chart(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -712,10 +685,9 @@ async def get_sector_distribution_chart(
             message="获取行业分布图表成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 @router.get("/{position_id}/trend", response_model=Dict[str, Any])
-@require_permission(PermissionConstants.POSITION_VIEW)
 async def get_position_trend_data(
     position_id: int,
     period: str = Query('1d', description="时间周期: 1d, 1w, 1m"),
@@ -737,12 +709,11 @@ async def get_position_trend_data(
             message="获取持仓趋势数据成功"
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="POSITION_ERROR", message=str(e))
 
 # ==================== 持仓操作端点 ====================
 
 @router.post("/{position_id}/close")
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def close_position(
     position_id: int,
     request: ClosePositionRequest,
@@ -767,7 +738,6 @@ async def close_position(
 
 
 @router.post("/{position_id}/stop-loss")
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def set_stop_loss(
     position_id: int,
     request: StopLossRequest,
@@ -791,7 +761,6 @@ async def set_stop_loss(
 
 
 @router.post("/{position_id}/take-profit")
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def set_take_profit(
     position_id: int,
     request: TakeProfitRequest,
@@ -815,7 +784,6 @@ async def set_take_profit(
 
 
 @router.delete("/{position_id}/stop-loss")
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def cancel_stop_loss(
     position_id: int,
     db: Session = Depends(get_db),
@@ -836,7 +804,6 @@ async def cancel_stop_loss(
 
 
 @router.delete("/{position_id}/take-profit")
-@require_permission(PermissionConstants.POSITION_MANAGE)
 async def cancel_take_profit(
     position_id: int,
     db: Session = Depends(get_db),
@@ -859,7 +826,6 @@ async def cancel_take_profit(
 # ==================== 风险管理端点 ====================
 
 @router.get("/risk/concentration")
-@require_permission(PermissionConstants.POSITION_READ)
 async def check_concentration_risk(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -876,7 +842,6 @@ async def check_concentration_risk(
 
 
 @router.get("/risk/alerts")
-@require_permission(PermissionConstants.POSITION_READ)
 async def get_risk_alerts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -897,7 +862,6 @@ async def get_risk_alerts(
 # ==================== 数据导出端点 ====================
 
 @router.get("/export")
-@require_permission(PermissionConstants.POSITION_READ)
 async def export_positions(
     format: str = Query('csv', description="导出格式: csv, json"),
     start_date: Optional[datetime] = Query(None, description="开始日期"),
@@ -937,7 +901,6 @@ async def export_positions(
 
 
 @router.get("/{position_id}/history")
-@require_permission(PermissionConstants.POSITION_READ)
 async def get_position_history(
     position_id: int,
     start_date: Optional[datetime] = Query(None, description="开始日期"),

@@ -111,8 +111,6 @@ class Account(Base):
     # 关系
     user = relationship("User", back_populates="accounts")
     transactions = relationship("Transaction", back_populates="account", cascade="all, delete-orphan")
-    positions = relationship("Position", back_populates="account")
-    orders = relationship("Order", back_populates="account")
     
     def __repr__(self):
         return f"<Account(id={self.id}, account_number='{self.account_number}', user_id={self.user_id})>"

@@ -250,3 +250,35 @@ async def revoke_my_sessions(
         data={"revoked_count": revoked_count},
         message=f"成功撤销 {revoked_count} 个会话"
     )
+
+@router.get("/profile")
+async def get_user_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取当前用户资料"""
+    try:
+        # 返回用户基本信息
+        profile_data = {
+            "id": current_user.id,
+            "username": current_user.username,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "phone": current_user.phone,
+            "avatar_url": current_user.avatar_url,
+            "role": current_user.role,
+            "is_active": current_user.is_active,
+            "is_verified": current_user.is_verified,
+            "created_at": current_user.created_at.isoformat() if current_user.created_at else None,
+            "last_login_at": current_user.last_login_at.isoformat() if current_user.last_login_at else None,
+        }
+        
+        return success_response(
+            data=profile_data,
+            message="获取用户资料成功"
+        )
+        
+    except Exception as e:
+        return error_response(
+            message=f"获取用户资料失败: {str(e)}"
+        )

@@ -16,7 +16,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default=UserRole.TRADER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
@@ -24,14 +24,7 @@ class User(Base):
     # 个人信息
     full_name = Column(String(100))
     phone = Column(String(20))
-    avatar = Column(String(255))
-    timezone = Column(String(50))
-    language = Column(String(10))
-    date_format = Column(String(20))
-    currency_display = Column(String(10))
-    
-    # 账户状态
-    deleted_at = Column(DateTime(timezone=True))
+    avatar_url = Column(String(255))
     
     # 时间戳
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -43,6 +36,7 @@ class User(Base):
     backtests = relationship("Backtest", back_populates="user", cascade="all, delete-orphan")
     risk_events = relationship("RiskEvent", back_populates="user", cascade="all, delete-orphan")
     trading_account = relationship("TradingAccount", back_populates="user", uselist=False)
+    accounts = relationship("Account", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user")
     positions = relationship("Position", back_populates="user")
     alert_rules = relationship("AlertRule", back_populates="creator")
@@ -63,7 +57,7 @@ class User(Base):
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     
     # 角色关系
-    role_assignments = relationship("UserRoleAssignment", back_populates="user", cascade="all, delete-orphan")
+    role_assignments = relationship("UserRoleAssignment", foreign_keys="UserRoleAssignment.user_id", back_populates="user", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"

@@ -73,6 +73,13 @@ export const useAuthStore = defineStore('auth', () => {
           console.warn('获取用户详细信息失败，使用基本信息')
         }
         
+        // 登录成功后，触发数据预加载
+        try {
+          await loadUserProfileData()
+        } catch (error) {
+          console.warn('预加载用户数据失败:', error)
+        }
+        
         ElMessage.success(response.message || '登录成功')
         return true
       } else {
@@ -199,6 +206,24 @@ export const useAuthStore = defineStore('auth', () => {
     return roles.includes(user.value.role)
   }
 
+  // 加载用户资料数据
+  const loadUserProfileData = async () => {
+    try {
+      // 动态导入dashboard API
+      const { dashboardApi } = await import('@/api/dashboard')
+      
+      // 加载用户资料
+      const profileResponse = await dashboardApi.getUserProfile()
+      if (profileResponse.success && profileResponse.data) {
+        updateUser(profileResponse.data)
+        console.log('用户资料预加载成功')
+      }
+    } catch (error) {
+      console.warn('预加载用户资料失败:', error)
+      // 不抛出错误，因为这不是关键操作
+    }
+  }
+
   return {
     // 状态
     user: readonly(user),
@@ -219,6 +244,7 @@ export const useAuthStore = defineStore('auth', () => {
     refreshAccessToken,
     clearAuth,
     updateUser,
-    hasPermission
+    hasPermission,
+    loadUserProfileData
   }
 })

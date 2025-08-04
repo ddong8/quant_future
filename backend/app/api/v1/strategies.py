@@ -21,7 +21,7 @@ from ...services.strategy_service import strategy_service
 from ...services.strategy_validation_service import StrategyCodeValidator, StrategyTestFramework, create_default_test_framework
 from ...core.response import success_response, error_response
 
-router = APIRouter(prefix="/strategies", tags=["策略管理"])
+router = APIRouter(tags=["策略管理"])
 
 
 @router.post("/", response_model=StrategyResponse, summary="创建策略")
@@ -35,7 +35,7 @@ async def create_strategy(
         strategy = strategy_service.create_strategy(db, strategy_data, current_user.id)
         return success_response(data=strategy)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/", response_model=List[StrategyListResponse], summary="获取策略列表")
@@ -71,8 +71,8 @@ async def get_strategies(
         strategies, total = strategy_service.search_strategies(db, search_params, current_user.id)
         
         return success_response(
-            data=strategies,
-            meta={
+            data={
+                "items": strategies,
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -80,7 +80,7 @@ async def get_strategies(
             }
         )
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/my", response_model=List[StrategyListResponse], summary="获取我的策略")
@@ -94,7 +94,7 @@ async def get_my_strategies(
         strategies = strategy_service.get_user_strategies(db, current_user.id, status)
         return success_response(data=strategies)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/stats", response_model=StrategyStatsResponse, summary="获取策略统计")
@@ -107,7 +107,7 @@ async def get_strategy_stats(
         stats = strategy_service.get_strategy_statistics(db, current_user.id)
         return success_response(data=stats)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}", response_model=StrategyResponse, summary="获取策略详情")
@@ -121,7 +121,7 @@ async def get_strategy(
         strategy = strategy_service.get_strategy(db, strategy_id, current_user.id)
         return success_response(data=strategy)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/uuid/{strategy_uuid}", response_model=StrategyResponse, summary="通过UUID获取策略")
@@ -135,7 +135,7 @@ async def get_strategy_by_uuid(
         strategy = strategy_service.get_strategy_by_uuid(db, strategy_uuid, current_user.id)
         return success_response(data=strategy)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.put("/{strategy_id}", response_model=StrategyResponse, summary="更新策略")
@@ -150,7 +150,7 @@ async def update_strategy(
         strategy = strategy_service.update_strategy(db, strategy_id, strategy_data, current_user.id)
         return success_response(data=strategy)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.delete("/{strategy_id}", summary="删除策略")
@@ -164,7 +164,7 @@ async def delete_strategy(
         success = strategy_service.delete_strategy(db, strategy_id, current_user.id)
         return success_response(data={"deleted": success})
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/copy", response_model=StrategyResponse, summary="复制策略")
@@ -179,7 +179,7 @@ async def copy_strategy(
         strategy = strategy_service.copy_strategy(db, strategy_id, current_user.id, new_name)
         return success_response(data=strategy)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/execute", response_model=StrategyExecutionResponse, summary="执行策略操作")
@@ -215,7 +215,7 @@ async def execute_strategy(
         
         return success_response(data=response)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}/versions", summary="获取策略版本列表")
@@ -236,7 +236,7 @@ async def get_strategy_versions(
         
         return success_response(data=versions)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}/versions/{version_id}", summary="获取策略版本详情")
@@ -267,7 +267,7 @@ async def get_strategy_version(
         
         return success_response(data=version)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/versions/{version_id}/restore", summary="恢复到指定版本")
@@ -335,7 +335,7 @@ async def restore_strategy_version(
         return success_response(data=strategy)
     except Exception as e:
         db.rollback()
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/validate", summary="验证策略代码")
@@ -396,7 +396,7 @@ async def validate_strategy_code(
             'suggestions': validation_result.suggestions
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/format", summary="格式化策略代码")
@@ -429,9 +429,9 @@ async def format_strategy_code(
                 'formatted_code': formatted_code
             })
         else:
-            return error_response(message=error_message)
+            return error_response(error_code="STRATEGY_ERROR", message=error_message)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}/versions/compare", summary="比较策略版本")
@@ -488,7 +488,7 @@ async def compare_strategy_versions(
             'stats': version_diff.stats
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}/versions/tree", summary="获取版本树")
@@ -510,7 +510,7 @@ async def get_strategy_version_tree(
         
         return success_response(data=version_tree)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/versions/create", summary="创建新版本")
@@ -559,7 +559,7 @@ async def create_strategy_version(
         
         return success_response(data=new_version.to_dict())
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/versions/{version_id}/rollback", summary="回滚到指定版本")
@@ -591,7 +591,7 @@ async def rollback_strategy_version(
         
         return success_response(data=updated_strategy.to_dict())
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/versions/branch", summary="创建版本分支")
@@ -643,7 +643,7 @@ async def create_strategy_branch(
             'is_active': branch.is_active
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/versions/merge", summary="合并版本")
@@ -688,7 +688,7 @@ async def merge_strategy_versions(
         
         return success_response(data=merged_version.to_dict())
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.get("/{strategy_id}/versions/compare/export", summary="导出版本差异")
@@ -720,7 +720,7 @@ async def export_version_diff(
             'filename': f"strategy_{strategy_id}_v{version_diff.old_version.version_number}_vs_v{version_diff.new_version.version_number}.diff"
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/test/unit", summary="运行单元测试")
@@ -768,7 +768,7 @@ async def run_unit_tests(
             ]
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/test/integration", summary="运行集成测试")
@@ -816,7 +816,7 @@ async def run_integration_tests(
             ]
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/test/performance", summary="运行性能测试")
@@ -852,7 +852,7 @@ async def run_performance_test(
             'complexity_score': performance_metrics.complexity_score
         })
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
 @router.post("/{strategy_id}/test/full", summary="运行完整测试套件")
@@ -894,7 +894,7 @@ async def run_full_test_suite(
         
         return success_response(data=test_report)
     except Exception as e:
-        return error_response(message=str(e))
+        return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 @router.post("/{strategy_id}/validate", summary="验证策略代码")
 async def validate_strategy_code(

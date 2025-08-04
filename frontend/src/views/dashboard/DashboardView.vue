@@ -357,10 +357,48 @@ onMounted(() => {
 
 const loadDashboardData = async () => {
   try {
-    // 这里调用API加载实际数据
-    console.log('加载仪表板数据')
+    // 加载仪表板摘要数据
+    await loadDashboardSummary()
+    // 加载用户资料数据
+    await loadUserProfile()
   } catch (error) {
     console.error('加载仪表板数据失败:', error)
+  }
+}
+
+const loadDashboardSummary = async () => {
+  try {
+    const { dashboardApi } = await import('@/api/dashboard')
+    const response = await dashboardApi.getSummary()
+    
+    if (response.success && response.data) {
+      const data = response.data
+      // 更新统计数据
+      accountBalance.value = data.stats.account_balance
+      activeOrders.value = data.stats.total_orders
+      activePositions.value = data.stats.active_positions
+      
+      console.log('仪表板摘要加载成功:', data)
+    }
+  } catch (error) {
+    console.error('加载仪表板摘要失败:', error)
+  }
+}
+
+const loadUserProfile = async () => {
+  try {
+    const { dashboardApi } = await import('@/api/dashboard')
+    const response = await dashboardApi.getUserProfile()
+    
+    if (response.success && response.data) {
+      const data = response.data
+      // 更新用户信息到store
+      authStore.updateUser(data)
+      
+      console.log('用户资料加载成功:', data)
+    }
+  } catch (error) {
+    console.error('加载用户资料失败:', error)
   }
 }
 </script>
