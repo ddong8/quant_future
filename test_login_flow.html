@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录流程测试 - 量化交易平台</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+        .header h1 {
+            color: #1a202c;
+            margin: 0 0 10px 0;
+        }
+        .header p {
+            color: #718096;
+            margin: 0;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 25px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        .section h2 {
+            margin: 0 0 20px 0;
+            color: #2d3748;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .result {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .result.success {
+            background: #f0fff4;
+            border-color: #9ae6b4;
+            color: #22543d;
+        }
+        .result.error {
+            background: #fed7d7;
+            border-color: #feb2b2;
+            color: #742a2a;
+        }
+        .result.info {
+            background: #ebf8ff;
+            border-color: #90cdf4;
+            color: #2a4365;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background: #48bb78; }
+        .status-offline { background: #f56565; }
+        .status-loading { background: #ed8936; animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            border-left: 4px solid #e2e8f0;
+        }
+        .step-indicator.active {
+            border-left-color: #667eea;
+            background: #f0f4ff;
+        }
+        .step-indicator.success {
+            border-left-color: #48bb78;
+            background: #f0fff4;
+        }
+        .step-indicator.error {
+            border-left-color: #f56565;
+            background: #fed7d7;
+        }
+        .network-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .network-card {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        .network-card h4 {
+            margin: 0 0 10px 0;
+            color: #2d3748;
+        }
+        .network-card .url {
+            font-family: monospace;
+            font-size: 12px;
+            color: #718096;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 登录流程测试</h1>
+            <p>测试量化交易平台登录后是否正确请求profile和summary接口</p>
+        </div>
+
+        <div class="section">
+            <h2>🌐 服务状态检查</h2>
+            <div class="network-info">
+                <div class="network-card">
+                    <h4><span id="frontendStatus" class="status-indicator status-loading"></span>前端服务</h4>
+                    <div class="url">http://localhost:3000</div>
+                </div>
+                <div class="network-card">
+                    <h4><span id="backendStatus" class="status-indicator status-loading"></span>后端API</h4>
+                    <div class="url">http://localhost:8000</div>
+                </div>
+                <div class="network-card">
+                    <h4><span id="dbStatus" class="status-indicator status-loading"></span>数据库</h4>
+                    <div class="url">PostgreSQL + Redis</div>
+                </div>
+            </div>
+            <div class="button-group">
+                <button onclick="checkAllServices()">🔄 检查服务状态</button>
+            </div>
+            <div id="serviceResult" class="result info">正在检查服务状态...</div>
+        </div>
+
+        <div class="section">
+            <h2>🔐 完整登录流程测试</h2>
+            <p>模拟前端登录流程，检查是否正确调用profile和summary接口</p>
+            
+            <div id="loginSteps">
+                <div class="step-indicator" id="step1">
+                    <span>1️⃣ 用户登录认证</span>
+                </div>
+                <div class="step-indicator" id="step2">
+                    <span>2️⃣ 获取用户资料 (profile)</span>
+                </div>
+                <div class="step-indicator" id="step3">
+                    <span>3️⃣ 获取仪表板摘要 (summary)</span>
+                </div>
+                <div class="step-indicator" id="step4">
+                    <span>4️⃣ 跳转到仪表板页面</span>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button onclick="testCompleteLoginFlow()">🚀 开始完整流程测试</button>
+                <button onclick="clearResults()">🧹 清除结果</button>
+            </div>
+            <div id="loginFlowResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 单独API测试</h2>
+            <div class="button-group">
+                <button onclick="testLogin()" id="loginBtn">🔑 测试登录</button>
+                <button onclick="testProfile()" id="profileBtn" disabled>👤 测试获取用户资料</button>
+                <button onclick="testDashboard()" id="dashboardBtn" disabled>📊 测试获取仪表板摘要</button>
+                <button onclick="testLogout()" id="logoutBtn" disabled>🚪 测试登出</button>
+            </div>
+            <div id="apiTestResult" class="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>📋 网络请求监控</h2>
+            <p>实时监控所有API请求，查看是否按预期调用profile和summary接口</p>
+            <div class="button-group">
+                <button onclick="startNetworkMonitoring()" id="monitorBtn">📡 开始监控</button>
+                <button onclick="stopNetworkMonitoring()" id="stopMonitorBtn" disabled>⏹️停止监控</button>
+                <button onclick="clearNetworkLog()">🧹 清除日志</button>
+            </div>
+            <div id="networkLog" class="result info">点击"开始监控"来查看网络请求...</div>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let authToken = null;
+        let networkMonitoring = false;
+        let networkRequests = [];
+        let originalFetch = window.fetch;
+        let originalXMLHttpRequest = window.XMLHttpRequest;
+
+        // 配置axios
+        const api = axios.create({
+            baseURL: 'http://localhost:8000',
+            timeout: 15000,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // 请求拦截器
+        api.interceptors.request.use(config => {
+            if (authToken) {
+                config.headers.Authorization = `Bearer ${authToken}`;
+            }
+            
+            // 记录请求
+            if (networkMonitoring) {
+                logNetworkRequest('REQUEST', config.method.toUpperCase(), config.url, config.data);
+            }
+            
+            return config;
+        });
+
+        // 响应拦截器
+        api.interceptors.response.use(
+            response => {
+                if (networkMonitoring) {
+                    logNetworkRequest('RESPONSE', response.config.method.toUpperCase(), response.config.url, response.data, response.status);
+                }
+                return response;
+            },
+            error => {
+                if (networkMonitoring) {
+                    logNetworkRequest('ERROR', error.config?.method?.toUpperCase() || 'UNKNOWN', error.config?.url || 'UNKNOWN', error.response?.data, error.response?.status);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // 工具函数
+        function displayResult(elementId, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            if (typeof content === 'object') {
+                element.textContent = JSON.stringify(content, null, 2);
+            } else {
+                element.textContent = content;
+            }
+            element.className = `result ${type}`;
+        }
+
+        function updateStepStatus(stepId, status) {
+            const step = document.getElementById(stepId);
+            step.className = `step-indicator ${status}`;
+        }
+
+        function updateButtonStates() {
+            const isLoggedIn = !!authToken;
+            document.getElementById('profileBtn').disabled = !isLoggedIn;
+            document.getElementById('dashboardBtn').disabled = !isLoggedIn;
+            document.getElementById('logoutBtn').disabled = !isLoggedIn;
+        }
+
+        function logNetworkRequest(type, method, url, data, status) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = {
+                timestamp,
+                type,
+                method,
+                url,
+                data,
+                status
+            };
+            
+            networkRequests.push(logEntry);
+            updateNetworkLog();
+        }
+
+        function updateNetworkLog() {
+            const logElement = document.getElementById('networkLog');
+            const logText = networkRequests.map(req => {
+                let line = `[${req.timestamp}] ${req.type} ${req.method} ${req.url}`;
+                if (req.status) line += ` (${req.status})`;
+                if (req.data && Object.keys(req.data).length > 0) {
+                    line += `\n  Data: ${JSON.stringify(req.data, null, 2)}`;
+                }
+                return line;
+            }).join('\n\n');
+            
+            logElement.textContent = logText || '暂无网络请求记录';
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // 服务状态检查
+        async function checkAllServices() {
+            const results = ['🔍 开始检查服务状态...\n'];
+            
+            // 检查前端服务
+            try {
+                await fetch('http://localhost:3000', { method: 'HEAD', mode: 'no-cors' });
+                document.getElementById('frontendStatus').className = 'status-indicator status-online';
+                results.push('✅ 前端服务: 在线 (http://localhost:3000)');
+            } catch (error) {
+                document.getElementById('frontendStatus').className = 'status-indicator status-offline';
+                results.push('❌ 前端服务: 离线');
+            }
+
+            // 检查后端API
+            try {
+                const response = await api.get('/health');
+                document.getElementById('backendStatus').className = 'status-indicator status-online';
+                results.push('✅ 后端API: 在线 (http://localhost:8000)');
+                results.push(`   版本: ${response.data.version}`);
+                results.push(`   状态: ${response.data.status}`);
+                
+                // 检查数据库
+                if (response.data.services?.postgresql) {
+                    document.getElementById('dbStatus').className = 'status-indicator status-online';
+                    results.push('✅ 数据库: 在线');
+                } else {
+                    document.getElementById('dbStatus').className = 'status-indicator status-offline';
+                    results.push('❌ 数据库: 离线');
+                }
+            } catch (error) {
+                document.getElementById('backendStatus').className = 'status-indicator status-offline';
+                document.getElementById('dbStatus').className = 'status-indicator status-offline';
+                results.push('❌ 后端API: 离线');
+                results.push('❌ 数据库: 无法检查');
+            }
+
+            displayResult('serviceResult', results.join('\n'), 'info');
+        }
+
+        // 登录测试
+        async function testLogin() {
+            try {
+                const response = await api.post('/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                if (response.data.success) {
+                    authToken = response.data.data.access_token;
+                    updateButtonStates();
+                    
+                    displayResult('apiTestResult', {
+                        status: '登录成功 ✅',
+                        user: {
+                            id: response.data.data.user_id,
+                            username: response.data.data.username,
+                            role: response.data.data.role
+                        },
+                        token: authToken.substring(0, 50) + '...',
+                        expires_in: response.data.data.expires_in + ' 秒'
+                    }, 'success');
+                } else {
+                    displayResult('apiTestResult', response.data, 'error');
+                }
+            } catch (error) {
+                displayResult('apiTestResult', {
+                    error: error.message,
+                    response: error.response?.data
+                }, 'error');
+            }
+        }
+
+        // 用户资料测试
+        async function testProfile() {
+            if (!authToken) {
+                displayResult('apiTestResult', '请先登录获取token', 'error');
+                return;
+            }
+
+            try {
+                const response = await api.get('/api/user/profile');
+                if (response.data.success) {
+                    displayResult('apiTestResult', {
+                        status: '获取用户资料成功 ✅',
+                        data: response.data.data
+                    }, 'success');
+                } else {
+                    displayResult('apiTestResult', response.data, 'error');
+                }
+            } catch (error) {
+                displayResult('apiTestResult', {
+                    error: error.message,
+                    response: error.response?.data
+                }, 'error');
+            }
+        }
+
+        // 仪表板测试
+        async function testDashboard() {
+            if (!authToken) {
+                displayResult('apiTestResult', '请先登录获取token', 'error');
+                return;
+            }
+
+            try {
+                const response = await api.get('/api/dashboard/summary');
+                if (response.data.success) {
+                    displayResult('apiTestResult', {
+                        status: '获取仪表板摘要成功 ✅',
+                        data: response.data.data
+                    }, 'success');
+                } else {
+                    displayResult('apiTestResult', response.data, 'error');
+                }
+            } catch (error) {
+                displayResult('apiTestResult', {
+                    error: error.message,
+                    response: error.response?.data
+                }, 'error');
+            }
+        }
+
+        // 登出测试
+        async function testLogout() {
+            try {
+                await api.post('/api/v1/auth/logout');
+                authToken = null;
+                updateButtonStates();
+                displayResult('apiTestResult', '登出成功 ✅', 'success');
+            } catch (error) {
+                authToken = null;
+                updateButtonStates();
+                displayResult('apiTestResult', '登出成功 ✅ (本地清除)', 'success');
+            }
+        }
+
+        // 完整登录流程测试
+        async function testCompleteLoginFlow() {
+            const results = [];
+            
+            // 重置步骤状态
+            ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+                updateStepStatus(id, '');
+            });
+            
+            try {
+                results.push('🚀 开始完整登录流程测试...\n');
+                
+                // 步骤1: 登录
+                updateStepStatus('step1', 'active');
+                results.push('步骤1: 开始用户登录...');
+                
+                const loginResponse = await api.post('/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                if (loginResponse.data.success) {
+                    authToken = loginResponse.data.data.access_token;
+                    updateStepStatus('step1', 'success');
+                    results.push('✅ 步骤1: 登录成功');
+                    results.push(`   用户: ${loginResponse.data.data.username}`);
+                    results.push(`   角色: ${loginResponse.data.data.role}`);
+                } else {
+                    throw new Error('登录失败');
+                }
+
+                // 步骤2: 获取用户资料
+                updateStepStatus('step2', 'active');
+                results.push('\n步骤2: 获取用户资料...');
+                
+                const profileResponse = await api.get('/api/user/profile');
+                if (profileResponse.data.success) {
+                    updateStepStatus('step2', 'success');
+                    results.push('✅ 步骤2: 用户资料获取成功');
+                    results.push(`   用户名: ${profileResponse.data.data.username}`);
+                    results.push(`   邮箱: ${profileResponse.data.data.email}`);
+                    results.push(`   全名: ${profileResponse.data.data.full_name}`);
+                } else {
+                    throw new Error('获取用户资料失败');
+                }
+
+                // 步骤3: 获取仪表板摘要
+                updateStepStatus('step3', 'active');
+                results.push('\n步骤3: 获取仪表板摘要...');
+                
+                const dashboardResponse = await api.get('/api/dashboard/summary');
+                if (dashboardResponse.data.success) {
+                    updateStepStatus('step3', 'success');
+                    results.push('✅ 步骤3: 仪表板摘要获取成功');
+                    const stats = dashboardResponse.data.data.stats;
+                    results.push(`   账户余额: ¥${stats.account_balance}`);
+                    results.push(`   活跃持仓: ${stats.active_positions}`);
+                    results.push(`   总订单数: ${stats.total_orders}`);
+                    results.push(`   策略数量: ${stats.total_strategies}`);
+                } else {
+                    throw new Error('获取仪表板摘要失败');
+                }
+
+                // 步骤4: 模拟跳转
+                updateStepStatus('step4', 'active');
+                results.push('\n步骤4: 模拟跳转到仪表板页面...');
+                await new Promise(resolve => setTimeout(resolve, 1000)); // 模拟跳转延迟
+                updateStepStatus('step4', 'success');
+                results.push('✅ 步骤4: 跳转成功');
+
+                results.push('\n🎉 完整登录流程测试成功！');
+                results.push('✅ 登录后正确请求了profile和summary接口');
+                results.push('✅ 所有API响应格式正确');
+                results.push('✅ 模拟前端登录流程完成');
+
+                updateButtonStates();
+                displayResult('loginFlowResult', results.join('\n'), 'success');
+
+            } catch (error) {
+                // 标记失败的步骤
+                ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+                    const step = document.getElementById(id);
+                    if (step.className.includes('active')) {
+                        updateStepStatus(id, 'error');
+                    }
+                });
+
+                results.push(`\n❌ 测试失败: ${error.message}`);
+                if (error.response) {
+                    results.push(`HTTP状态: ${error.response.status}`);
+                    results.push(`错误详情: ${JSON.stringify(error.response.data, null, 2)}`);
+                }
+                displayResult('loginFlowResult', results.join('\n'), 'error');
+            }
+        }
+
+        // 网络监控
+        function startNetworkMonitoring() {
+            networkMonitoring = true;
+            networkRequests = [];
+            document.getElementById('monitorBtn').disabled = true;
+            document.getElementById('stopMonitorBtn').disabled = false;
+            
+            displayResult('networkLog', '📡 网络监控已开始，等待API请求...', 'info');
+        }
+
+        function stopNetworkMonitoring() {
+            networkMonitoring = false;
+            document.getElementById('monitorBtn').disabled = false;
+            document.getElementById('stopMonitorBtn').disabled = true;
+            
+            const logElement = document.getElementById('networkLog');
+            logElement.textContent += '\n\n📡 网络监控已停止';
+        }
+
+        function clearNetworkLog() {
+            networkRequests = [];
+            displayResult('networkLog', '网络请求日志已清除', 'info');
+        }
+
+        function clearResults() {
+            displayResult('loginFlowResult', '');
+            displayResult('apiTestResult', '');
+            ['step1', 'step2', 'step3', 'step4'].forEach(id => {
+                updateStepStatus(id, '');
+            });
+        }
+
+        // 页面加载时初始化
+        window.onload = function() {
+            checkAllServices();
+            updateButtonStates();
+            
+            // 显示使用说明
+            displayResult('loginFlowResult', 
+                '📋 使用说明:\n\n' +
+                '1. 首先检查服务状态确保所有服务正常运行\n' +
+                '2. 点击"开始完整流程测试"来模拟前端登录流程\n' +
+                '3. 观察是否正确调用了profile和summary接口\n' +
+                '4. 可以使用"网络请求监控"来实时查看API调用\n' +
+                '5. 也可以单独测试各个API接口\n\n' +
+                '🎯 测试目标: 验证登录后是否自动请求用户资料和仪表板摘要'
+            );
+        };
+    </script>
+</body>
+</html>

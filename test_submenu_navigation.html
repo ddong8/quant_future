@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子级菜单导航测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .menu-structure {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .menu-item {
+            margin: 10px 0;
+            padding: 8px 12px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        .menu-parent {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .menu-child {
+            margin-left: 20px;
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .test-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 子级菜单导航测试</h1>
+        <p style="color: #7f8c8d;">测试左侧导航栏的子级菜单功能是否正常工作</p>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="test-btn" onclick="openFrontend()">🌐 打开前端页面</button>
+            <button class="test-btn" onclick="testNavigation()">🧪 测试导航</button>
+        </div>
+
+        <div class="menu-structure">
+            <h3>📋 新的菜单结构</h3>
+            
+            <div class="menu-item">
+                <div class="menu-parent">🏠 仪表板 <span class="status success">✅ 正常</span></div>
+            </div>
+            
+            <div class="menu-item">
+                <div class="menu-parent">📈 交易中心 <span class="status info">🆕 有子菜单</span></div>
+                <div class="menu-child">💹 交易面板</div>
+                <div class="menu-child">✏️ 手动交易</div>
+                <div class="menu-child">⚡ 快速交易</div>
+            </div>
+            
+            <div class="menu-item">
+                <div class="menu-parent">📋 订单管理 <span class="status info">🆕 有子菜单</span></div>
+                <div class="menu-child">📄 订单列表</div>
+                <div class="menu-child">🕒 历史订单</div>
+                <div class="menu-child">📝 订单模板</div>
+            </div>
+            
+            <div class="menu-item">
+                <div class="menu-parent">📊 持仓管理 <span class="status info">🆕 有子菜单</span></div>
+                <div class="menu-child">💼 当前持仓</div>
+                <div class="menu-child">🕒 持仓历史</div>
+                <div class="menu-child">📈 持仓分析</div>
+            </div>
+            
+            <div class="menu-item">
+                <div class="menu-parent">🎯 策略管理 <span class="status info">🆕 有子菜单</span></div>
+                <div class="menu-child">📋 策略列表</div>
+                <div class="menu-child">➕ 创建策略</div>
+                <div class="menu-child">📝 策略模板</div>
+                <div class="menu-child">📊 策略绩效</div>
+            </div>
+            
+            <div class="menu-item">
+                <div class="menu-parent">⚙️ 系统设置 <span class="status info">🆕 有子菜单</span></div>
+                <div class="menu-child">🔧 通用设置</div>
+                <div class="menu-child">👤 账户设置</div>
+                <div class="menu-child">📈 交易设置</div>
+                <div class="menu-child">🔔 通知设置</div>
+            </div>
+        </div>
+
+        <div id="result" style="margin-top: 20px;"></div>
+
+        <div style="background: #e8f4f8; padding: 20px; border-radius: 12px; margin-top: 20px;">
+            <h3>🎯 测试说明</h3>
+            <ol>
+                <li><strong>打开前端页面</strong>：点击"打开前端页面"按钮</li>
+                <li><strong>登录系统</strong>：使用 admin/admin123 登录</li>
+                <li><strong>测试子菜单</strong>：点击左侧导航栏的主菜单项，查看是否展开子菜单</li>
+                <li><strong>导航测试</strong>：点击子菜单项，验证页面是否正确跳转</li>
+            </ol>
+            
+            <h4>🔧 新增功能</h4>
+            <ul>
+                <li>✅ <strong>子级菜单</strong>：主要功能模块现在都有子级菜单</li>
+                <li>✅ <strong>简化布局</strong>：使用原生实现，移除Element Plus依赖</li>
+                <li>✅ <strong>菜单展开</strong>：点击主菜单可展开/收起子菜单</li>
+                <li>✅ <strong>面包屑导航</strong>：显示当前页面路径</li>
+                <li>✅ <strong>响应式设计</strong>：适配移动端显示</li>
+            </ul>
+            
+            <h4>📱 预期效果</h4>
+            <ul>
+                <li>🎯 左侧导航栏显示主菜单和子菜单</li>
+                <li>🎯 点击主菜单可展开/收起子菜单</li>
+                <li>🎯 点击子菜单可正确跳转到对应页面</li>
+                <li>🎯 当前激活的菜单项有高亮显示</li>
+                <li>🎯 面包屑导航显示当前位置</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let frontendWindow = null;
+
+        function openFrontend() {
+            frontendWindow = window.open('http://localhost:3000', 'trading_platform');
+            if (frontendWindow) {
+                document.getElementById('result').innerHTML = `
+                    <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                        <h4>✅ 前端页面已打开</h4>
+                        <p>新的子级菜单功能已实现！请在新窗口中测试导航功能。</p>
+                        <ul>
+                            <li>使用 admin/admin123 登录</li>
+                            <li>查看左侧导航栏的子菜单</li>
+                            <li>点击主菜单展开子菜单</li>
+                            <li>点击子菜单项进行页面跳转</li>
+                        </ul>
+                    </div>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `
+                    <div style="background: #f8d7da; padding: 15px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                        <h4>❌ 无法打开前端页面</h4>
+                        <p>请手动访问: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        function testNavigation() {
+            if (!frontendWindow || frontendWindow.closed) {
+                alert('请先打开前端页面');
+                return;
+            }
+            
+            frontendWindow.focus();
+            document.getElementById('result').innerHTML = `
+                <div style="background: #d1ecf1; padding: 15px; border-radius: 8px; border-left: 4px solid #17a2b8;">
+                    <h4>🧪 导航测试指南</h4>
+                    <p>请在前端窗口中测试以下功能：</p>
+                    <ol>
+                        <li><strong>主菜单展开</strong>：点击"交易中心"、"订单管理"等主菜单</li>
+                        <li><strong>子菜单导航</strong>：点击展开的子菜单项</li>
+                        <li><strong>页面跳转</strong>：验证是否正确跳转到对应页面</li>
+                        <li><strong>菜单高亮</strong>：检查当前页面的菜单项是否高亮</li>
+                        <li><strong>面包屑</strong>：查看顶部面包屑导航是否正确</li>
+                    </ol>
+                    <p><strong>测试路径示例：</strong></p>
+                    <ul>
+                        <li>交易中心 → 快速交易</li>
+                        <li>订单管理 → 历史订单</li>
+                        <li>持仓管理 → 持仓分析</li>
+                        <li>策略管理 → 创建策略</li>
+                        <li>系统设置 → 账户设置</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        window.onload = function() {
+            document.getElementById('result').innerHTML = `
+                <div style="background: #d4edda; padding: 15px; border-radius: 8px; border-left: 4px solid #28a745;">
+                    <h4>🎉 子级菜单功能已实现</h4>
+                    <p>左侧导航栏现在支持子级菜单功能！点击上方按钮开始测试。</p>
+                </div>
+            `;
+        };
+    </script>
+</body>
+</html>

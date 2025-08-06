@@ -21,8 +21,8 @@ export interface LoginRequest {
   remember_me?: boolean
 }
 
-// 登录响应
-export interface LoginResponse {
+// 登录响应数据
+export interface LoginResponseData {
   access_token: string
   refresh_token: string
   token_type: string
@@ -31,6 +31,18 @@ export interface LoginResponse {
   username: string
   role: string
 }
+
+// 统一API响应格式
+export interface ApiResponse<T = any> {
+  success: boolean
+  message: string
+  timestamp: number
+  request_id: string | null
+  data: T
+}
+
+// 登录响应
+export interface LoginResponse extends ApiResponse<LoginResponseData> {}
 
 // 注册请求
 export interface RegisterRequest {
@@ -42,13 +54,16 @@ export interface RegisterRequest {
   phone?: string
 }
 
-// 刷新token响应
-export interface RefreshTokenResponse {
+// 刷新token响应数据
+export interface RefreshTokenResponseData {
   access_token: string
   refresh_token: string
   token_type: string
   expires_in: number
 }
+
+// 刷新token响应
+export interface RefreshTokenResponse extends ApiResponse<RefreshTokenResponseData> {}
 
 // 用户会话信息
 export interface UserSession {

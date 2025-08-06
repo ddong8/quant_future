@@ -18,20 +18,34 @@ export const useAuthStore = defineStore('auth', () => {
 
   // 初始化认证状态
   const initAuth = async () => {
+    console.log('🔄 初始化认证状态...')
     const savedToken = localStorage.getItem('access_token')
     const savedRefreshToken = localStorage.getItem('refresh_token')
     
     if (savedToken && savedRefreshToken) {
+      console.log('📱 从localStorage恢复token...')
       token.value = savedToken
       refreshToken.value = savedRefreshToken
       
       try {
         // 验证token并获取用户信息
+        console.log('🔍 验证token并获取用户信息...')
         await getCurrentUser()
+        console.log('✅ 认证状态恢复成功')
+        
+        // 认证恢复成功后，预加载用户数据
+        try {
+          await loadUserProfileData()
+        } catch (error) {
+          console.warn('⚠️ 预加载用户数据失败:', error)
+        }
       } catch (error) {
+        console.warn('❌ Token验证失败，清除认证状态:', error)
         // token无效，清除认证状态
         clearAuth()
       }
+    } else {
+      console.log('📱 localStorage中没有找到认证信息')
     }
   }
 
@@ -74,10 +88,12 @@ export const useAuthStore = defineStore('auth', () => {
         }
         
         // 登录成功后，触发数据预加载
+        console.log('🔄 登录成功，开始预加载用户数据...')
         try {
           await loadUserProfileData()
+          console.log('✅ 用户数据预加载完成')
         } catch (error) {
-          console.warn('预加载用户数据失败:', error)
+          console.warn('⚠️ 预加载用户数据失败:', error)
         }
         
         ElMessage.success(response.message || '登录成功')
@@ -133,18 +149,28 @@ export const useAuthStore = defineStore('auth', () => {
   // 获取当前用户信息
   const getCurrentUser = async () => {
     try {
+      console.log('🔍 调用getCurrentUser，当前token:', token.value ? token.value.substring(0, 20) + '...' : 'null')
       const response = await authApi.getCurrentUser()
-      // 检查响应格式，适配不同的返回格式
+      console.log('👤 getCurrentUser响应:', response)
+      
+      // 检查响应格式，适配统一的API响应格式
       if (response.success && response.data) {
         user.value = response.data
+        console.log('✅ 用户信息设置成功:', user.value)
       } else if (response.id) {
-        // 直接返回用户对象的情况
+        // 直接返回用户对象的情况（向后兼容）
         user.value = response as User
+        console.log('✅ 用户信息设置成功（直接格式）:', user.value)
       } else {
         throw new Error('获取用户信息失败')
       }
-    } catch (error) {
-      console.warn('获取用户信息失败:', error)
+    } catch (error: any) {
+      console.error('❌ 获取用户信息失败:', error)
+      console.error('❌ 错误详情:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      })
       // 不清除认证状态，因为可能只是这个接口有问题
       throw error
     }
@@ -160,8 +186,19 @@ export const useAuthStore = defineStore('auth', () => {
     try {
       const response = await authApi.refreshToken(refreshToken.value)
       
-      // 适配后端直接返回 TokenResponse 的格式
-      if (response.access_token) {
+      // 适配统一的API响应格式
+      if (response.success && response.data) {
+        const { access_token, refresh_token: newRefreshToken } = response.data
+        
+        token.value = access_token
+        refreshToken.value = newRefreshToken
+        
+        localStorage.setItem('access_token', access_token)
+        localStorage.setItem('refresh_token', newRefreshToken)
+        
+        return true
+      } else if (response.access_token) {
+        // 向后兼容直接返回 TokenResponse 的格式
         const { access_token, refresh_token: newRefreshToken } = response
         
         token.value = access_token
@@ -192,9 +229,14 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   // 更新用户信息
-  const updateUser = (userData: Partial<User>) => {
+  const updateUser = (userData: Partial<User> | any) => {
     if (user.value) {
-      user.value = { ...user.value, ...userData }
+      // 处理phone字段的null值
+      const cleanedData = { ...userData }
+      if (cleanedData.phone === null) {
+        cleanedData.phone = undefined
+      }
+      user.value = { ...user.value, ...cleanedData }
     }
   }
 
@@ -212,14 +254,32 @@ export const useAuthStore = defineStore('auth', () => {
       // 动态导入dashboard API
       const { dashboardApi } = await import('@/api/dashboard')
       
-      // 加载用户资料
-      const profileResponse = await dashboardApi.getUserProfile()
-      if (profileResponse.success && profileResponse.data) {
-        updateUser(profileResponse.data)
-        console.log('用户资料预加载成功')
+      console.log('🔄 开始预加载用户数据...')
+      
+      // 并行加载用户资料和仪表板摘要
+      const [profileResponse, dashboardResponse] = await Promise.allSettled([
+        dashboardApi.getUserProfile(),
+        dashboardApi.getSummary()
+      ])
+      
+      // 处理用户资料响应
+      if (profileResponse.status === 'fulfilled' && profileResponse.value.success) {
+        updateUser(profileResponse.value.data)
+        console.log('✅ 用户资料预加载成功:', profileResponse.value.data)
+      } else {
+        console.warn('⚠️ 用户资料预加载失败:', profileResponse)
       }
+      
+      // 处理仪表板摘要响应
+      if (dashboardResponse.status === 'fulfilled' && dashboardResponse.value.success) {
+        console.log('✅ 仪表板摘要预加载成功:', dashboardResponse.value.data)
+        // 可以将仪表板数据存储到store中，供其他组件使用
+      } else {
+        console.warn('⚠️ 仪表板摘要预加载失败:', dashboardResponse)
+      }
+      
     } catch (error) {
-      console.warn('预加载用户资料失败:', error)
+      console.warn('❌ 预加载用户数据失败:', error)
       // 不抛出错误，因为这不是关键操作
     }
   }

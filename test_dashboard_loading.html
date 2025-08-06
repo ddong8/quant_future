@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>仪表板加载测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        button.success {
+            background: #67C23A;
+        }
+        button.danger {
+            background: #F56C6C;
+        }
+        .success {
+            color: #67C23A;
+            font-weight: bold;
+        }
+        .error {
+            color: #F56C6C;
+            font-weight: bold;
+        }
+        .info {
+            color: #909399;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .dashboard-preview {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            background: #fafafa;
+        }
+        .stat-card {
+            display: inline-block;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 5px;
+            min-width: 150px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #409EFF;
+        }
+        .stat-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 仪表板加载测试</h1>
+        <p class="info">专门测试仪表板组件的加载和渲染问题</p>
+
+        <div class="test-section">
+            <h3>1. 登录并获取Token</h3>
+            <button onclick="performLogin()">执行登录</button>
+            <button onclick="clearAuth()">清除认证</button>
+            <div id="login-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. 测试仪表板API</h3>
+            <button onclick="testDashboardSummary()">测试仪表板摘要</button>
+            <button onclick="testUserProfile()">测试用户资料</button>
+            <button onclick="testAllDashboardAPIs()">测试所有仪表板API</button>
+            <div id="dashboard-api-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 模拟前端仪表板渲染</h3>
+            <button onclick="simulateDashboardRender()">模拟仪表板渲染</button>
+            <button onclick="testFrontendIntegration()">测试前端集成</button>
+            <div id="dashboard-render-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 仪表板数据预览</h3>
+            <div id="dashboard-preview" class="dashboard-preview">
+                <p>点击上面的按钮加载仪表板数据...</p>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 前端页面测试</h3>
+            <button onclick="openFrontendDashboard()">打开前端仪表板</button>
+            <button onclick="checkFrontendConsole()">检查前端控制台</button>
+            <div id="frontend-test-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>6. 实时日志</h3>
+            <button onclick="clearLogs()">清除日志</button>
+            <div id="logs" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        let authToken = null;
+        let dashboardData = {};
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            const logElement = document.createElement('div');
+            logElement.textContent = logEntry;
+            logElement.className = type;
+            logsDiv.appendChild(logElement);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        async function performLogin() {
+            log('🔄 开始登录流程...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: 'admin',
+                        password: 'admin123'
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data && data.data.access_token) {
+                    authToken = data.data.access_token;
+                    localStorage.setItem('dashboard_test_token', authToken);
+                    
+                    log('✅ 登录成功', 'success');
+                    document.getElementById('login-result').innerHTML = `
+                        <div class="success">
+                            <h4>✅ 登录成功</h4>
+                            <p><strong>用户:</strong> ${data.data.username}</p>
+                            <p><strong>角色:</strong> ${data.data.role}</p>
+                            <p><strong>Token:</strong> ${authToken.substring(0, 30)}...</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('登录响应格式错误');
+                }
+            } catch (error) {
+                log('❌ 登录失败: ' + error.message, 'error');
+                document.getElementById('login-result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 登录失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function clearAuth() {
+            authToken = null;
+            localStorage.removeItem('dashboard_test_token');
+            log('🗑️ 认证信息已清除', 'info');
+            document.getElementById('login-result').innerHTML = '<p>认证信息已清除</p>';
+        }
+
+        async function testDashboardSummary() {
+            if (!authToken) {
+                authToken = localStorage.getItem('dashboard_test_token');
+                if (!authToken) {
+                    log('❌ 请先登录获取Token', 'error');
+                    return;
+                }
+            }
+
+            log('🔄 测试仪表板摘要API...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/dashboard/summary', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    dashboardData.summary = data.data;
+                    log('✅ 仪表板摘要API测试成功', 'success');
+                    
+                    document.getElementById('dashboard-api-result').innerHTML = `
+                        <div class="success">
+                            <h4>✅ 仪表板摘要API成功</h4>
+                            <details>
+                                <summary>查看响应数据</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('仪表板摘要API响应格式错误');
+                }
+            } catch (error) {
+                log('❌ 仪表板摘要API测试失败: ' + error.message, 'error');
+                document.getElementById('dashboard-api-result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 仪表板摘要API失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testUserProfile() {
+            if (!authToken) {
+                authToken = localStorage.getItem('dashboard_test_token');
+                if (!authToken) {
+                    log('❌ 请先登录获取Token', 'error');
+                    return;
+                }
+            }
+
+            log('🔄 测试用户资料API...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:3000/api/v1/user/profile', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    dashboardData.profile = data.data;
+                    log('✅ 用户资料API测试成功', 'success');
+                    
+                    document.getElementById('dashboard-api-result').innerHTML = `
+                        <div class="success">
+                            <h4>✅ 用户资料API成功</h4>
+                            <details>
+                                <summary>查看响应数据</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('用户资料API响应格式错误');
+                }
+            } catch (error) {
+                log('❌ 用户资料API测试失败: ' + error.message, 'error');
+                document.getElementById('dashboard-api-result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 用户资料API失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testAllDashboardAPIs() {
+            log('🔄 测试所有仪表板相关API...', 'info');
+            
+            await testDashboardSummary();
+            await new Promise(resolve => setTimeout(resolve, 500)); // 等待500ms
+            await testUserProfile();
+            
+            if (dashboardData.summary && dashboardData.profile) {
+                log('✅ 所有仪表板API测试完成', 'success');
+                simulateDashboardRender();
+            }
+        }
+
+        function simulateDashboardRender() {
+            log('🔄 模拟仪表板渲染...', 'info');
+            
+            if (!dashboardData.summary || !dashboardData.profile) {
+                log('❌ 缺少仪表板数据，请先测试API', 'error');
+                return;
+            }
+
+            const summary = dashboardData.summary;
+            const profile = dashboardData.profile;
+
+            // 模拟前端仪表板渲染
+            const dashboardHTML = `
+                <h4>📊 仪表板数据预览</h4>
+                <div style="margin-bottom: 15px;">
+                    <strong>用户信息:</strong> ${profile.full_name} (${profile.username}) - ${profile.role}
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <div class="stat-card">
+                        <div class="stat-value">¥${summary.stats.account_balance.toFixed(2)}</div>
+                        <div class="stat-label">账户余额</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${summary.stats.active_positions}</div>
+                        <div class="stat-label">活跃持仓</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${summary.stats.total_orders}</div>
+                        <div class="stat-label">总订单数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value">${summary.stats.total_strategies}</div>
+                        <div class="stat-label">策略数量</div>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <strong>市场状态:</strong> <span style="color: ${summary.market_status === 'open' ? '#67C23A' : '#F56C6C'}">${summary.market_status === 'open' ? '开市' : '闭市'}</span>
+                </div>
+                
+                <div>
+                    <strong>最近活动:</strong> ${summary.recent_activities.length} 条记录
+                </div>
+            `;
+
+            document.getElementById('dashboard-preview').innerHTML = dashboardHTML;
+            document.getElementById('dashboard-render-result').innerHTML = `
+                <div class="success">
+                    <h4>✅ 仪表板渲染模拟成功</h4>
+                    <p>仪表板数据已成功渲染到预览区域</p>
+                </div>
+            `;
+
+            log('✅ 仪表板渲染模拟完成', 'success');
+        }
+
+        async function testFrontendIntegration() {
+            log('🔄 测试前端集成...', 'info');
+            
+            try {
+                // 测试前端页面是否可访问
+                const frontendResponse = await fetch('http://localhost:3000/');
+                if (!frontendResponse.ok) {
+                    throw new Error('前端页面无法访问');
+                }
+
+                // 测试前端API代理
+                const apiResponse = await fetch('http://localhost:3000/api/v1/health/');
+                if (!apiResponse.ok) {
+                    throw new Error('前端API代理无法访问');
+                }
+
+                log('✅ 前端集成测试成功', 'success');
+                document.getElementById('dashboard-render-result').innerHTML = `
+                    <div class="success">
+                        <h4>✅ 前端集成测试成功</h4>
+                        <p>前端页面和API代理都正常工作</p>
+                        <p>可以尝试在实际前端页面中测试仪表板功能</p>
+                    </div>
+                `;
+            } catch (error) {
+                log('❌ 前端集成测试失败: ' + error.message, 'error');
+                document.getElementById('dashboard-render-result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 前端集成测试失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function openFrontendDashboard() {
+            log('🔄 打开前端仪表板页面...', 'info');
+            
+            const frontendWindow = window.open('http://localhost:3000', '_blank');
+            
+            if (frontendWindow) {
+                log('✅ 前端页面已打开', 'success');
+                document.getElementById('frontend-test-result').innerHTML = `
+                    <div class="success">
+                        <h4>✅ 前端页面已打开</h4>
+                        <p>请在新窗口中进行以下测试：</p>
+                        <ol>
+                            <li>使用 admin/admin123 登录</li>
+                            <li>检查是否成功跳转到仪表板</li>
+                            <li>查看仪表板数据是否正确显示</li>
+                            <li>检查浏览器控制台是否有错误</li>
+                        </ol>
+                        <p><strong>如果仍然显示"页面出现错误"，请检查浏览器控制台的错误信息</strong></p>
+                    </div>
+                `;
+            } else {
+                log('❌ 无法打开前端页面', 'error');
+                document.getElementById('frontend-test-result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 无法打开前端页面</h4>
+                        <p>请手动访问: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        function checkFrontendConsole() {
+            log('📋 前端控制台检查指南', 'info');
+            document.getElementById('frontend-test-result').innerHTML = `
+                <div class="info">
+                    <h4>📋 前端控制台检查指南</h4>
+                    <p>请在前端页面中按 F12 打开开发者工具，然后检查：</p>
+                    <ol>
+                        <li><strong>Console 标签页</strong>：查看是否有 JavaScript 错误</li>
+                        <li><strong>Network 标签页</strong>：查看 API 请求是否成功</li>
+                        <li><strong>Application 标签页</strong>：查看 localStorage 中的认证信息</li>
+                    </ol>
+                    <p><strong>常见错误类型：</strong></p>
+                    <ul>
+                        <li>组件加载错误：RealTimeChart 或 RealTimeTable 组件不存在</li>
+                        <li>API 调用错误：网络请求失败或响应格式错误</li>
+                        <li>认证错误：Token 无效或过期</li>
+                        <li>路由错误：页面跳转失败</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        // 页面加载时的初始化
+        window.onload = function() {
+            log('🚀 仪表板加载测试页面已加载', 'success');
+            log('📋 测试流程:', 'info');
+            log('  1. 先执行登录获取Token', 'info');
+            log('  2. 测试仪表板相关API', 'info');
+            log('  3. 模拟仪表板渲染', 'info');
+            log('  4. 在实际前端页面中验证', 'info');
+            
+            // 尝试从localStorage恢复token
+            const savedToken = localStorage.getItem('dashboard_test_token');
+            if (savedToken) {
+                authToken = savedToken;
+                log('📱 从localStorage恢复了Token', 'info');
+            }
+        };
+    </script>
+</body>
+</html>

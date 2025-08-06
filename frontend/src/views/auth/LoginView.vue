@@ -170,14 +170,22 @@ const handleLogin = async () => {
     const valid = await loginFormRef.value.validate()
     if (!valid) return
 
+    console.log('🔑 开始登录流程...')
     const success = await authStore.login(loginForm)
     if (success) {
+      console.log('✅ 登录成功，准备跳转...')
+      
       // 登录成功，重定向到目标页面
       const redirect = route.query.redirect as string
+      console.log('🔄 跳转到:', redirect || '/')
+      
+      // 添加小延迟确保API调用有时间完成
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       router.push(redirect || '/')
     }
   } catch (error) {
-    console.error('登录失败:', error)
+    console.error('❌ 登录失败:', error)
   }
 }
 

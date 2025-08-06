@@ -1,6 +1,7 @@
 import { http } from '@/utils/request'
+import type { ApiResponse } from '@/types/auth'
 
-export interface DashboardSummary {
+export interface DashboardSummaryData {
   user: {
     id: number
     username: string
@@ -17,7 +18,7 @@ export interface DashboardSummary {
   notifications: any[]
 }
 
-export interface UserProfile {
+export interface UserProfileData {
   id: number
   username: string
   email: string
@@ -31,14 +32,18 @@ export interface UserProfile {
   last_login_at: string | null
 }
 
+// 统一响应格式的类型
+export interface DashboardSummary extends ApiResponse<DashboardSummaryData> {}
+export interface UserProfile extends ApiResponse<UserProfileData> {}
+
 export const dashboardApi = {
-  // 获取仪表板摘要 - 使用兼容性路由
+  // 获取仪表板摘要
   getSummary: () => {
-    return http.get<DashboardSummary>('/api/dashboard/summary')
+    return http.get<DashboardSummary>('/v1/dashboard/summary')
   },
 
-  // 获取用户资料 - 使用兼容性路由
+  // 获取用户资料
   getUserProfile: () => {
-    return http.get<UserProfile>('/api/user/profile')
+    return http.get<UserProfile>('/v1/user/profile')
   }
 }

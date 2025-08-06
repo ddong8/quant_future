@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最终登录修复验证</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #409EFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        button.success {
+            background: #67C23A;
+        }
+        button.danger {
+            background: #F56C6C;
+        }
+        .success {
+            color: #67C23A;
+            font-weight: bold;
+        }
+        .error {
+            color: #F56C6C;
+            font-weight: bold;
+        }
+        .info {
+            color: #909399;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        .log {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success {
+            background-color: #67C23A;
+        }
+        .status-error {
+            background-color: #F56C6C;
+        }
+        .status-warning {
+            background-color: #E6A23C;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 最终登录修复验证</h1>
+        <p class="info">验证所有登录相关的修复是否生效</p>
+
+        <div class="test-section">
+            <h3>1. 系统状态检查</h3>
+            <button onclick="checkSystemStatus()">检查系统状态</button>
+            <div id="system-status"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. API端点测试</h3>
+            <button onclick="testAllAPIs()">测试所有API</button>
+            <button onclick="testLoginFlow()">测试完整登录流程</button>
+            <div id="api-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. 前端集成测试</h3>
+            <button onclick="openFrontend()">打开前端页面</button>
+            <button onclick="testFrontendAPI()">测试前端API调用</button>
+            <div id="frontend-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. 问题诊断</h3>
+            <button onclick="diagnoseProblem()">诊断问题</button>
+            <button onclick="showFixSummary()">显示修复总结</button>
+            <div id="diagnosis-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>5. 实时日志</h3>
+            <button onclick="clearLogs()">清除日志</button>
+            <div id="logs" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        let systemStatus = {
+            backend: false,
+            frontend: false,
+            database: false
+        };
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logs.push(logEntry);
+            
+            const logsDiv = document.getElementById('logs');
+            const logElement = document.createElement('div');
+            logElement.textContent = logEntry;
+            logElement.className = type;
+            logsDiv.appendChild(logElement);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('logs').innerHTML = '';
+        }
+
+        function createStatusIndicator(status) {
+            const indicator = document.createElement('span');
+            indicator.className = `status-indicator status-${status ? 'success' : 'error'}`;
+            return indicator;
+        }
+
+        async function checkSystemStatus() {
+            log('🔍 开始检查系统状态...', 'info');
+            
+            const statusDiv = document.getElementById('system-status');
+            statusDiv.innerHTML = '<p>检查中...</p>';
+
+            // 检查后端状态
+            try {
+                const backendResponse = await fetch('http://localhost:8000/api/v1/health/');
+                systemStatus.backend = backendResponse.ok;
+                log(`后端状态: ${systemStatus.backend ? '✅ 正常' : '❌ 异常'}`, systemStatus.backend ? 'success' : 'error');
+            } catch (error) {
+                systemStatus.backend = false;
+                log('❌ 后端连接失败: ' + error.message, 'error');
+            }
+
+            // 检查前端状态
+            try {
+                const frontendResponse = await fetch('http://localhost:3000/');
+                systemStatus.frontend = frontendResponse.ok;
+                log(`前端状态: ${systemStatus.frontend ? '✅ 正常' : '❌ 异常'}`, systemStatus.frontend ? 'success' : 'error');
+            } catch (error) {
+                systemStatus.frontend = false;
+                log('❌ 前端连接失败: ' + error.message, 'error');
+            }
+
+            // 更新状态显示
+            statusDiv.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    ${createStatusIndicator(systemStatus.backend).outerHTML}
+                    <strong>后端服务:</strong> ${systemStatus.backend ? '正常运行' : '连接失败'}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    ${createStatusIndicator(systemStatus.frontend).outerHTML}
+                    <strong>前端服务:</strong> ${systemStatus.frontend ? '正常运行' : '连接失败'}
+                </div>
+                <div>
+                    <strong>整体状态:</strong> ${systemStatus.backend && systemStatus.frontend ? '✅ 系统正常' : '⚠️ 存在问题'}
+                </div>
+            `;
+
+            log('✅ 系统状态检查完成', 'success');
+        }
+
+        async function testAllAPIs() {
+            log('🔄 开始测试所有API端点...', 'info');
+            
+            const resultsDiv = document.getElementById('api-results');
+            resultsDiv.innerHTML = '<p>测试中...</p>';
+
+            const results = [];
+
+            // 测试登录API
+            try {
+                const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const loginData = await loginResponse.json();
+                
+                if (loginData.success && loginData.data && loginData.data.access_token) {
+                    results.push({ name: '登录API', status: 'success', data: loginData });
+                    localStorage.setItem('test_token', loginData.data.access_token);
+                    log('✅ 登录API测试成功', 'success');
+                } else {
+                    results.push({ name: '登录API', status: 'error', error: '响应格式错误' });
+                    log('❌ 登录API响应格式错误', 'error');
+                }
+            } catch (error) {
+                results.push({ name: '登录API', status: 'error', error: error.message });
+                log('❌ 登录API测试失败: ' + error.message, 'error');
+            }
+
+            // 测试用户信息API
+            const token = localStorage.getItem('test_token');
+            if (token) {
+                try {
+                    const userResponse = await fetch('http://localhost:8000/api/v1/auth/me', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const userData = await userResponse.json();
+                    
+                    if (userData.success && userData.data) {
+                        results.push({ name: '用户信息API', status: 'success', data: userData });
+                        log('✅ 用户信息API测试成功', 'success');
+                    } else {
+                        results.push({ name: '用户信息API', status: 'error', error: '响应格式错误' });
+                        log('❌ 用户信息API响应格式错误', 'error');
+                    }
+                } catch (error) {
+                    results.push({ name: '用户信息API', status: 'error', error: error.message });
+                    log('❌ 用户信息API测试失败: ' + error.message, 'error');
+                }
+
+                // 测试仪表板API
+                try {
+                    const dashboardResponse = await fetch('http://localhost:8000/api/v1/dashboard/summary', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const dashboardData = await dashboardResponse.json();
+                    
+                    if (dashboardData.success && dashboardData.data) {
+                        results.push({ name: '仪表板API', status: 'success', data: dashboardData });
+                        log('✅ 仪表板API测试成功', 'success');
+                    } else {
+                        results.push({ name: '仪表板API', status: 'error', error: '响应格式错误' });
+                        log('❌ 仪表板API响应格式错误', 'error');
+                    }
+                } catch (error) {
+                    results.push({ name: '仪表板API', status: 'error', error: error.message });
+                    log('❌ 仪表板API测试失败: ' + error.message, 'error');
+                }
+            }
+
+            // 显示结果
+            let html = '<h4>API测试结果:</h4>';
+            results.forEach(result => {
+                const statusIcon = result.status === 'success' ? '✅' : '❌';
+                html += `
+                    <div style="margin-bottom: 15px; padding: 10px; border: 1px solid ${result.status === 'success' ? '#67C23A' : '#F56C6C'}; border-radius: 4px;">
+                        <strong>${statusIcon} ${result.name}:</strong> 
+                        ${result.status === 'success' ? '成功' : '失败'}
+                        ${result.error ? `<br><span style="color: #F56C6C;">错误: ${result.error}</span>` : ''}
+                        ${result.data ? `<br><details><summary>查看响应</summary><pre>${JSON.stringify(result.data, null, 2)}</pre></details>` : ''}
+                    </div>
+                `;
+            });
+            
+            resultsDiv.innerHTML = html;
+            log('✅ API测试完成', 'success');
+        }
+
+        async function testLoginFlow() {
+            log('🔄 测试完整登录流程...', 'info');
+            
+            try {
+                // 1. 登录
+                const loginResponse = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                const loginData = await loginResponse.json();
+                
+                if (!loginData.success || !loginData.data.access_token) {
+                    throw new Error('登录失败');
+                }
+                log('✅ 步骤1: 登录成功', 'success');
+
+                const token = loginData.data.access_token;
+
+                // 2. 获取用户信息
+                const userResponse = await fetch('http://localhost:8000/api/v1/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const userData = await userResponse.json();
+                
+                if (!userData.success || !userData.data) {
+                    throw new Error('获取用户信息失败');
+                }
+                log('✅ 步骤2: 获取用户信息成功', 'success');
+
+                // 3. 获取仪表板摘要
+                const summaryResponse = await fetch('http://localhost:8000/api/v1/dashboard/summary', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const summaryData = await summaryResponse.json();
+                
+                if (!summaryData.success || !summaryData.data) {
+                    throw new Error('获取仪表板摘要失败');
+                }
+                log('✅ 步骤3: 获取仪表板摘要成功', 'success');
+
+                // 4. 获取用户资料
+                const profileResponse = await fetch('http://localhost:8000/api/v1/user/profile', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const profileData = await profileResponse.json();
+                
+                if (!profileData.success || !profileData.data) {
+                    throw new Error('获取用户资料失败');
+                }
+                log('✅ 步骤4: 获取用户资料成功', 'success');
+
+                document.getElementById('api-results').innerHTML = `
+                    <div class="success">
+                        <h4>✅ 完整登录流程测试成功！</h4>
+                        <p>所有步骤都正常执行：</p>
+                        <ul>
+                            <li>✅ 用户登录</li>
+                            <li>✅ 获取用户信息</li>
+                            <li>✅ 获取仪表板摘要</li>
+                            <li>✅ 获取用户资料</li>
+                        </ul>
+                    </div>
+                `;
+
+                log('🎉 完整登录流程测试成功！', 'success');
+
+            } catch (error) {
+                log('❌ 登录流程测试失败: ' + error.message, 'error');
+                document.getElementById('api-results').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 登录流程测试失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function openFrontend() {
+            log('🔄 打开前端页面...', 'info');
+            const frontendWindow = window.open('http://localhost:3000', '_blank');
+            
+            if (frontendWindow) {
+                log('✅ 前端页面已打开', 'success');
+                document.getElementById('frontend-results').innerHTML = `
+                    <div class="success">
+                        <p>✅ 前端页面已在新窗口中打开</p>
+                        <p><strong>测试账户:</strong></p>
+                        <ul>
+                            <li>管理员: admin / admin123</li>
+                            <li>交易员: trader1 / trader123</li>
+                            <li>观察者: viewer1 / viewer123</li>
+                        </ul>
+                        <p><strong>测试步骤:</strong></p>
+                        <ol>
+                            <li>使用上述账户登录</li>
+                            <li>检查是否成功跳转到仪表板</li>
+                            <li>查看用户信息是否正确显示</li>
+                            <li>检查仪表板数据是否加载</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                log('❌ 无法打开前端页面', 'error');
+                document.getElementById('frontend-results').innerHTML = `
+                    <div class="error">
+                        <p>❌ 无法打开前端页面，请手动访问: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFrontendAPI() {
+            log('🔄 测试前端API调用...', 'info');
+            
+            try {
+                // 通过前端代理测试API
+                const response = await fetch('http://localhost:3000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: 'admin', password: 'admin123' })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.data && data.data.access_token) {
+                    log('✅ 前端API代理工作正常', 'success');
+                    document.getElementById('frontend-results').innerHTML = `
+                        <div class="success">
+                            <h4>✅ 前端API测试成功</h4>
+                            <p>前端可以正常调用后端API</p>
+                            <details>
+                                <summary>查看响应</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('API响应格式错误');
+                }
+            } catch (error) {
+                log('❌ 前端API测试失败: ' + error.message, 'error');
+                document.getElementById('frontend-results').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 前端API测试失败</h4>
+                        <p>错误: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function diagnoseProblem() {
+            log('🔍 开始问题诊断...', 'info');
+            
+            const issues = [];
+            const fixes = [];
+
+            // 检查系统状态
+            if (!systemStatus.backend) {
+                issues.push('后端服务无法访问');
+                fixes.push('检查Docker容器状态: docker ps');
+                fixes.push('重启后端服务: docker-compose restart backend');
+            }
+
+            if (!systemStatus.frontend) {
+                issues.push('前端服务无法访问');
+                fixes.push('检查前端容器状态');
+                fixes.push('重启前端服务: docker-compose restart frontend');
+            }
+
+            // 检查常见问题
+            const commonIssues = [
+                {
+                    issue: 'API路径配置错误',
+                    solution: '确保前端API配置使用正确的baseURL'
+                },
+                {
+                    issue: '响应格式不匹配',
+                    solution: '检查前端类型定义是否与后端响应格式一致'
+                },
+                {
+                    issue: '认证token处理错误',
+                    solution: '检查前端认证store的token处理逻辑'
+                },
+                {
+                    issue: '跨域问题',
+                    solution: '检查nginx配置和CORS设置'
+                }
+            ];
+
+            let html = '<h4>问题诊断结果:</h4>';
+            
+            if (issues.length > 0) {
+                html += '<div class="error"><h5>发现的问题:</h5><ul>';
+                issues.forEach(issue => {
+                    html += `<li>${issue}</li>`;
+                });
+                html += '</ul></div>';
+
+                html += '<div class="info"><h5>建议的修复方案:</h5><ul>';
+                fixes.forEach(fix => {
+                    html += `<li>${fix}</li>`;
+                });
+                html += '</ul></div>';
+            } else {
+                html += '<div class="success">✅ 未发现明显问题</div>';
+            }
+
+            html += '<div class="info"><h5>常见问题及解决方案:</h5>';
+            commonIssues.forEach(item => {
+                html += `
+                    <div style="margin-bottom: 10px; padding: 8px; border-left: 3px solid #E6A23C;">
+                        <strong>问题:</strong> ${item.issue}<br>
+                        <strong>解决方案:</strong> ${item.solution}
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            document.getElementById('diagnosis-results').innerHTML = html;
+            log('✅ 问题诊断完成', 'success');
+        }
+
+        function showFixSummary() {
+            log('📋 显示修复总结...', 'info');
+            
+            const fixSummary = `
+                <h4>🔧 登录问题修复总结</h4>
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px;">
+                    <h5>已修复的问题:</h5>
+                    <ul>
+                        <li>✅ 修复了API响应格式不匹配问题</li>
+                        <li>✅ 更新了前端类型定义以匹配统一响应格式</li>
+                        <li>✅ 修复了API路径配置错误</li>
+                        <li>✅ 改进了认证store的错误处理</li>
+                        <li>✅ 修复了token刷新逻辑</li>
+                        <li>✅ 优化了用户信息更新逻辑</li>
+                    </ul>
+                    
+                    <h5>修改的文件:</h5>
+                    <ul>
+                        <li><code>frontend/src/types/auth.ts</code> - 类型定义</li>
+                        <li><code>frontend/src/stores/auth.ts</code> - 认证状态管理</li>
+                        <li><code>frontend/src/api/auth.ts</code> - 认证API</li>
+                        <li><code>frontend/src/api/dashboard.ts</code> - 仪表板API</li>
+                        <li><code>frontend/src/utils/request.ts</code> - 请求工具</li>
+                    </ul>
+                    
+                    <h5>验证步骤:</h5>
+                    <ol>
+                        <li>访问 <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></li>
+                        <li>使用测试账户登录 (admin/admin123)</li>
+                        <li>检查是否成功跳转到仪表板</li>
+                        <li>验证用户信息和数据是否正确显示</li>
+                    </ol>
+                </div>
+            `;
+            
+            document.getElementById('diagnosis-results').innerHTML = fixSummary;
+            log('✅ 修复总结已显示', 'success');
+        }
+
+        // 页面加载时初始化
+        window.onload = function() {
+            log('🚀 最终登录修复验证页面已加载', 'success');
+            log('📋 可用功能:', 'info');
+            log('  1. 系统状态检查', 'info');
+            log('  2. API端点测试', 'info');
+            log('  3. 前端集成测试', 'info');
+            log('  4. 问题诊断', 'info');
+            
+            // 自动检查系统状态
+            setTimeout(checkSystemStatus, 1000);
+        };
+    </script>
+</body>
+</html>

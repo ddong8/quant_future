@@ -5,7 +5,7 @@ import router from '@/router'
 
 // 创建axios实例
 const service: AxiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
@@ -20,6 +20,9 @@ service.interceptors.request.use(
     // 添加认证token
     if (authStore.token) {
       config.headers.Authorization = `Bearer ${authStore.token}`
+      console.log(`🔑 [${config.method?.toUpperCase()}] ${config.url} - 添加Authorization头:`, authStore.token.substring(0, 20) + '...')
+    } else {
+      console.log(`⚠️ [${config.method?.toUpperCase()}] ${config.url} - 没有token，未添加Authorization头`)
     }
     
     // 添加请求ID用于追踪

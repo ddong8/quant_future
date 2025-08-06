@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完整功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .success {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .error {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .info {
+            color: #7f8c8d;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .highlight {
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .feature-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .feature-card h4 {
+            margin: 0 0 12px 0;
+            color: #2c3e50;
+            font-size: 18px;
+        }
+        .feature-card p {
+            margin: 0 0 12px 0;
+            color: #7f8c8d;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .feature-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .feature-list li {
+            padding: 4px 0;
+            color: #2c3e50;
+            font-size: 13px;
+        }
+        .feature-list li:before {
+            content: "✅ ";
+            margin-right: 8px;
+        }
+        .nav-demo {
+            background: #2c3e50;
+            color: white;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎉 完整功能测试</h1>
+        <p class="info">测试量化交易平台的所有功能模块</p>
+
+        <div class="highlight">
+            <h3>🚀 已修复和升级的功能</h3>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <h4>🎯 仪表板</h4>
+                    <p>专业的现代化仪表板界面</p>
+                    <ul class="feature-list">
+                        <li>实时统计数据展示</li>
+                        <li>用户信息和系统状态</li>
+                        <li>响应式设计</li>
+                        <li>快速操作按钮</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📋 订单管理</h4>
+                    <p>完整的订单管理功能</p>
+                    <ul class="feature-list">
+                        <li>订单统计和筛选</li>
+                        <li>订单列表和详情</li>
+                        <li>创建和取消订单</li>
+                        <li>订单状态跟踪</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📊 持仓管理</h4>
+                    <p>专业的持仓管理界面</p>
+                    <ul class="feature-list">
+                        <li>持仓统计和分析</li>
+                        <li>盈亏计算和展示</li>
+                        <li>风险分析工具</li>
+                        <li>持仓调整和平仓</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>📈 交易中心</h4>
+                    <p>功能完整的交易界面</p>
+                    <ul class="feature-list">
+                        <li>市场行情概览</li>
+                        <li>买卖订单面板</li>
+                        <li>快速交易功能</li>
+                        <li>交易历史记录</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🔐 用户认证</h4>
+                    <p>完善的认证系统</p>
+                    <ul class="feature-list">
+                        <li>登录和注册功能</li>
+                        <li>Token管理</li>
+                        <li>权限控制</li>
+                        <li>会话管理</li>
+                    </ul>
+                </div>
+                
+                <div class="feature-card">
+                    <h4>🎨 用户界面</h4>
+                    <p>现代化的UI设计</p>
+                    <ul class="feature-list">
+                        <li>响应式布局</li>
+                        <li>渐变色彩设计</li>
+                        <li>流畅的动画效果</li>
+                        <li>移动端适配</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <button onclick="openFrontend()">🌐 打开完整平台</button>
+            <button onclick="testNavigation()">🧭 测试导航</button>
+            <button onclick="showTestGuide()">📋 测试指南</button>
+        </div>
+
+        <div id="result" style="margin-top: 20px;"></div>
+
+        <div class="highlight">
+            <h3>🧭 导航菜单预览</h3>
+            <div class="nav-demo">
+                📊 仪表板 (Dashboard)<br>
+                📈 交易中心 (Trading)<br>
+                📋 订单管理 (Orders)<br>
+                📊 持仓管理 (Positions)<br>
+                💰 账户管理 (Accounts)<br>
+                📈 策略管理 (Strategies)<br>
+                🔬 回测系统 (Backtests)<br>
+                ⚠️ 风险控制 (Risk)<br>
+                📊 市场行情 (Market)<br>
+                ⚙️ 系统设置 (Settings)
+            </div>
+            <p><strong>注意：</strong>目前已修复的主要功能包括仪表板、订单管理、持仓管理和交易中心。其他功能页面可能仍使用原来的复杂组件。</p>
+        </div>
+    </div>
+
+    <script>
+        function openFrontend() {
+            const frontendWindow = window.open('http://localhost:3000', '_blank');
+            
+            if (frontendWindow) {
+                document.getElementById('result').innerHTML = `
+                    <div class="success">
+                        <h4>🎉 量化交易平台已打开！</h4>
+                        <p><strong>请在新窗口中进行完整测试：</strong></p>
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <h4>🔑 登录测试</h4>
+                                <p>使用 admin/admin123 登录系统</p>
+                            </div>
+                            <div class="feature-card">
+                                <h4>🎯 仪表板测试</h4>
+                                <p>查看美观的仪表板界面和实时数据</p>
+                            </div>
+                            <div class="feature-card">
+                                <h4>🧭 导航测试</h4>
+                                <p>点击左侧菜单测试各个功能页面</p>
+                            </div>
+                            <div class="feature-card">
+                                <h4>📱 响应式测试</h4>
+                                <p>调整窗口大小测试移动端适配</p>
+                            </div>
+                        </div>
+                        <p><strong>如果所有功能都正常工作，说明平台修复成功！</strong></p>
+                    </div>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `
+                    <div class="error">
+                        <h4>❌ 无法打开前端页面</h4>
+                        <p>请手动访问: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        function testNavigation() {
+            document.getElementById('result').innerHTML = `
+                <div class="info">
+                    <h4>🧭 导航测试指南</h4>
+                    <p>请在前端页面中测试以下导航功能：</p>
+                    <div class="feature-grid">
+                        <div class="feature-card">
+                            <h4>✅ 已修复页面</h4>
+                            <ul class="feature-list">
+                                <li>📊 仪表板 - 现代化界面</li>
+                                <li>📋 订单管理 - 完整功能</li>
+                                <li>📊 持仓管理 - 专业界面</li>
+                                <li>📈 交易中心 - 交易功能</li>
+                            </ul>
+                        </div>
+                        <div class="feature-card">
+                            <h4>⚠️ 原始页面</h4>
+                            <ul class="feature-list">
+                                <li>💰 账户管理 - 可能有复杂组件</li>
+                                <li>📈 策略管理 - 可能有复杂组件</li>
+                                <li>🔬 回测系统 - 可能有复杂组件</li>
+                                <li>⚠️ 风险控制 - 可能有复杂组件</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <p><strong>建议：</strong>先测试已修复的页面，如果原始页面出现错误，我们可以继续修复。</p>
+                </div>
+            `;
+        }
+
+        function showTestGuide() {
+            document.getElementById('result').innerHTML = `
+                <div class="highlight">
+                    <h4>📋 完整测试指南</h4>
+                    <div style="text-align: left;">
+                        <h5>🔑 1. 登录测试</h5>
+                        <ul>
+                            <li>访问 http://localhost:3000</li>
+                            <li>使用 admin/admin123 登录</li>
+                            <li>验证登录成功并跳转到仪表板</li>
+                        </ul>
+                        
+                        <h5>🎯 2. 仪表板测试</h5>
+                        <ul>
+                            <li>查看统计卡片数据</li>
+                            <li>测试刷新数据功能</li>
+                            <li>验证用户信息显示</li>
+                            <li>测试快速操作按钮</li>
+                        </ul>
+                        
+                        <h5>🧭 3. 导航测试</h5>
+                        <ul>
+                            <li>点击左侧菜单的各个选项</li>
+                            <li>验证页面跳转是否正常</li>
+                            <li>测试已修复的页面功能</li>
+                            <li>记录任何错误页面</li>
+                        </ul>
+                        
+                        <h5>📱 4. 响应式测试</h5>
+                        <ul>
+                            <li>调整浏览器窗口大小</li>
+                            <li>测试移动端布局</li>
+                            <li>验证所有功能在小屏幕上正常工作</li>
+                        </ul>
+                        
+                        <h5>🔧 5. 功能测试</h5>
+                        <ul>
+                            <li>在订单管理页面测试筛选功能</li>
+                            <li>在持仓管理页面查看风险分析</li>
+                            <li>在交易中心测试下单功能</li>
+                            <li>测试各种按钮和交互</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 页面加载时显示欢迎信息
+        window.onload = function() {
+            console.log('🎉 完整功能测试页面已加载');
+            
+            // 显示欢迎动画
+            setTimeout(() => {
+                document.getElementById('result').innerHTML = `
+                    <div class="success" style="text-align: center; padding: 20px;">
+                        <h4>🎉 欢迎测试完整的量化交易平台！</h4>
+                        <p>从错误页面到功能完整的专业平台 🚀</p>
+                        <p>点击上方按钮开始全面测试</p>
+                    </div>
+                `;
+            }, 500);
+        };
+    </script>
+</body>
+</html>

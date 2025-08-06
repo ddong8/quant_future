@@ -71,40 +71,93 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: '/trading',
-        name: 'Trading',
+        path: 'trading',
+        name: 'TradingOverview',
         component: lazyLoadWithErrorHandling(() => import(/* webpackChunkName: "trading" */ '@/views/trading/TradingView.vue')),
         meta: {
-          title: '交易',
-          icon: 'TrendCharts',
-          preload: true
+          title: '交易面板',
+          icon: 'Monitor',
+          parent: 'trading'
         }
       },
       {
-        path: '/trading/manual',
+        path: 'trading/manual',
         name: 'ManualTrading',
         component: () => import('@/views/trading/ManualTradingView.vue'),
         meta: {
           title: '手动交易',
-          hidden: true
+          icon: 'Edit',
+          parent: 'trading'
         }
       },
       {
-        path: '/orders',
-        name: 'Orders',
+        path: 'trading/quick',
+        name: 'QuickTrading',
+        component: () => import('@/views/trading/QuickTradingView.vue'),
+        meta: {
+          title: '快速交易',
+          icon: 'Lightning',
+          parent: 'trading'
+        }
+      },
+      {
+        path: 'orders',
+        name: 'OrdersList',
         component: () => import('@/views/orders/OrdersView.vue'),
         meta: {
-          title: '订单管理',
-          icon: 'List'
+          title: '订单列表',
+          icon: 'Document',
+          parent: 'orders'
         }
       },
       {
-        path: '/positions',
-        name: 'Positions',
+        path: 'orders/history',
+        name: 'OrderHistory',
+        component: () => import('@/views/orders/OrderHistoryView.vue'),
+        meta: {
+          title: '历史订单',
+          icon: 'Clock',
+          parent: 'orders'
+        }
+      },
+      {
+        path: 'orders/templates',
+        name: 'OrderTemplates',
+        component: () => import('@/views/orders/OrderTemplatesView.vue'),
+        meta: {
+          title: '订单模板',
+          icon: 'Collection',
+          parent: 'orders'
+        }
+      },
+      {
+        path: 'positions',
+        name: 'PositionsList',
         component: () => import('@/views/positions/PositionsView.vue'),
         meta: {
-          title: '持仓管理',
-          icon: 'PieChart'
+          title: '当前持仓',
+          icon: 'Wallet',
+          parent: 'positions'
+        }
+      },
+      {
+        path: 'positions/history',
+        name: 'PositionHistory',
+        component: () => import('@/views/positions/PositionHistoryView.vue'),
+        meta: {
+          title: '持仓历史',
+          icon: 'Clock',
+          parent: 'positions'
+        }
+      },
+      {
+        path: 'positions/analysis',
+        name: 'PositionAnalysis',
+        component: () => import('@/views/positions/PositionAnalysisView.vue'),
+        meta: {
+          title: '持仓分析',
+          icon: 'DataAnalysis',
+          parent: 'positions'
         }
       },
       {
@@ -135,12 +188,43 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: '/strategies',
-        name: 'Strategies',
+        path: 'strategies',
+        name: 'StrategiesList',
         component: () => import('@/views/strategies/StrategiesView.vue'),
         meta: {
-          title: '策略管理',
-          icon: 'Document'
+          title: '策略列表',
+          icon: 'List',
+          parent: 'strategies'
+        }
+      },
+      {
+        path: 'strategies/create',
+        name: 'StrategyCreate',
+        component: () => import('@/views/strategies/StrategyCreateView.vue'),
+        meta: {
+          title: '创建策略',
+          icon: 'Plus',
+          parent: 'strategies'
+        }
+      },
+      {
+        path: 'strategies/templates',
+        name: 'StrategyTemplates',
+        component: () => import('@/views/strategies/StrategyTemplatesView.vue'),
+        meta: {
+          title: '策略模板',
+          icon: 'Collection',
+          parent: 'strategies'
+        }
+      },
+      {
+        path: 'strategies/performance',
+        name: 'StrategyPerformance',
+        component: () => import('@/views/strategies/StrategyPerformanceView.vue'),
+        meta: {
+          title: '策略绩效',
+          icon: 'TrendCharts',
+          parent: 'strategies'
         }
       },
       {
@@ -173,11 +257,48 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/backtests',
         name: 'Backtests',
-        component: () => import('@/views/backtests/BacktestsView.vue'),
         meta: {
           title: '回测系统',
           icon: 'DataAnalysis'
-        }
+        },
+        children: [
+          {
+            path: '',
+            name: 'BacktestsList',
+            component: () => import('@/views/backtests/BacktestsView.vue'),
+            meta: {
+              title: '回测列表',
+              icon: 'List'
+            }
+          },
+          {
+            path: 'create',
+            name: 'BacktestCreate',
+            component: () => import('@/views/backtests/BacktestCreateView.vue'),
+            meta: {
+              title: '创建回测',
+              icon: 'Plus'
+            }
+          },
+          {
+            path: 'comparison',
+            name: 'BacktestComparison',
+            component: () => import('@/views/backtests/BacktestComparisonView.vue'),
+            meta: {
+              title: '回测对比',
+              icon: 'DataBoard'
+            }
+          },
+          {
+            path: 'reports',
+            name: 'BacktestReports',
+            component: () => import('@/views/backtests/BacktestReportsView.vue'),
+            meta: {
+              title: '回测报告',
+              icon: 'Document'
+            }
+          }
+        ]
       },
       {
         path: '/backtests/:id',
@@ -209,20 +330,48 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/market',
         name: 'Market',
-        component: () => import('@/views/market/MarketQuotes.vue'),
         meta: {
           title: '市场行情',
           icon: 'Monitor'
-        }
-      },
-      {
-        path: '/market/technical',
-        name: 'TechnicalAnalysis',
-        component: () => import('@/views/market/TechnicalAnalysisView.vue'),
-        meta: {
-          title: '技术分析',
-          hidden: true
-        }
+        },
+        children: [
+          {
+            path: '',
+            name: 'MarketQuotes',
+            component: () => import('@/views/market/MarketQuotes.vue'),
+            meta: {
+              title: '实时行情',
+              icon: 'TrendCharts'
+            }
+          },
+          {
+            path: 'technical',
+            name: 'TechnicalAnalysis',
+            component: () => import('@/views/market/TechnicalAnalysisView.vue'),
+            meta: {
+              title: '技术分析',
+              icon: 'DataAnalysis'
+            }
+          },
+          {
+            path: 'news',
+            name: 'MarketNews',
+            component: () => import('@/views/market/MarketNewsView.vue'),
+            meta: {
+              title: '市场资讯',
+              icon: 'ChatDotRound'
+            }
+          },
+          {
+            path: 'calendar',
+            name: 'EconomicCalendar',
+            component: () => import('@/views/market/EconomicCalendarView.vue'),
+            meta: {
+              title: '财经日历',
+              icon: 'Calendar'
+            }
+          }
+        ]
       },
       {
         path: '/profile',
@@ -235,13 +384,44 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: '/settings',
-        name: 'Settings',
+        path: 'settings',
+        name: 'GeneralSettings',
         component: () => import('@/views/settings/SettingsView.vue'),
         meta: {
-          title: '系统设置',
+          title: '通用设置',
           icon: 'Setting',
+          parent: 'settings',
           roles: ['admin']
+        }
+      },
+      {
+        path: 'settings/account',
+        name: 'AccountSettings',
+        component: () => import('@/views/settings/AccountSettingsView.vue'),
+        meta: {
+          title: '账户设置',
+          icon: 'User',
+          parent: 'settings'
+        }
+      },
+      {
+        path: 'settings/trading',
+        name: 'TradingSettings',
+        component: () => import('@/views/settings/TradingSettingsView.vue'),
+        meta: {
+          title: '交易设置',
+          icon: 'TrendCharts',
+          parent: 'settings'
+        }
+      },
+      {
+        path: 'settings/notifications',
+        name: 'NotificationSettings',
+        component: () => import('@/views/settings/NotificationSettingsView.vue'),
+        meta: {
+          title: '通知设置',
+          icon: 'Bell',
+          parent: 'settings'
         }
       }
     ]

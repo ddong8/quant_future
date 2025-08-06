@@ -1,7 +1,18 @@
 <template>
   <el-container class="main-layout">
+    <!-- 移动端遮罩层 -->
+    <div 
+      v-if="mobileMenuOpen" 
+      class="mobile-overlay show" 
+      @click="closeMobileMenu"
+    ></div>
+    
     <!-- 侧边栏 -->
-    <el-aside :width="sidebarCollapsed ? '64px' : '240px'" class="sidebar">
+    <el-aside 
+      :width="sidebarCollapsed ? '64px' : '240px'" 
+      class="sidebar"
+      :class="{ 'mobile-open': mobileMenuOpen }"
+    >
       <div class="logo-container">
         <div class="logo">
           <el-icon v-if="sidebarCollapsed" size="24">
@@ -22,33 +33,36 @@
         :unique-opened="true"
         router
         class="sidebar-menu"
+        @select="handleMenuSelect"
       >
-        <template v-for="route in menuRoutes" :key="route.path">
+        <template v-for="menuItem in menuRoutes" :key="menuItem.path">
+          <!-- 没有子菜单的菜单项（如仪表板） -->
           <el-menu-item
-            v-if="!route.children"
-            :index="route.path"
-            :disabled="!hasPermission(route.meta?.roles)"
+            v-if="!menuItem.children || menuItem.children.length === 0"
+            :index="menuItem.path"
+            :disabled="!hasPermission(menuItem.meta?.roles)"
           >
-            <el-icon v-if="route.meta?.icon">
-              <component :is="route.meta.icon" />
+            <el-icon v-if="menuItem.meta?.icon">
+              <component :is="menuItem.meta.icon" />
             </el-icon>
-            <template #title>{{ route.meta?.title }}</template>
+            <template #title>{{ menuItem.meta?.title }}</template>
           </el-menu-item>
           
+          <!-- 有子菜单的菜单项 -->
           <el-sub-menu
             v-else
-            :index="route.path"
-            :disabled="!hasPermission(route.meta?.roles)"
+            :index="menuItem.path"
+            :disabled="!hasPermission(menuItem.meta?.roles)"
           >
             <template #title>
-              <el-icon v-if="route.meta?.icon">
-                <component :is="route.meta.icon" />
+              <el-icon v-if="menuItem.meta?.icon">
+                <component :is="menuItem.meta.icon" />
               </el-icon>
-              <span>{{ route.meta?.title }}</span>
+              <span>{{ menuItem.meta?.title }}</span>
             </template>
             
             <el-menu-item
-              v-for="child in route.children"
+              v-for="child in menuItem.children"
               :key="child.path"
               :index="child.path"
               :disabled="!hasPermission(child.meta?.roles)"
@@ -190,8 +204,20 @@ const router = useRouter()
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 
+// 检查是否为移动端
+const isMobile = () => window.innerWidth <= 768
+
 // 侧边栏状态
 const sidebarCollapsed = ref(false)
+const mobileMenuOpen = ref(false)
+
+// 初始化移动端状态
+const initMobileState = () => {
+  if (isMobile()) {
+    sidebarCollapsed.value = true // 移动端默认折叠
+    mobileMenuOpen.value = false // 移动端菜单默认关闭
+  }
+}
 
 // 通知数量
 const notificationCount = ref(0)
@@ -213,36 +239,85 @@ const breadcrumbs = computed(() => {
 
 // 菜单路由
 const menuRoutes = computed(() => {
-  return router.getRoutes()
-    .filter(route => {
-      // 过滤掉不需要在菜单中显示的路由
-      return route.path.startsWith('/') && 
-             route.path !== '/' && 
-             !route.path.includes(':') &&
-             route.meta?.title &&
-             !route.meta?.hidden
+  const allRoutes = router.getRoutes()
+  const menuMap = new Map()
+  
+  // 定义主菜单项及其顺序
+  const mainMenus = [
+    { key: 'dashboard', title: '仪表板', icon: 'Dashboard', path: '/' },
+    { key: 'trading', title: '交易中心', icon: 'Monitor', path: '/trading' },
+    { key: 'orders', title: '订单管理', icon: 'Document', path: '/orders' },
+    { key: 'positions', title: '持仓管理', icon: 'Wallet', path: '/positions' },
+    { key: 'strategies', title: '策略管理', icon: 'List', path: '/strategies' },
+    { key: 'settings', title: '系统设置', icon: 'Setting', path: '/settings' }
+  ]
+  
+  // 初始化主菜单
+  mainMenus.forEach(menu => {
+    menuMap.set(menu.key, {
+      path: menu.path,
+      meta: { title: menu.title, icon: menu.icon },
+      children: []
     })
-    .sort((a, b) => {
-      // 简单的排序逻辑
-      const order = {
-        '/dashboard': 1,
-        '/trading': 2,
-        '/orders': 3,
-        '/positions': 4,
-        '/accounts': 5,
-        '/strategies': 6,
-        '/backtests': 7,
-        '/risk': 8,
-        '/market': 9,
-        '/settings': 10
-      }
-      return (order[a.path] || 99) - (order[b.path] || 99)
-    })
+  })
+  
+  // 处理所有路由，将子路由归类到对应的主菜单下
+  allRoutes.forEach(route => {
+    if (!route.meta?.title || route.meta?.hidden) return
+    
+    const parent = route.meta?.parent
+    if (parent && menuMap.has(parent)) {
+      // 这是一个子菜单项
+      const parentMenu = menuMap.get(parent)
+      parentMenu.children.push({
+        path: route.path,
+        meta: route.meta
+      })
+    } else if (route.path === '/' || mainMenus.some(m => m.key === route.name?.toString().toLowerCase())) {
+      // 这是主菜单项，已经在初始化时处理了
+    }
+  })
+  
+  // 返回有序的菜单结构
+  return Array.from(menuMap.values()).filter(menu => {
+    // 只返回有子菜单或者是仪表板的菜单项
+    return menu.path === '/' || menu.children.length > 0
+  })
 })
 
 // 切换侧边栏
 const toggleSidebar = () => {
-  sidebarCollapsed.value = !sidebarCollapsed.value
+  if (isMobile()) {
+    mobileMenuOpen.value = !mobileMenuOpen.value
+  } else {
+    sidebarCollapsed.value = !sidebarCollapsed.value
+  }
+}
+
+// 关闭移动端菜单
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false
+}
+
+// 处理菜单选择
+const handleMenuSelect = () => {
+  // 在移动端点击菜单项后自动关闭菜单
+  if (isMobile()) {
+    closeMobileMenu()
+  }
+}
+
+// 监听窗口大小变化
+const handleResize = () => {
+  if (isMobile()) {
+    // 切换到移动端时
+    sidebarCollapsed.value = true
+    mobileMenuOpen.value = false
+  } else {
+    // 切换到桌面端时关闭移动端菜单
+    mobileMenuOpen.value = false
+    sidebarCollapsed.value = false
+  }
 }
 
 // 检查权限
@@ -280,6 +355,20 @@ watch(
   },
   { immediate: true }
 )
+
+// 组件挂载时初始化
+onMounted(() => {
+  // 初始化移动端状态
+  initMobileState()
+  
+  // 添加窗口大小变化监听
+  window.addEventListener('resize', handleResize)
+})
+
+// 组件卸载时清理
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+})
 </script>
 
 <style lang="scss" scoped>
@@ -397,30 +486,154 @@ watch(
 }
 
 // 响应式设计
+@media (max-width: 1024px) {
+  .header {
+    padding: 0 16px;
+  }
+  
+  .header-left {
+    gap: 12px;
+  }
+  
+  .header-right {
+    gap: 12px;
+    
+    .auth-status-indicator {
+      display: none;
+    }
+  }
+}
+
 @media (max-width: 768px) {
+  .main-layout {
+    position: relative;
+  }
+  
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     z-index: 1000;
     height: 100vh;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    
+    &.mobile-open {
+      transform: translateX(0);
+    }
+    
+    .logo-container {
+      .logo {
+        font-size: 14px;
+        
+        .logo-text {
+          display: none;
+        }
+      }
+    }
   }
   
   .main-container {
     margin-left: 0;
+    width: 100%;
+  }
+  
+  .header {
+    padding: 0 12px;
+    
+    .header-left {
+      gap: 8px;
+      
+      .breadcrumb {
+        display: none;
+      }
+    }
+    
+    .header-right {
+      gap: 8px;
+      
+      .theme-toggle,
+      .notification-btn {
+        padding: 6px;
+      }
+      
+      .user-info {
+        .username {
+          display: none;
+        }
+      }
+    }
+  }
+  
+  // 移动端遮罩层
+  .mobile-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+    
+    &.show {
+      opacity: 1;
+      visibility: visible;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 0 8px;
+    height: 56px;
+  }
+  
+  .sidebar {
+    .logo-container {
+      height: 56px;
+    }
+    
+    .sidebar-menu {
+      height: calc(100vh - 56px);
+    }
   }
   
   .header-left {
-    .breadcrumb {
-      display: none;
+    gap: 4px;
+    
+    .sidebar-toggle {
+      padding: 6px;
     }
   }
   
   .header-right {
-    .user-info {
-      .username {
-        display: none;
+    gap: 4px;
+    
+    .theme-toggle,
+    .notification-btn {
+      padding: 4px;
+    }
+    
+    .user-dropdown {
+      .user-info {
+        padding: 2px 4px;
+        gap: 4px;
       }
+    }
+  }
+}
+
+@media (max-width: 360px) {
+  .header {
+    padding: 0 6px;
+  }
+  
+  .header-right {
+    .notification-btn {
+      display: none;
     }
   }
 }

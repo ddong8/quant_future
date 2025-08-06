@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录修复验证</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+        .test-section {
+            margin: 25px 0;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .result.success { background: #f0fff4; border-color: #9ae6b4; color: #22543d; }
+        .result.error { background: #fed7d7; border-color: #feb2b2; color: #742a2a; }
+        .result.info { background: #ebf8ff; border-color: #90cdf4; color: #2a4365; }
+        .api-log {
+            background: #1a202c;
+            color: #e2e8f0;
+            border: none;
+            font-size: 12px;
+            max-height: 400px;
+        }
+        .timestamp {
+            color: #68d391;
+            font-weight: bold;
+        }
+        .method {
+            color: #63b3ed;
+            font-weight: bold;
+        }
+        .url {
+            color: #f6e05e;
+        }
+        .status-success {
+            color: #68d391;
+        }
+        .status-error {
+            color: #fc8181;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 登录修复验证</h1>
+            <p>验证登录后是否正确请求profile和summary接口</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 测试目标</h3>
+            <p>验证点击登录按钮后，是否会自动请求以下接口：</p>
+            <ul>
+                <li><code>GET /api/user/profile</code> - 获取用户资料</li>
+                <li><code>GET /api/dashboard/summary</code> - 获取仪表板摘要</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 API请求监控</h3>
+            <button onclick="startMonitoring()" id="startBtn">开始监控</button>
+            <button onclick="stopMonitoring()" id="stopBtn" disabled>停止监控</button>
+            <button onclick="clearLog()">清除日志</button>
+            <div id="apiLog" class="result api-log">点击"开始监控"来查看API请求...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔑 登录测试</h3>
+            <button onclick="testLogin()" id="loginBtn">模拟登录 (admin/admin123)</button>
+            <button onclick="testLogout()" id="logoutBtn" disabled>登出</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 结果分析</h3>
+            <div id="analysis" class="result info">等待测试结果...</div>
+        </div>
+    </div>
+
+    <script>
+        let monitoring = false;
+        let apiCalls = [];
+        let authToken = null;
+
+        // 配置axios
+        const api = axios.create({
+            baseURL: 'http://localhost:8000',
+            timeout: 15000,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // 请求拦截器
+        api.interceptors.request.use(config => {
+            if (authToken) {
+                config.headers.Authorization = `Bearer ${authToken}`;
+            }
+            
+            if (monitoring) {
+                logApiCall('REQUEST', config.method.toUpperCase(), config.url, null, config.data);
+            }
+            
+            return config;
+        });
+
+        // 响应拦截器
+        api.interceptors.response.use(
+            response => {
+                if (monitoring) {
+                    logApiCall('RESPONSE', response.config.method.toUpperCase(), response.config.url, response.status, response.data);
+                }
+                return response;
+            },
+            error => {
+                if (monitoring) {
+                    logApiCall('ERROR', error.config?.method?.toUpperCase() || 'UNKNOWN', error.config?.url || 'UNKNOWN', error.response?.status, error.response?.data);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        function logApiCall(type, method, url, status, data) {
+            const timestamp = new Date().toLocaleTimeString();
+            const call = { timestamp, type, method, url, status, data };
+            apiCalls.push(call);
+            updateApiLog();
+        }
+
+        function updateApiLog() {
+            const logElement = document.getElementById('apiLog');
+            const logText = apiCalls.map(call => {
+                let line = `<span class="timestamp">[${call.timestamp}]</span> `;
+                line += `<span class="method">${call.method}</span> `;
+                line += `<span class="url">${call.url}</span>`;
+                
+                if (call.status) {
+                    const statusClass = call.status >= 200 && call.status < 300 ? 'status-success' : 'status-error';
+                    line += ` <span class="${statusClass}">(${call.status})</span>`;
+                }
+                
+                if (call.type === 'RESPONSE' && call.data?.success) {
+                    line += ` <span class="status-success">✅</span>`;
+                } else if (call.type === 'ERROR') {
+                    line += ` <span class="status-error">❌</span>`;
+                }
+                
+                return line;
+            }).join('\n');
+            
+            logElement.innerHTML = logText || '暂无API请求记录';
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function startMonitoring() {
+            monitoring = true;
+            apiCalls = [];
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('apiLog').innerHTML = '<span class="status-success">📡 监控已开始，等待API请求...</span>';
+        }
+
+        function stopMonitoring() {
+            monitoring = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            
+            // 分析结果
+            analyzeResults();
+        }
+
+        function clearLog() {
+            apiCalls = [];
+            document.getElementById('apiLog').innerHTML = 'API请求日志已清除';
+            document.getElementById('analysis').textContent = '等待测试结果...';
+            document.getElementById('analysis').className = 'result info';
+        }
+
+        async function testLogin() {
+            try {
+                document.getElementById('loginResult').textContent = '🔄 正在登录...';
+                document.getElementById('loginResult').className = 'result info';
+                
+                const response = await api.post('/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                if (response.data.success) {
+                    authToken = response.data.data.access_token;
+                    document.getElementById('loginBtn').disabled = true;
+                    document.getElementById('logoutBtn').disabled = false;
+                    
+                    document.getElementById('loginResult').textContent = 
+                        `✅ 登录成功！\n` +
+                        `用户: ${response.data.data.username}\n` +
+                        `角色: ${response.data.data.role}\n` +
+                        `Token: ${authToken.substring(0, 50)}...`;
+                    document.getElementById('loginResult').className = 'result success';
+                    
+                    // 等待一段时间让可能的后续API调用完成
+                    setTimeout(() => {
+                        if (monitoring) {
+                            analyzeResults();
+                        }
+                    }, 2000);
+                } else {
+                    throw new Error(response.data.message || '登录失败');
+                }
+            } catch (error) {
+                document.getElementById('loginResult').textContent = `❌ 登录失败: ${error.message}`;
+                document.getElementById('loginResult').className = 'result error';
+            }
+        }
+
+        async function testLogout() {
+            try {
+                await api.post('/api/v1/auth/logout');
+            } catch (error) {
+                // 忽略登出错误
+            } finally {
+                authToken = null;
+                document.getElementById('loginBtn').disabled = false;
+                document.getElementById('logoutBtn').disabled = true;
+                document.getElementById('loginResult').textContent = '✅ 已登出';
+                document.getElementById('loginResult').className = 'result success';
+            }
+        }
+
+        function analyzeResults() {
+            const profileCalls = apiCalls.filter(call => 
+                call.url.includes('/api/user/profile') && call.type === 'RESPONSE'
+            );
+            const summaryCalls = apiCalls.filter(call => 
+                call.url.includes('/api/dashboard/summary') && call.type === 'RESPONSE'
+            );
+            
+            let analysis = '📊 测试结果分析:\n\n';
+            
+            // 检查profile接口调用
+            if (profileCalls.length > 0) {
+                analysis += `✅ 用户资料接口 (profile): 已调用 ${profileCalls.length} 次\n`;
+                profileCalls.forEach((call, index) => {
+                    analysis += `   ${index + 1}. [${call.timestamp}] 状态: ${call.status}\n`;
+                });
+            } else {
+                analysis += `❌ 用户资料接口 (profile): 未调用\n`;
+            }
+            
+            analysis += '\n';
+            
+            // 检查summary接口调用
+            if (summaryCalls.length > 0) {
+                analysis += `✅ 仪表板摘要接口 (summary): 已调用 ${summaryCalls.length} 次\n`;
+                summaryCalls.forEach((call, index) => {
+                    analysis += `   ${index + 1}. [${call.timestamp}] 状态: ${call.status}\n`;
+                });
+            } else {
+                analysis += `❌ 仪表板摘要接口 (summary): 未调用\n`;
+            }
+            
+            analysis += '\n';
+            
+            // 总结
+            const bothCalled = profileCalls.length > 0 && summaryCalls.length > 0;
+            if (bothCalled) {
+                analysis += '🎉 测试通过！登录后正确请求了profile和summary接口。';
+            } else {
+                analysis += '⚠️ 测试未通过！登录后缺少必要的API调用。';
+                analysis += '\n\n💡 可能的原因:';
+                analysis += '\n1. 前端登录逻辑中缺少API调用';
+                analysis += '\n2. API调用被异步执行，但页面跳转过快';
+                analysis += '\n3. 组件没有正确监听认证状态变化';
+            }
+            
+            document.getElementById('analysis').textContent = analysis;
+            document.getElementById('analysis').className = bothCalled ? 'result success' : 'result error';
+        }
+
+        // 页面加载时的说明
+        window.onload = function() {
+            document.getElementById('loginResult').textContent = 
+                '📋 测试步骤:\n' +
+                '1. 点击"开始监控"开始记录API请求\n' +
+                '2. 点击"模拟登录"执行登录流程\n' +
+                '3. 观察是否自动调用profile和summary接口\n' +
+                '4. 查看结果分析';
+            document.getElementById('loginResult').className = 'result info';
+        };
+    </script>
+</body>
+</html>

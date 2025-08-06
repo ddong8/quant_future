@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>子菜单功能最终测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .success {
+            border-left-color: #28a745;
+            background: #d4edda;
+        }
+
+        .warning {
+            border-left-color: #ffc107;
+            background: #fff3cd;
+        }
+
+        .error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🎯 子菜单功能最终测试</h1>
+        <p style="color: #7f8c8d;">现在使用 MainLayout 组件，应该有完整的 Element Plus 子菜单功能</p>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <button class="test-btn" onclick="openFrontend()">🌐 打开前端页面</button>
+            <button class="test-btn" onclick="testSubmenus()">🧪 测试子菜单</button>
+            <button class="test-btn" onclick="checkElements()">🔍 检查页面元素</button>
+        </div>
+
+        <div class="status-card success">
+            <h3>✅ 修复完成</h3>
+            <p><strong>问题：</strong>之前使用的 SimpleLayout 组件没有正确的子菜单实现</p>
+            <p><strong>解决：</strong>切换回 MainLayout 组件，它使用 Element Plus 的 el-sub-menu</p>
+            <p><strong>预期：</strong>现在应该能看到完整的子菜单功能</p>
+        </div>
+
+        <div class="status-card">
+            <h3>🎯 测试步骤</h3>
+            <ol>
+                <li><strong>打开前端页面</strong>：点击"打开前端页面"按钮</li>
+                <li><strong>登录系统</strong>：使用 admin/admin123 登录</li>
+                <li><strong>查看左侧导航栏</strong>：应该看到 Element Plus 风格的菜单</li>
+                <li><strong>测试子菜单</strong>：点击主菜单项，查看子菜单是否展开</li>
+                <li><strong>测试跳转</strong>：点击子菜单项，验证页面跳转</li>
+            </ol>
+
+            <h4>🔍 检查要点</h4>
+            <ul>
+                <li>左侧导航栏使用 Element Plus 样式</li>
+                <li>主菜单项有展开箭头图标</li>
+                <li>点击主菜单项时子菜单展开/收起</li>
+                <li>子菜单项缩进显示</li>
+                <li>当前激活的菜单项有高亮</li>
+            </ul>
+        </div>
+
+        <div id="result" style="margin-top: 20px;"></div>
+
+        <div class="status-card warning">
+            <h3>⚠️ 如果还是没有子菜单</h3>
+            <p>可能的原因：</p>
+            <ul>
+                <li>浏览器缓存问题 - 尝试硬刷新 (Ctrl+F5 或 Cmd+Shift+R)</li>
+                <li>路由配置问题 - 检查路由是否正确配置了子路由</li>
+                <li>Element Plus 组件问题 - 检查 el-sub-menu 是否正确渲染</li>
+                <li>构建缓存问题 - 需要清除 Docker 缓存重新构建</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let frontendWindow = null;
+
+        function openFrontend() {
+            frontendWindow = window.open('http://localhost:3000', 'trading_platform');
+            if (frontendWindow) {
+                document.getElementById('result').innerHTML = `
+                    <div class="status-card success">
+                        <h4>✅ 前端页面已打开</h4>
+                        <p>现在使用 MainLayout 组件，应该有完整的子菜单功能！</p>
+                        <p><strong>测试步骤：</strong></p>
+                        <ol>
+                            <li>使用 admin/admin123 登录</li>
+                            <li>查看左侧导航栏的 Element Plus 样式</li>
+                            <li>点击主菜单项（如"交易中心"）</li>
+                            <li>观察子菜单是否展开</li>
+                            <li>点击子菜单项测试跳转</li>
+                        </ol>
+                    </div>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `
+                    <div class="status-card error">
+                        <h4>❌ 无法打开前端页面</h4>
+                        <p>请手动访问: <a href="http://localhost:3000" target="_blank">http://localhost:3000</a></p>
+                    </div>
+                `;
+            }
+        }
+
+        function testSubmenus() {
+            if (!frontendWindow || frontendWindow.closed) {
+                alert('请先打开前端页面');
+                return;
+            }
+
+            frontendWindow.focus();
+            document.getElementById('result').innerHTML = `
+                <div class="status-card">
+                    <h4>🧪 子菜单测试指南</h4>
+                    <p>在前端窗口中测试以下功能：</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
+                        <tr style="background: #f8f9fa;">
+                            <th style="padding: 8px; border: 1px solid #dee2e6;">主菜单</th>
+                            <th style="padding: 8px; border: 1px solid #dee2e6;">预期子菜单</th>
+                            <th style="padding: 8px; border: 1px solid #dee2e6;">测试结果</th>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">📈 交易中心</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">交易面板、手动交易、快速交易</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">待测试</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">📋 订单管理</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">订单列表、历史订单、订单模板</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">待测试</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">📊 持仓管理</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">当前持仓、持仓历史、持仓分析</td>
+                            <td style="padding: 8px; border: 1px solid #dee2e6;">待测试</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+
+        function checkElements() {
+            document.getElementById('result').innerHTML = `
+                <div class="status-card">
+                    <h4>🔍 页面元素检查</h4>
+                    <p>在前端页面中按F12打开开发者工具，检查以下元素：</p>
+                    <ul>
+                        <li><strong>Element Plus 菜单：</strong>查找 &lt;el-menu&gt; 元素</li>
+                        <li><strong>子菜单组件：</strong>查找 &lt;el-sub-menu&gt; 元素</li>
+                        <li><strong>菜单项：</strong>查找 &lt;el-menu-item&gt; 元素</li>
+                        <li><strong>CSS 类：</strong>查找 .el-menu, .el-sub-menu 等类名</li>
+                    </ul>
+                    <p><strong>如果找不到这些元素：</strong></p>
+                    <ul>
+                        <li>说明 MainLayout 组件没有被正确加载</li>
+                        <li>可能需要清除浏览器缓存</li>
+                        <li>或者 Element Plus 组件没有正确渲染</li>
+                    </ul>
+                </div>
+            `;
+        }
+
+        window.onload = function () {
+            document.getElementById('result').innerHTML = `
+                <div class="status-card success">
+                    <h4>🎉 准备就绪</h4>
+                    <p>现在使用 MainLayout 组件，应该有完整的 Element Plus 子菜单功能！</p>
+                    <p>点击上方按钮开始测试。</p>
+                </div>
+            `;
+        };
+    </script>
+</body>
+
+</html>

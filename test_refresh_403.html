@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>刷新页面403问题测试</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+        .test-section {
+            margin: 25px 0;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            background: #f7fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .result.success { background: #f0fff4; border-color: #9ae6b4; color: #22543d; }
+        .result.error { background: #fed7d7; border-color: #feb2b2; color: #742a2a; }
+        .result.info { background: #ebf8ff; border-color: #90cdf4; color: #2a4365; }
+        .step {
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 4px solid #e2e8f0;
+            background: white;
+        }
+        .step.success { border-left-color: #48bb78; background: #f0fff4; }
+        .step.error { border-left-color: #f56565; background: #fed7d7; }
+        .step.active { border-left-color: #667eea; background: #f0f4ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 刷新页面403问题测试</h1>
+            <p>测试登录成功后刷新页面时profile和summary接口是否报403</p>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 测试步骤</h3>
+            <div id="steps">
+                <div class="step" id="step1">1. 模拟登录获取token</div>
+                <div class="step" id="step2">2. 将token保存到localStorage</div>
+                <div class="step" id="step3">3. 模拟页面刷新（清除内存中的认证状态）</div>
+                <div class="step" id="step4">4. 从localStorage恢复token</div>
+                <div class="step" id="step5">5. 测试调用profile和summary接口</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🧪 测试控制</h3>
+            <button onclick="runFullTest()">🚀 运行完整测试</button>
+            <button onclick="testCurrentState()">🔍 测试当前状态</button>
+            <button onclick="clearStorage()">🧹 清除存储</button>
+            <div id="testResult" class="result info">点击"运行完整测试"开始测试...</div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 手动测试</h3>
+            <button onclick="manualLogin()" id="loginBtn">1. 登录</button>
+            <button onclick="saveToStorage()" id="saveBtn" disabled>2. 保存到localStorage</button>
+            <button onclick="simulateRefresh()" id="refreshBtn" disabled>3. 模拟刷新</button>
+            <button onclick="restoreFromStorage()" id="restoreBtn" disabled>4. 恢复认证状态</button>
+            <button onclick="testAPIs()" id="testBtn" disabled>5. 测试API调用</button>
+            <div id="manualResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 localStorage状态</h3>
+            <button onclick="checkStorage()">检查存储状态</button>
+            <div id="storageInfo" class="result info"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let testResults = [];
+
+        // 配置axios
+        const api = axios.create({
+            baseURL: 'http://localhost:8000',
+            timeout: 15000,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        // 请求拦截器
+        api.interceptors.request.use(config => {
+            if (authToken) {
+                config.headers.Authorization = `Bearer ${authToken}`;
+                console.log('🔑 添加Authorization头:', authToken.substring(0, 20) + '...');
+            } else {
+                console.log('⚠️ 没有token，未添加Authorization头');
+            }
+            return config;
+        });
+
+        function updateStep(stepId, status) {
+            const step = document.getElementById(stepId);
+            step.className = `step ${status}`;
+        }
+
+        function logResult(message, type = 'info') {
+            testResults.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            const resultElement = document.getElementById('testResult');
+            resultElement.textContent = testResults.join('\n');
+            resultElement.scrollTop = resultElement.scrollHeight;
+        }
+
+        async function runFullTest() {
+            testResults = [];
+            logResult('🚀 开始完整测试流程...');
+            
+            try {
+                // 步骤1: 登录
+                updateStep('step1', 'active');
+                logResult('步骤1: 开始登录...');
+                
+                const loginResponse = await api.post('/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                if (loginResponse.data.success) {
+                    authToken = loginResponse.data.data.access_token;
+                    updateStep('step1', 'success');
+                    logResult('✅ 登录成功，获取到token');
+                } else {
+                    throw new Error('登录失败');
+                }
+
+                // 步骤2: 保存到localStorage
+                updateStep('step2', 'active');
+                logResult('步骤2: 保存token到localStorage...');
+                
+                localStorage.setItem('access_token', authToken);
+                localStorage.setItem('refresh_token', loginResponse.data.data.refresh_token);
+                updateStep('step2', 'success');
+                logResult('✅ token已保存到localStorage');
+
+                // 步骤3: 模拟页面刷新
+                updateStep('step3', 'active');
+                logResult('步骤3: 模拟页面刷新（清除内存状态）...');
+                
+                authToken = null; // 清除内存中的token
+                updateStep('step3', 'success');
+                logResult('✅ 内存状态已清除');
+
+                // 步骤4: 从localStorage恢复
+                updateStep('step4', 'active');
+                logResult('步骤4: 从localStorage恢复token...');
+                
+                const savedToken = localStorage.getItem('access_token');
+                if (savedToken) {
+                    authToken = savedToken;
+                    updateStep('step4', 'success');
+                    logResult('✅ token已从localStorage恢复');
+                } else {
+                    throw new Error('localStorage中没有找到token');
+                }
+
+                // 步骤5: 测试API调用
+                updateStep('step5', 'active');
+                logResult('步骤5: 测试API调用...');
+                
+                // 测试auth/me接口
+                try {
+                    const meResponse = await api.get('/api/v1/auth/me');
+                    logResult('✅ /api/v1/auth/me 调用成功');
+                } catch (error) {
+                    logResult(`❌ /api/v1/auth/me 调用失败: ${error.response?.status} ${error.response?.data?.error_message || error.message}`);
+                }
+
+                // 测试profile接口
+                try {
+                    const profileResponse = await api.get('/api/user/profile');
+                    logResult('✅ /api/user/profile 调用成功');
+                } catch (error) {
+                    logResult(`❌ /api/user/profile 调用失败: ${error.response?.status} ${error.response?.data?.error_message || error.message}`);
+                }
+
+                // 测试summary接口
+                try {
+                    const summaryResponse = await api.get('/api/dashboard/summary');
+                    logResult('✅ /api/dashboard/summary 调用成功');
+                } catch (error) {
+                    logResult(`❌ /api/dashboard/summary 调用失败: ${error.response?.status} ${error.response?.data?.error_message || error.message}`);
+                }
+
+                updateStep('step5', 'success');
+                logResult('🎉 测试完成！');
+
+            } catch (error) {
+                logResult(`❌ 测试失败: ${error.message}`);
+                // 标记当前活跃步骤为错误
+                ['step1', 'step2', 'step3', 'step4', 'step5'].forEach(id => {
+                    const step = document.getElementById(id);
+                    if (step.className.includes('active')) {
+                        updateStep(id, 'error');
+                    }
+                });
+            }
+        }
+
+        async function testCurrentState() {
+            testResults = [];
+            logResult('🔍 测试当前认证状态...');
+            
+            const savedToken = localStorage.getItem('access_token');
+            if (savedToken) {
+                logResult(`📱 localStorage中有token: ${savedToken.substring(0, 20)}...`);
+                authToken = savedToken;
+            } else {
+                logResult('📱 localStorage中没有token');
+            }
+            
+            if (authToken) {
+                logResult(`🔑 当前内存中的token: ${authToken.substring(0, 20)}...`);
+                
+                // 测试各个接口
+                const endpoints = [
+                    '/api/v1/auth/me',
+                    '/api/user/profile', 
+                    '/api/dashboard/summary'
+                ];
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await api.get(endpoint);
+                        logResult(`✅ ${endpoint}: ${response.status} - 成功`);
+                    } catch (error) {
+                        logResult(`❌ ${endpoint}: ${error.response?.status || 'ERROR'} - ${error.response?.data?.error_message || error.message}`);
+                    }
+                }
+            } else {
+                logResult('⚠️ 没有可用的token');
+            }
+        }
+
+        function clearStorage() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            authToken = null;
+            testResults = [];
+            logResult('🧹 已清除localStorage和内存中的认证信息');
+            
+            // 重置步骤状态
+            ['step1', 'step2', 'step3', 'step4', 'step5'].forEach(id => {
+                updateStep(id, '');
+            });
+            
+            // 重置按钮状态
+            document.getElementById('loginBtn').disabled = false;
+            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('refreshBtn').disabled = true;
+            document.getElementById('restoreBtn').disabled = true;
+            document.getElementById('testBtn').disabled = true;
+        }
+
+        // 手动测试函数
+        async function manualLogin() {
+            try {
+                const response = await api.post('/api/v1/auth/login', {
+                    username: 'admin',
+                    password: 'admin123'
+                });
+                
+                if (response.data.success) {
+                    authToken = response.data.data.access_token;
+                    document.getElementById('loginBtn').disabled = true;
+                    document.getElementById('saveBtn').disabled = false;
+                    document.getElementById('manualResult').textContent = '✅ 登录成功';
+                    document.getElementById('manualResult').className = 'result success';
+                }
+            } catch (error) {
+                document.getElementById('manualResult').textContent = `❌ 登录失败: ${error.message}`;
+                document.getElementById('manualResult').className = 'result error';
+            }
+        }
+
+        function saveToStorage() {
+            if (authToken) {
+                localStorage.setItem('access_token', authToken);
+                document.getElementById('saveBtn').disabled = true;
+                document.getElementById('refreshBtn').disabled = false;
+                document.getElementById('manualResult').textContent = '✅ Token已保存到localStorage';
+                document.getElementById('manualResult').className = 'result success';
+            }
+        }
+
+        function simulateRefresh() {
+            authToken = null;
+            document.getElementById('refreshBtn').disabled = true;
+            document.getElementById('restoreBtn').disabled = false;
+            document.getElementById('manualResult').textContent = '✅ 已模拟页面刷新（清除内存状态）';
+            document.getElementById('manualResult').className = 'result success';
+        }
+
+        function restoreFromStorage() {
+            const savedToken = localStorage.getItem('access_token');
+            if (savedToken) {
+                authToken = savedToken;
+                document.getElementById('restoreBtn').disabled = true;
+                document.getElementById('testBtn').disabled = false;
+                document.getElementById('manualResult').textContent = '✅ 已从localStorage恢复token';
+                document.getElementById('manualResult').className = 'result success';
+            } else {
+                document.getElementById('manualResult').textContent = '❌ localStorage中没有找到token';
+                document.getElementById('manualResult').className = 'result error';
+            }
+        }
+
+        async function testAPIs() {
+            const results = [];
+            const endpoints = [
+                '/api/v1/auth/me',
+                '/api/user/profile', 
+                '/api/dashboard/summary'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await api.get(endpoint);
+                    results.push(`✅ ${endpoint}: 成功 (${response.status})`);
+                } catch (error) {
+                    results.push(`❌ ${endpoint}: 失败 (${error.response?.status}) - ${error.response?.data?.error_message || error.message}`);
+                }
+            }
+            
+            document.getElementById('manualResult').textContent = results.join('\n');
+            document.getElementById('manualResult').className = results.some(r => r.includes('❌')) ? 'result error' : 'result success';
+        }
+
+        function checkStorage() {
+            const accessToken = localStorage.getItem('access_token');
+            const refreshToken = localStorage.getItem('refresh_token');
+            
+            let info = '📊 localStorage状态:\n\n';
+            info += `Access Token: ${accessToken ? accessToken.substring(0, 50) + '...' : '无'}\n`;
+            info += `Refresh Token: ${refreshToken ? refreshToken.substring(0, 50) + '...' : '无'}\n`;
+            info += `内存中的Token: ${authToken ? authToken.substring(0, 50) + '...' : '无'}\n`;
+            
+            document.getElementById('storageInfo').textContent = info;
+        }
+
+        // 页面加载时检查存储状态
+        window.onload = function() {
+            checkStorage();
+        };
+    </script>
+</body>
+</html>
