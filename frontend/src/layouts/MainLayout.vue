@@ -239,49 +239,110 @@ const breadcrumbs = computed(() => {
 
 // 菜单路由
 const menuRoutes = computed(() => {
-  const allRoutes = router.getRoutes()
-  const menuMap = new Map()
-  
-  // 定义主菜单项及其顺序
-  const mainMenus = [
-    { key: 'dashboard', title: '仪表板', icon: 'Dashboard', path: '/' },
-    { key: 'trading', title: '交易中心', icon: 'Monitor', path: '/trading' },
-    { key: 'orders', title: '订单管理', icon: 'Document', path: '/orders' },
-    { key: 'positions', title: '持仓管理', icon: 'Wallet', path: '/positions' },
-    { key: 'strategies', title: '策略管理', icon: 'List', path: '/strategies' },
-    { key: 'settings', title: '系统设置', icon: 'Setting', path: '/settings' }
+  // 根据spec文档定义的核心功能模块构建菜单
+  const menuStructure = [
+    {
+      path: '/',
+      meta: { title: '仪表板', icon: 'Dashboard' },
+      children: []
+    },
+    {
+      path: '/strategies',
+      meta: { title: '策略管理', icon: 'List' },
+      children: [
+        { path: '/strategies', meta: { title: '策略列表', icon: 'List' } },
+        { path: '/strategies/create', meta: { title: '创建策略', icon: 'Plus' } },
+        { path: '/strategies/templates', meta: { title: '策略模板', icon: 'Collection' } },
+        { path: '/strategies/performance', meta: { title: '策略绩效', icon: 'TrendCharts' } }
+      ]
+    },
+    {
+      path: '/backtests',
+      meta: { title: '回测系统', icon: 'DataAnalysis' },
+      children: [
+        { path: '/backtests', meta: { title: '回测列表', icon: 'List' } },
+        { path: '/backtests/create', meta: { title: '创建回测', icon: 'Plus' } },
+        { path: '/backtests/comparison', meta: { title: '回测对比', icon: 'DataBoard' } },
+        { path: '/backtests/reports', meta: { title: '回测报告', icon: 'Document' } }
+      ]
+    },
+    {
+      path: '/trading',
+      meta: { title: '交易中心', icon: 'Monitor' },
+      children: [
+        { path: '/trading', meta: { title: '交易面板', icon: 'Monitor' } },
+        { path: '/trading/manual', meta: { title: '手动交易', icon: 'Edit' } },
+        { path: '/trading/quick', meta: { title: '快速交易', icon: 'Lightning' } }
+      ]
+    },
+    {
+      path: '/orders',
+      meta: { title: '订单管理', icon: 'Document' },
+      children: [
+        { path: '/orders', meta: { title: '订单列表', icon: 'Document' } },
+        { path: '/orders/history', meta: { title: '历史订单', icon: 'Clock' } },
+        { path: '/orders/templates', meta: { title: '订单模板', icon: 'Collection' } }
+      ]
+    },
+    {
+      path: '/positions',
+      meta: { title: '持仓管理', icon: 'Wallet' },
+      children: [
+        { path: '/positions', meta: { title: '当前持仓', icon: 'Wallet' } },
+        { path: '/positions/history', meta: { title: '持仓历史', icon: 'Clock' } },
+        { path: '/positions/analysis', meta: { title: '持仓分析', icon: 'DataAnalysis' } }
+      ]
+    },
+    {
+      path: '/accounts',
+      meta: { title: '账户管理', icon: 'User' },
+      children: [
+        { path: '/accounts', meta: { title: '账户概览', icon: 'User' } },
+        { path: '/account/transactions', meta: { title: '资金流水', icon: 'Money' } }
+      ]
+    },
+    {
+      path: '/market',
+      meta: { title: '市场数据', icon: 'TrendCharts' },
+      children: [
+        { path: '/market', meta: { title: '实时行情', icon: 'TrendCharts' } },
+        { path: '/market/technical', meta: { title: '技术分析', icon: 'DataAnalysis' } },
+        { path: '/market/news', meta: { title: '市场资讯', icon: 'ChatDotRound' } },
+        { path: '/market/calendar', meta: { title: '财经日历', icon: 'Calendar' } }
+      ]
+    },
+    {
+      path: '/risk',
+      meta: { title: '风险控制', icon: 'Warning' },
+      children: [
+        { path: '/risk', meta: { title: '风险监控', icon: 'Warning' } },
+        { path: '/risk/rules', meta: { title: '风险规则', icon: 'Setting' } },
+        { path: '/risk/reports', meta: { title: '风险报告', icon: 'Document' } }
+      ]
+    },
+    {
+      path: '/settings',
+      meta: { title: '系统设置', icon: 'Setting' },
+      children: [
+        { path: '/settings', meta: { title: '通用设置', icon: 'Setting' } },
+        { path: '/settings/account', meta: { title: '账户设置', icon: 'User' } },
+        { path: '/settings/trading', meta: { title: '交易设置', icon: 'TrendCharts' } },
+        { path: '/settings/notifications', meta: { title: '通知设置', icon: 'Bell' } }
+      ]
+    }
   ]
   
-  // 初始化主菜单
-  mainMenus.forEach(menu => {
-    menuMap.set(menu.key, {
-      path: menu.path,
-      meta: { title: menu.title, icon: menu.icon },
-      children: []
-    })
-  })
+  // 过滤掉没有对应路由的菜单项
+  const allRoutes = router.getRoutes()
+  const routePaths = new Set(allRoutes.map(route => route.path))
   
-  // 处理所有路由，将子路由归类到对应的主菜单下
-  allRoutes.forEach(route => {
-    if (!route.meta?.title || route.meta?.hidden) return
-    
-    const parent = route.meta?.parent
-    if (parent && menuMap.has(parent)) {
-      // 这是一个子菜单项
-      const parentMenu = menuMap.get(parent)
-      parentMenu.children.push({
-        path: route.path,
-        meta: route.meta
-      })
-    } else if (route.path === '/' || mainMenus.some(m => m.key === route.name?.toString().toLowerCase())) {
-      // 这是主菜单项，已经在初始化时处理了
+  return menuStructure.filter(menu => {
+    // 过滤子菜单，只保留存在的路由
+    if (menu.children && menu.children.length > 0) {
+      menu.children = menu.children.filter(child => routePaths.has(child.path))
+      return menu.children.length > 0 // 只有当有子菜单时才显示父菜单
     }
-  })
-  
-  // 返回有序的菜单结构
-  return Array.from(menuMap.values()).filter(menu => {
-    // 只返回有子菜单或者是仪表板的菜单项
-    return menu.path === '/' || menu.children.length > 0
+    return routePaths.has(menu.path) // 单独菜单项需要路由存在
   })
 })
 
