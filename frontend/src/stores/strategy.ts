@@ -380,6 +380,9 @@ export const useStrategyStore = defineStore('strategy', () => {
     total.value = 0
   }
 
+  // 别名方法（为了兼容性）
+  const loadStrategies = fetchStrategies
+
   return {
     // 状态
     strategies,
@@ -417,6 +420,9 @@ export const useStrategyStore = defineStore('strategy', () => {
     sortStrategies,
     clearCurrentStrategy,
     clearStrategies,
-    reset
+    reset,
+    
+    // 别名方法
+    loadStrategies
   }
 })
