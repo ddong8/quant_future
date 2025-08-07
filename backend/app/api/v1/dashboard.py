@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("/summary")
 async def get_dashboard_summary(
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """获取仪表板摘要信息"""
@@ -21,9 +21,9 @@ async def get_dashboard_summary(
         # 返回基本的仪表板数据
         summary_data = {
             "user": {
-                "id": current_user.id,
-                "username": current_user.username,
-                "role": current_user.role,
+                "id": current_user["id"],
+                "username": current_user["username"],
+                "role": current_user["role"],
             },
             "stats": {
                 "total_strategies": 0,
@@ -43,5 +43,6 @@ async def get_dashboard_summary(
         
     except Exception as e:
         return error_response(
+            error_code="DASHBOARD_ERROR",
             message=f"获取仪表板摘要失败: {str(e)}"
         )

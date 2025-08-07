@@ -126,7 +126,7 @@ def upgrade() -> None:
     
     # 创建订单表
     op.create_table('orders',
-        sa.Column('id', sa.String(length=50), nullable=False),
+        sa.Column('id', sa.Integer(), nullable=False),
         sa.Column('strategy_id', sa.Integer(), nullable=False),
         sa.Column('symbol', sa.String(length=20), nullable=False),
         sa.Column('direction', sa.String(length=10), nullable=False),

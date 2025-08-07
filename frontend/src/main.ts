@@ -9,7 +9,7 @@ import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from '@/stores/auth'
-import { createGlobalResponsive } from '@/composables/useResponsive'
+import { useGlobalResponsive } from '@/composables/useResponsive'
 import './styles/index.scss'
 
 // 性能监控
@@ -49,7 +49,8 @@ app.use(ElementPlus, {
 })
 
 // 初始化全局响应式实例
-createGlobalResponsive()
+const globalResponsive = useGlobalResponsive()
+globalResponsive.init()
 
 // 初始化认证状态
 const authStore = useAuthStore()

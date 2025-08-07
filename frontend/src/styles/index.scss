@@ -1,5 +1,7 @@
 // 导入性能优化样式
 @import './performance.scss';
+// 导入响应式样式
+@import './responsive.scss';
 
 // 重置样式
 * {
@@ -237,5 +239,331 @@ html, body {
   
   .empty-text {
     font-size: 14px;
+  }
+}
+
+// 移动端优化样式
+@media (max-width: 768px) {
+  // 全局移动端优化
+  body {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  // Element Plus 组件移动端优化
+  .el-button {
+    min-height: 44px;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  
+  .el-input {
+    .el-input__inner {
+      height: 44px;
+      font-size: 14px;
+    }
+  }
+  
+  .el-select {
+    .el-input__inner {
+      height: 44px;
+    }
+  }
+  
+  .el-form-item {
+    margin-bottom: 16px;
+    
+    .el-form-item__label {
+      font-size: 14px;
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+  }
+  
+  .el-dialog {
+    width: 95% !important;
+    margin: 20px auto !important;
+    
+    .el-dialog__header {
+      padding: 16px;
+    }
+    
+    .el-dialog__body {
+      padding: 16px;
+    }
+    
+    .el-dialog__footer {
+      padding: 12px 16px;
+    }
+  }
+  
+  .el-drawer {
+    .el-drawer__header {
+      padding: 16px;
+      margin-bottom: 0;
+    }
+    
+    .el-drawer__body {
+      padding: 16px;
+    }
+  }
+  
+  .el-card {
+    .el-card__header {
+      padding: 16px;
+    }
+    
+    .el-card__body {
+      padding: 16px;
+    }
+  }
+  
+  .el-table {
+    font-size: 12px;
+    
+    .el-table__header th {
+      padding: 8px 4px;
+      font-size: 12px;
+    }
+    
+    .el-table__body td {
+      padding: 8px 4px;
+      font-size: 12px;
+    }
+  }
+  
+  .el-pagination {
+    .el-pagination__total,
+    .el-pagination__sizes,
+    .el-pagination__jump {
+      display: none;
+    }
+    
+    .el-pager li {
+      min-width: 32px;
+      height: 32px;
+      line-height: 32px;
+      font-size: 13px;
+    }
+    
+    .el-pagination__prev,
+    .el-pagination__next {
+      height: 32px;
+      line-height: 32px;
+      font-size: 13px;
+    }
+  }
+  
+  .el-menu {
+    .el-menu-item,
+    .el-sub-menu__title {
+      height: 48px;
+      line-height: 48px;
+      font-size: 14px;
+    }
+  }
+  
+  .el-tabs {
+    .el-tabs__header {
+      margin-bottom: 12px;
+    }
+    
+    .el-tabs__item {
+      height: 44px;
+      line-height: 44px;
+      font-size: 14px;
+      padding: 0 16px;
+    }
+  }
+  
+  .el-steps {
+    .el-step__title {
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .el-step__description {
+      font-size: 12px;
+    }
+  }
+}
+
+// 小屏幕设备优化
+@media (max-width: 480px) {
+  body {
+    font-size: 13px;
+  }
+  
+  .el-button {
+    min-height: 40px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .el-input {
+    .el-input__inner {
+      height: 40px;
+      font-size: 13px;
+    }
+  }
+  
+  .el-dialog {
+    width: 100% !important;
+    margin: 0 !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+  }
+  
+  .page-container {
+    padding: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
+    
+    .page-title {
+      font-size: 18px;
+    }
+  }
+}
+
+// 横屏模式优化
+@media (orientation: landscape) and (max-height: 500px) {
+  .el-dialog {
+    .el-dialog__header {
+      padding: 12px 16px;
+    }
+    
+    .el-dialog__body {
+      padding: 12px 16px;
+    }
+  }
+  
+  .page-container {
+    padding: 8px 16px;
+  }
+  
+  .el-form-item {
+    margin-bottom: 12px;
+  }
+}
+
+// 触摸设备优化
+@media (hover: none) and (pointer: coarse) {
+  // 增大触摸目标
+  .el-button,
+  .el-input,
+  .el-select,
+  .el-checkbox,
+  .el-radio,
+  .el-switch {
+    min-height: 44px;
+  }
+  
+  // 优化触摸反馈
+  .el-button:active {
+    transform: scale(0.98);
+    transition: transform 0.1s ease;
+  }
+  
+  // 移除悬停效果
+  .el-button:hover,
+  .el-card:hover,
+  .el-table__row:hover {
+    transform: none;
+    box-shadow: none;
+  }
+  
+  // 优化滚动
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+// 高DPI屏幕优化
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  // 优化图标显示
+  .el-icon {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  // 优化边框显示
+  .el-card,
+  .el-table,
+  .el-input,
+  .el-button {
+    border-width: 0.5px;
+  }
+}
+
+// 可访问性优化
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-contrast: high) {
+  .el-button,
+  .el-input,
+  .el-card,
+  .el-table {
+    border-width: 2px;
+  }
+  
+  .el-button--primary {
+    background-color: #000;
+    border-color: #000;
+  }
+}
+
+// 打印优化
+@media print {
+  .el-button,
+  .el-pagination,
+  .el-drawer,
+  .el-dialog,
+  .mobile-header,
+  .bottom-navigation,
+  .sidebar {
+    display: none !important;
+  }
+  
+  .el-table {
+    border: 1px solid #000;
+    
+    th,
+    td {
+      border: 1px solid #000;
+      padding: 4px;
+    }
+  }
+  
+  .page-container {
+    padding: 0;
+  }
+  
+  body {
+    font-size: 12px;
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
+  }
+}
+
+// 暗色主题移动端优化
+.dark {
+  @media (max-width: 768px) {
+    .el-dialog {
+      background-color: var(--el-bg-color-page);
+    }
+    
+    .el-card {
+      background-color: var(--el-bg-color);
+      border-color: var(--el-border-color-light);
+    }
   }
 }

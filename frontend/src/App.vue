@@ -24,14 +24,14 @@ import { computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useGlobalResponsive } from '@/composables/useResponsive'
-import { usePerformanceOptimization } from '@/composables/usePerformanceOptimization'
+import { useGlobalPerformanceMonitor } from '@/composables/usePerformanceOptimization'
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import GlobalLoading from '@/components/common/GlobalLoading.vue'
 
 const authStore = useAuthStore()
 const themeStore = useThemeStore()
 const responsive = useGlobalResponsive()
-const { metrics: performanceMetrics } = usePerformanceOptimization()
+const { metrics: performanceMetrics, startMonitoring } = useGlobalPerformanceMonitor()
 
 // 应用样式类
 const appClasses = computed(() => {
@@ -70,9 +70,23 @@ onMounted(() => {
   // 初始化主题
   themeStore.initTheme()
   
+  // 初始化响应式功能
+  responsive.init()
+  
+  // 启动性能监控
+  startMonitoring()
+  
   // 添加性能监控类
   if (process.env.NODE_ENV === 'development') {
     document.documentElement.classList.add('debug-performance')
+  }
+  
+  // 设置视口元标签
+  const viewport = document.querySelector('meta[name="viewport"]')
+  if (viewport) {
+    viewport.setAttribute('content', 
+      'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover'
+    )
   }
 })
 </script>

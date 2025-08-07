@@ -64,23 +64,42 @@ def get_current_user_id(
 def get_current_user(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-) -> User:
-    """获取当前用户"""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+) -> dict:
+    """获取当前用户（使用原生SQL避免ORM关系问题）"""
+    from sqlalchemy import text
+    
+    result = db.execute(
+        text('SELECT id, username, email, hashed_password, role, is_active, full_name, phone, created_at, last_login_at FROM users WHERE id = :user_id'),
+        {'user_id': user_id}
+    ).fetchone()
+    
+    if not result:
         raise AuthenticationError("用户不存在")
     
-    if not user.is_active:
+    user_data = {
+        'id': result[0],
+        'username': result[1],
+        'email': result[2],
+        'hashed_password': result[3],
+        'role': result[4],
+        'is_active': result[5],
+        'full_name': result[6],
+        'phone': result[7],
+        'created_at': result[8],
+        'last_login_at': result[9]
+    }
+    
+    if not user_data['is_active']:
         raise AuthenticationError("用户账户已被禁用")
     
-    return user
+    return user_data
 
 
 def get_current_active_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: dict = Depends(get_current_user),
+) -> dict:
     """获取当前活跃用户"""
-    if not current_user.is_active:
+    if not current_user["is_active"]:
         raise AuthenticationError("用户账户已被禁用")
     
     return current_user
@@ -88,24 +107,24 @@ def get_current_active_user(
 
 def require_role(required_role: UserRole):
     """要求特定角色的依赖工厂"""
-    def role_checker(current_user: User = Depends(get_current_active_user)) -> User:
-        if current_user.role != required_role and current_user.role != UserRole.ADMIN:
-            raise AuthorizationError(f"需要{required_role}角色权限")
+    def role_checker(current_user: dict = Depends(get_current_active_user)) -> dict:
+        if current_user["role"] != required_role.value and current_user["role"] != UserRole.ADMIN.value:
+            raise AuthorizationError(f"需要{required_role.value}角色权限")
         return current_user
     
     return role_checker
 
 
-def require_admin(current_user: User = Depends(get_current_active_user)) -> User:
+def require_admin(current_user: dict = Depends(get_current_active_user)) -> dict:
     """要求管理员权限"""
-    if current_user.role != UserRole.ADMIN:
+    if current_user["role"] != "admin":
         raise AuthorizationError("需要管理员权限")
     return current_user
 
 
-def require_trader_or_admin(current_user: User = Depends(get_current_active_user)) -> User:
+def require_trader_or_admin(current_user: dict = Depends(get_current_active_user)) -> dict:
     """要求交易员或管理员权限"""
-    if current_user.role not in [UserRole.TRADER, UserRole.ADMIN]:
+    if current_user["role"] not in ["trader", "admin"]:
         raise AuthorizationError("需要交易员或管理员权限")
     return current_user
 
@@ -113,9 +132,11 @@ def require_trader_or_admin(current_user: User = Depends(get_current_active_user
 def get_optional_current_user(
     request: Request,
     db: Session = Depends(get_db),
-) -> Optional[User]:
+) -> Optional[dict]:
     """获取可选的当前用户（用于公开接口）"""
     try:
+        from sqlalchemy import text
+        
         # 尝试从Authorization头获取token
         authorization = request.headers.get("Authorization")
         if not authorization or not authorization.startswith("Bearer "):
@@ -135,8 +156,23 @@ def get_optional_current_user(
             return None
         
         # 查询用户
-        user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
-        return user
+        result = db.execute(
+            text('SELECT id, username, email, role, is_active, full_name, phone FROM users WHERE id = :user_id AND is_active = true'),
+            {'user_id': user_id}
+        ).fetchone()
+        
+        if result:
+            return {
+                'id': result[0],
+                'username': result[1],
+                'email': result[2],
+                'role': result[3],
+                'is_active': result[4],
+                'full_name': result[5],
+                'phone': result[6]
+            }
+        
+        return None
         
     except (JWTError, Exception):
         return None

@@ -56,8 +56,9 @@ async def login(
 ):
     """用户登录"""
     from ...core.response import success_response
+    from ...services.simple_auth_service import SimpleAuthService
 
-    auth_service = AuthService(db)
+    auth_service = SimpleAuthService(db)
     token_response = auth_service.authenticate_user(login_data, request)
 
     return success_response(data=token_response.dict(), message="登录成功")
@@ -165,30 +166,26 @@ async def change_password(
 
 @router.get("/me")
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
 ):
     """获取当前用户信息"""
     from ...core.response import success_response
 
-    user_profile = UserProfile(
-        id=current_user.id,
-        username=current_user.username,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        phone=current_user.phone,
-        role=(
-            current_user.role.value
-            if hasattr(current_user.role, "value")
-            else str(current_user.role)
-        ),
-        is_active=current_user.is_active,
-        is_verified=current_user.is_verified,
-        created_at=current_user.created_at,
-        last_login_at=current_user.last_login_at,
-    )
+    user_profile = {
+        "id": current_user["id"],
+        "username": current_user["username"],
+        "email": current_user["email"],
+        "full_name": current_user["full_name"],
+        "phone": current_user["phone"],
+        "role": current_user["role"],
+        "is_active": current_user["is_active"],
+        "is_verified": True,  # 简化处理
+        "created_at": current_user["created_at"].isoformat() if current_user["created_at"] else None,
+        "last_login_at": current_user["last_login_at"].isoformat() if current_user["last_login_at"] else None,
+    }
 
     return success_response(
-        data=user_profile.dict(by_alias=True), message="获取用户信息成功"
+        data=user_profile, message="获取用户信息成功"
     )
 
 

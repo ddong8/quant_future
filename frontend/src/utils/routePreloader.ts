@@ -157,6 +157,18 @@ class RoutePreloader {
   }
 
   /**
+   * 智能预加载（简化版本，用于路由后钩子）
+   */
+  async intelligentPreload() {
+    try {
+      // 预加载一些常用的路由
+      await this.preloadCriticalRoutes()
+    } catch (error) {
+      console.warn('Intelligent preload failed:', error)
+    }
+  }
+
+  /**
    * 获取预加载统计信息
    */
   getStats() {
