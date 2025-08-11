@@ -633,7 +633,7 @@ onMounted(() => {
   }
   
   .amount-info {
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
     padding: 12px;
     border-radius: 4px;
     

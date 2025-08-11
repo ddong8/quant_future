@@ -169,7 +169,7 @@ onMounted(() => {
 <style scoped>
 .order-history-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -182,17 +182,17 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .filters-card, .history-list {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -203,7 +203,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .filters {
@@ -221,7 +221,7 @@ onMounted(() => {
 
 .filter-group label {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
 
@@ -256,7 +256,7 @@ onMounted(() => {
 }
 
 .order-card {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   padding: 16px;
   border: 1px solid #dee2e6;
@@ -266,7 +266,7 @@ onMounted(() => {
 .order-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: white;
+  background: var(--el-bg-color);
 }
 
 .order-header {
@@ -278,13 +278,13 @@ onMounted(() => {
 
 .order-id {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .order-time {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .order-content {
@@ -306,14 +306,14 @@ onMounted(() => {
 
 .info-row .label {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
   min-width: 40px;
 }
 
 .info-row .value {
   font-size: 14px;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-weight: 600;
 }
 
@@ -338,13 +338,13 @@ onMounted(() => {
 }
 
 .order-status.cancelled {
-  background: #f8d7da;
+  background: var(--el-color-danger-light-9);
   color: #721c24;
 }
 
 .order-status.rejected {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--el-bg-color)3cd;
+  color: var(--el-color-warning);
 }
 
 @media (max-width: 768px) {

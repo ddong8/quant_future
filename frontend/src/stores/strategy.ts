@@ -36,21 +36,21 @@ export const useStrategyStore = defineStore('strategy', () => {
   // 计算属性
   const hasStrategies = computed(() => strategies.value.length > 0)
   const totalPages = computed(() => Math.ceil(total.value / (searchParams.value.page_size || 20)))
-  const runningStrategies = computed(() => strategies.value.filter(s => s.is_running))
-  const activeStrategies = computed(() => strategies.value.filter(s => s.status === 'active'))
-  const draftStrategies = computed(() => strategies.value.filter(s => s.status === 'draft'))
+  const runningStrategies = computed(() => strategies.value.filter((s) => s.is_running))
+  const activeStrategies = computed(() => strategies.value.filter((s) => s.status === 'active'))
+  const draftStrategies = computed(() => strategies.value.filter((s) => s.status === 'draft'))
 
   // 操作方法
   const fetchStrategies = async (params?: StrategySearchParams) => {
     try {
       loading.value = true
-      
+
       if (params) {
         searchParams.value = { ...searchParams.value, ...params }
       }
-      
+
       const response = await StrategyApi.getStrategies(searchParams.value)
-      
+
       if (response.success) {
         strategies.value = response.data.items
         total.value = response.data.total
@@ -69,7 +69,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.getMyStrategies(status)
-      
+
       if (response.success) {
         strategies.value = response.data
       } else {
@@ -86,7 +86,7 @@ export const useStrategyStore = defineStore('strategy', () => {
   const fetchStrategyStats = async () => {
     try {
       const response = await StrategyApi.getStrategyStats()
-      
+
       if (response.success) {
         strategyStats.value = response.data
       } else {
@@ -102,7 +102,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.getStrategy(id)
-      
+
       if (response.success) {
         currentStrategy.value = response.data
         return response.data
@@ -123,7 +123,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.getStrategyByUuid(uuid)
-      
+
       if (response.success) {
         currentStrategy.value = response.data
         return response.data
@@ -144,7 +144,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.createStrategy(data)
-      
+
       if (response.success) {
         ElMessage.success('策略创建成功')
         // 刷新策略列表
@@ -167,21 +167,21 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.updateStrategy(id, data)
-      
+
       if (response.success) {
         ElMessage.success('策略更新成功')
-        
+
         // 更新当前策略
         if (currentStrategy.value && currentStrategy.value.id === id) {
           currentStrategy.value = response.data
         }
-        
+
         // 更新策略列表中的项
-        const index = strategies.value.findIndex(s => s.id === id)
+        const index = strategies.value.findIndex((s) => s.id === id)
         if (index !== -1) {
           strategies.value[index] = { ...strategies.value[index], ...response.data }
         }
-        
+
         return response.data
       } else {
         ElMessage.error(response.message || '更新策略失败')
@@ -200,18 +200,18 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.deleteStrategy(id)
-      
+
       if (response.success) {
         ElMessage.success('策略删除成功')
-        
+
         // 从列表中移除
-        strategies.value = strategies.value.filter(s => s.id !== id)
-        
+        strategies.value = strategies.value.filter((s) => s.id !== id)
+
         // 如果删除的是当前策略，清空当前策略
         if (currentStrategy.value && currentStrategy.value.id === id) {
           currentStrategy.value = null
         }
-        
+
         return true
       } else {
         ElMessage.error(response.message || '删除策略失败')
@@ -230,7 +230,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.copyStrategy(id, newName)
-      
+
       if (response.success) {
         ElMessage.success('策略复制成功')
         // 刷新策略列表
@@ -253,27 +253,30 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.executeStrategy(id, request)
-      
+
       if (response.success) {
-        const actionText = {
-          start: '启动',
-          stop: '停止',
-          pause: '暂停',
-          resume: '恢复'
-        }[request.action] || request.action
-        
+        const actionText =
+          {
+            start: '启动',
+            stop: '停止',
+            pause: '暂停',
+            resume: '恢复'
+          }[request.action] || request.action
+
         ElMessage.success(`策略${actionText}成功`)
-        
+
         // 更新策略状态
         if (currentStrategy.value && currentStrategy.value.id === id) {
-          currentStrategy.value.is_running = request.action === 'start' || request.action === 'resume'
+          currentStrategy.value.is_running =
+            request.action === 'start' || request.action === 'resume'
         }
-        
-        const index = strategies.value.findIndex(s => s.id === id)
+
+        const index = strategies.value.findIndex((s) => s.id === id)
         if (index !== -1) {
-          strategies.value[index].is_running = request.action === 'start' || request.action === 'resume'
+          strategies.value[index].is_running =
+            request.action === 'start' || request.action === 'resume'
         }
-        
+
         return response.data
       } else {
         ElMessage.error(response.message || '策略操作失败')
@@ -291,7 +294,7 @@ export const useStrategyStore = defineStore('strategy', () => {
   const fetchStrategyVersions = async (id: number) => {
     try {
       const response = await StrategyApi.getStrategyVersions(id)
-      
+
       if (response.success) {
         strategyVersions.value = response.data
         return response.data
@@ -310,18 +313,18 @@ export const useStrategyStore = defineStore('strategy', () => {
     try {
       loading.value = true
       const response = await StrategyApi.restoreStrategyVersion(strategyId, versionId)
-      
+
       if (response.success) {
         ElMessage.success('版本恢复成功')
-        
+
         // 更新当前策略
         if (currentStrategy.value && currentStrategy.value.id === strategyId) {
           currentStrategy.value = response.data
         }
-        
+
         // 刷新版本列表
         await fetchStrategyVersions(strategyId)
-        
+
         return response.data
       } else {
         ElMessage.error(response.message || '版本恢复失败')
@@ -353,7 +356,12 @@ export const useStrategyStore = defineStore('strategy', () => {
   }
 
   const sortStrategies = async (sortBy: string, sortOrder: 'asc' | 'desc') => {
-    await fetchStrategies({ ...searchParams.value, sort_by: sortBy, sort_order: sortOrder, page: 1 })
+    await fetchStrategies({
+      ...searchParams.value,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      page: 1
+    })
   }
 
   const clearCurrentStrategy = () => {
@@ -392,14 +400,14 @@ export const useStrategyStore = defineStore('strategy', () => {
     loading,
     searchParams,
     total,
-    
+
     // 计算属性
     hasStrategies,
     totalPages,
     runningStrategies,
     activeStrategies,
     draftStrategies,
-    
+
     // 方法
     fetchStrategies,
     fetchMyStrategies,
@@ -421,7 +429,7 @@ export const useStrategyStore = defineStore('strategy', () => {
     clearCurrentStrategy,
     clearStrategies,
     reset,
-    
+
     // 别名方法
     loadStrategies
   }

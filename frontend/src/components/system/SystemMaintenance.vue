@@ -555,7 +555,7 @@ onMounted(() => {
 .storage-item {
   text-align: center;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -596,7 +596,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   border-left: 4px solid #409eff;
 }
@@ -647,7 +647,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #f0f9ff;
+  background: var(--el-color-primary-light-9);
   border-radius: 4px;
 }
 

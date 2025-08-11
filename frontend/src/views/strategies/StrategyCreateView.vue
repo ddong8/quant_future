@@ -19,7 +19,7 @@ onMounted(() => console.log('➕ 创建策略页面已加载'))
 <style scoped>
 .strategy-create-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 .page-header {
@@ -30,15 +30,15 @@ onMounted(() => console.log('➕ 创建策略页面已加载'))
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 .content-placeholder {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 60px;
   text-align: center;
@@ -47,11 +47,11 @@ onMounted(() => console.log('➕ 创建策略页面已加载'))
 .content-placeholder h3 {
   margin: 0 0 16px 0;
   font-size: 24px;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 .content-placeholder p {
   margin: 0;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-size: 16px;
 }
 </style>

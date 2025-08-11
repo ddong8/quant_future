@@ -549,7 +549,7 @@ onMounted(() => {
   gap: 8px;
   margin-bottom: 8px;
   padding: 8px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
 }
 
@@ -591,7 +591,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   text-align: center;
 }

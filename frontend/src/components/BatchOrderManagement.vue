@@ -834,7 +834,7 @@ addOrder()
   .submit-settings {
     margin-bottom: 16px;
     padding: 16px;
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
     border-radius: 6px;
   }
   

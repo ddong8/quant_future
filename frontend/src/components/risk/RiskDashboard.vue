@@ -426,7 +426,7 @@ onUnmounted(() => {
 <style scoped>
 .risk-dashboard {
   padding: 20px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -436,7 +436,7 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding: 20px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -470,7 +470,7 @@ onUnmounted(() => {
 }
 
 .metric-card {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -481,7 +481,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -572,7 +572,7 @@ onUnmounted(() => {
 .alerts-section,
 .events-section,
 .recommendations-section {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
@@ -584,7 +584,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -641,7 +641,7 @@ onUnmounted(() => {
 
 .event-item.resolved {
   opacity: 0.7;
-  background-color: #f9f9f9;
+  background-color: var(--el-fill-color-light);
 }
 
 .alert-icon,
@@ -700,7 +700,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 12px;
-  background: #f0f9ff;
+  background: var(--el-color-primary-light-9);
   border-radius: 6px;
   margin-bottom: 12px;
 }

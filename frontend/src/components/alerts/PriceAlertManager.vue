@@ -296,7 +296,7 @@ onMounted(() => {
 
 <style scoped>
 .price-alert-manager {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -324,7 +324,7 @@ onMounted(() => {
 
 .filter-bar {
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -402,6 +402,6 @@ onMounted(() => {
 }
 
 :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 </style>

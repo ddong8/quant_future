@@ -253,7 +253,7 @@ const getPnLClass = (value: number) => {
 
 <style scoped>
 .position-table {
-  background: white;
+  background: var(--el-bg-color);
 }
 
 .positions-table {
@@ -265,7 +265,7 @@ const getPnLClass = (value: number) => {
 }
 
 .positions-table :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 
 .symbol-cell {

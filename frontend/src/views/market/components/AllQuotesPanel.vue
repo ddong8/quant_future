@@ -329,7 +329,7 @@ const handleAddToWatchlist = (quote: Quote) => {
 .filter-bar {
   margin-bottom: 16px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
 }
 
@@ -398,6 +398,6 @@ const handleAddToWatchlist = (quote: Quote) => {
 }
 
 :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 </style>

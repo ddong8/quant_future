@@ -317,7 +317,7 @@ onMounted(() => {
 
 .preview-section {
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -362,7 +362,7 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
 }
 

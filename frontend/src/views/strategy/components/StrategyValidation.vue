@@ -711,7 +711,7 @@ export default {
   justify-content: space-between;
   align-items: center;
   padding: 10px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
 }
 

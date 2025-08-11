@@ -372,7 +372,7 @@ const getRiskWarning = () => {
 }
 
 .position-info {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -414,7 +414,7 @@ const getRiskWarning = () => {
 }
 
 .close-preview {
-  background: #f3f4f6;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;

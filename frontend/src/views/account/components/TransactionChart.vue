@@ -462,7 +462,7 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding: 16px;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   border-radius: 8px;
 }
 
@@ -476,7 +476,7 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  background-color: white;
+  background-color: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -498,7 +498,7 @@ onUnmounted(() => {
 .summary-row .el-col {
   text-align: center;
   padding: 20px;
-  background-color: white;
+  background-color: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

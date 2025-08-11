@@ -307,7 +307,7 @@ watch(visible, (newVal) => {
 .template-filters {
   margin-bottom: 20px;
   padding: 16px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -380,7 +380,7 @@ watch(visible, (newVal) => {
   .code-preview {
     max-height: 200px;
     overflow-y: auto;
-    background: #f5f7fa;
+    background: var(--el-bg-color-page);
     border-radius: 4px;
     padding: 12px;
     

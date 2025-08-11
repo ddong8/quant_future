@@ -61,12 +61,18 @@ export const useThemeStore = defineStore('theme', () => {
     const html = document.documentElement
     if (shouldBeDark) {
       html.classList.add('dark')
+      html.setAttribute('data-theme', 'dark')
     } else {
       html.classList.remove('dark')
+      html.setAttribute('data-theme', 'light')
     }
     
     // 设置Element Plus主题
     html.style.colorScheme = shouldBeDark ? 'dark' : 'light'
+    
+    // 强制重新渲染Element Plus组件
+    const event = new CustomEvent('theme-changed', { detail: { isDark: shouldBeDark } })
+    window.dispatchEvent(event)
   }
 
   // 处理系统主题变化

@@ -266,7 +266,7 @@ onMounted(() => {
 <style scoped>
 .simple-positions-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -279,13 +279,13 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 /* 统计卡片 */
@@ -297,7 +297,7 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -330,7 +330,7 @@ onMounted(() => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 4px;
 }
 
@@ -344,13 +344,13 @@ onMounted(() => {
 
 .stat-label {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
 /* 操作和风险卡片 */
 .actions-card, .risk-card, .positions-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -361,7 +361,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .actions {
@@ -403,18 +403,18 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
 .risk-label {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .risk-value {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .risk-value.positive {
@@ -435,9 +435,9 @@ onMounted(() => {
 .table-header {
   display: grid;
   grid-template-columns: 140px 100px 80px 100px 100px 120px 100px 120px 120px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .table-row {
@@ -447,7 +447,7 @@ onMounted(() => {
 }
 
 .table-row:hover {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
 }
 
 .header-cell, .table-cell {
@@ -467,12 +467,12 @@ onMounted(() => {
 
 .symbol {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .symbol-desc {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .table-cell.long {

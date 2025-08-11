@@ -673,7 +673,7 @@ onUnmounted(() => {
     justify-content: space-between;
     align-items: center;
     padding: 16px;
-    background: #fff;
+    background: var(--el-bg-color);
     border-radius: 8px;
     margin-bottom: 16px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -706,7 +706,7 @@ onUnmounted(() => {
           
           &.profit { background: #e6f7ff; color: #1890ff; }
           &.success { background: #f6ffed; color: #52c41a; }
-          &.warning { background: #fff7e6; color: #fa8c16; }
+          &.warning { background: var(--el-bg-color)7e6; color: #fa8c16; }
           &.info { background: #f0f5ff; color: #722ed1; }
         }
         

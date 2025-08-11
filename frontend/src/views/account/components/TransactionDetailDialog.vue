@@ -431,7 +431,7 @@ const handleStatusUpdated = () => {
 
 .description-content {
   padding: 12px;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   border-radius: 4px;
   color: #606266;
   line-height: 1.5;
@@ -440,7 +440,7 @@ const handleStatusUpdated = () => {
 }
 
 .metadata-content {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
   border-radius: 4px;
   padding: 12px;
 }

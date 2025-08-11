@@ -417,7 +417,7 @@ onUnmounted(() => {
   }
   
   .result-content {
-    background: #fff;
+    background: var(--el-bg-color);
     border-radius: 8px;
     overflow: hidden;
     

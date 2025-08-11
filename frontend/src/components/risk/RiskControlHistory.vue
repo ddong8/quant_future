@@ -421,7 +421,7 @@ onMounted(() => {
 .filters {
   margin-bottom: 20px;
   padding: 16px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
 }
 
@@ -481,7 +481,7 @@ onMounted(() => {
 
 .description-content {
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
   border-left: 4px solid #409eff;
   line-height: 1.6;
@@ -489,7 +489,7 @@ onMounted(() => {
 
 .context-content {
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
   border-left: 4px solid #67c23a;
   font-size: 12px;
@@ -499,7 +499,7 @@ onMounted(() => {
 
 /* 表格行样式 */
 :deep(.error-row) {
-  background-color: #fef0f0 !important;
+  background-color: var(--el-color-danger-light-9) !important;
 }
 
 :deep(.critical-row) {

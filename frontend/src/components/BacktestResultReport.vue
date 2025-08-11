@@ -655,7 +655,7 @@ onUnmounted(() => {
     align-items: flex-start;
     margin-bottom: 24px;
     padding: 20px;
-    background: #fff;
+    background: var(--el-bg-color);
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     
@@ -692,7 +692,7 @@ onUnmounted(() => {
       display: flex;
       align-items: center;
       padding: 20px;
-      background: #fff;
+      background: var(--el-bg-color);
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       
@@ -741,7 +741,7 @@ onUnmounted(() => {
       
       &.success {
         .metric-icon {
-          background: #f0f9ff;
+          background: var(--el-color-primary-light-9);
           color: #67c23a;
         }
         .metric-value {
@@ -751,7 +751,7 @@ onUnmounted(() => {
       
       &.warning {
         .metric-icon {
-          background: #fdf6ec;
+          background: var(--el-color-warning-light-9);
           color: #e6a23c;
         }
         .metric-value {
@@ -761,7 +761,7 @@ onUnmounted(() => {
       
       &.info {
         .metric-icon {
-          background: #f4f4f5;
+          background: var(--el-fill-color-light);
           color: #909399;
         }
         .metric-value {
@@ -800,7 +800,7 @@ onUnmounted(() => {
     .comparison-item {
       text-align: center;
       padding: 16px;
-      background: #f5f7fa;
+      background: var(--el-bg-color-page);
       border-radius: 8px;
       
       .comparison-label {

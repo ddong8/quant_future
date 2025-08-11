@@ -385,7 +385,7 @@ onMounted(() => {
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -398,19 +398,19 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 /* 设置导航 */
 .settings-nav {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -437,12 +437,12 @@ onMounted(() => {
   transition: all 0.3s ease;
   font-size: 14px;
   font-weight: 500;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .nav-tab:hover {
-  background: #f8f9fa;
-  color: #2c3e50;
+  background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
 }
 
 .nav-tab.active {
@@ -468,7 +468,7 @@ onMounted(() => {
   margin: 0 0 24px 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   padding-bottom: 12px;
   border-bottom: 2px solid #ecf0f1;
 }
@@ -480,7 +480,7 @@ onMounted(() => {
 }
 
 .setting-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -506,7 +506,7 @@ onMounted(() => {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .edit-btn {
@@ -547,13 +547,13 @@ onMounted(() => {
 
 .info-item .label {
   font-weight: 500;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-size: 14px;
 }
 
 .info-item .value {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
 
@@ -579,13 +579,13 @@ onMounted(() => {
 
 .setting-name {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-size: 14px;
 }
 
 .setting-desc {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   line-height: 1.4;
 }
 
@@ -609,7 +609,7 @@ onMounted(() => {
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 14px;
-  background: white;
+  background: var(--el-bg-color);
   min-width: 120px;
 }
 
@@ -663,7 +663,7 @@ onMounted(() => {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--el-bg-color);
   transition: .4s;
   border-radius: 50%;
 }

@@ -426,7 +426,7 @@ onUnmounted(() => {
 .info-item {
   text-align: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -464,7 +464,7 @@ onUnmounted(() => {
 
 .issue-item {
   padding: 16px;
-  background: #fef0f0;
+  background: var(--el-color-danger-light-9);
   border-radius: 8px;
   border-left: 4px solid #f56c6c;
 }
@@ -480,7 +480,7 @@ onUnmounted(() => {
 .issue-count {
   font-size: 12px;
   color: #909399;
-  background: #f0f2f5;
+  background: var(--el-fill-color-light);
   padding: 2px 6px;
   border-radius: 4px;
 }

@@ -260,7 +260,7 @@ onMounted(() => {
 <style scoped>
 .simple-trading-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -273,18 +273,18 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 /* 市场概览 */
 .market-overview {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -295,7 +295,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .market-grid {
@@ -305,7 +305,7 @@ onMounted(() => {
 }
 
 .market-card {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   padding: 16px;
   text-align: center;
@@ -314,7 +314,7 @@ onMounted(() => {
 
 .market-symbol {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 8px;
 }
 
@@ -346,7 +346,7 @@ onMounted(() => {
 }
 
 .trading-panel {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -356,7 +356,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .order-form {
@@ -373,7 +373,7 @@ onMounted(() => {
 
 .form-group label {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .form-group select,
@@ -411,7 +411,7 @@ onMounted(() => {
 
 /* 快速交易 */
 .quick-trading, .trading-history {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -422,7 +422,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .quick-buttons {
@@ -458,9 +458,9 @@ onMounted(() => {
 .table-header {
   display: grid;
   grid-template-columns: 120px 100px 80px 100px 100px 100px 80px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .table-row {
@@ -470,7 +470,7 @@ onMounted(() => {
 }
 
 .table-row:hover {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
 }
 
 .header-cell, .table-cell {
@@ -500,8 +500,8 @@ onMounted(() => {
 }
 
 .status.pending {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning);
 }
 
 .status.completed {
@@ -510,7 +510,7 @@ onMounted(() => {
 }
 
 .status.cancelled {
-  background: #f8d7da;
+  background: var(--el-color-danger-light-9);
   color: #721c24;
 }
 

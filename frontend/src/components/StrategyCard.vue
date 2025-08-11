@@ -209,7 +209,7 @@ const formatDate = (dateString: string) => {
 
 <style scoped lang="scss">
 .strategy-card {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
@@ -314,7 +314,7 @@ const formatDate = (dateString: string) => {
           flex-direction: column;
           align-items: center;
           padding: 8px;
-          background: #f5f7fa;
+          background: var(--el-bg-color-page);
           border-radius: 4px;
           
           .stat-label {

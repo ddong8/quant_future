@@ -282,7 +282,7 @@ onUnmounted(() => {
 
 <style scoped>
 .market-anomaly-monitor {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -313,7 +313,7 @@ onUnmounted(() => {
   grid-template-columns: repeat(4, 1fr);
   gap: 16px;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -322,7 +322,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 16px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 6px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -394,7 +394,7 @@ onUnmounted(() => {
 
 .anomaly-item.processed {
   opacity: 0.7;
-  background-color: #f9f9f9;
+  background-color: var(--el-fill-color-light);
 }
 
 .anomaly-header {

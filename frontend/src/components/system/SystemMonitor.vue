@@ -527,7 +527,7 @@ onUnmounted(() => {
 .stat-item {
   text-align: center;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -581,7 +581,7 @@ onUnmounted(() => {
 .db-stat {
   text-align: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -624,7 +624,7 @@ onUnmounted(() => {
 .metric-box {
   text-align: center;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 
@@ -651,7 +651,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #fef0f0;
+  background: var(--el-color-danger-light-9);
   border-radius: 4px;
   border-left: 4px solid #f56c6c;
 }

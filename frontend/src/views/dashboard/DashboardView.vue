@@ -288,7 +288,7 @@ onMounted(async () => {
   padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -301,14 +301,14 @@ onMounted(async () => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 /* 统计卡片网格 */
@@ -320,7 +320,7 @@ onMounted(async () => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -378,7 +378,7 @@ onMounted(async () => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 4px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
@@ -393,7 +393,7 @@ onMounted(async () => {
 
 .stat-label {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
@@ -406,7 +406,7 @@ onMounted(async () => {
 }
 
 .info-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -417,7 +417,7 @@ onMounted(async () => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   border-bottom: 2px solid #ecf0f1;
   padding-bottom: 12px;
 }
@@ -437,12 +437,12 @@ onMounted(async () => {
 
 .info-item .label {
   font-weight: 500;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   min-width: 80px;
 }
 
 .info-item .value {
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-weight: 500;
 }
 
@@ -487,7 +487,7 @@ onMounted(async () => {
 
 /* 操作卡片 */
 .actions-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -499,7 +499,7 @@ onMounted(async () => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   border-bottom: 2px solid #ecf0f1;
   padding-bottom: 12px;
 }
@@ -540,7 +540,7 @@ onMounted(async () => {
 
 /* API结果 */
 .api-result {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -551,11 +551,11 @@ onMounted(async () => {
   margin: 0 0 16px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .api-result pre {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   padding: 16px;
   font-size: 12px;

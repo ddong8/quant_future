@@ -607,7 +607,7 @@ scoped lang="scss">
   }
   
   .price-display {
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
     padding: 12px;
     border-radius: 6px;
     margin-bottom: 16px;
@@ -722,7 +722,7 @@ scoped lang="scss">
   .position-info {
     margin-top: 16px;
     padding: 12px;
-    background: #f8f9fa;
+    background: var(--el-bg-color-page);
     border-radius: 6px;
     
     .position-header {

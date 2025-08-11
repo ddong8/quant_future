@@ -696,7 +696,7 @@ onUnmounted(() => {
         align-items: center;
         padding: 12px;
         margin-bottom: 8px;
-        background: #f5f7fa;
+        background: var(--el-bg-color-page);
         border-radius: 6px;
         
         .backtest-info {

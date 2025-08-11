@@ -483,7 +483,7 @@ export default {
   padding: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  background: #fff;
+  background: var(--el-bg-color);
   height: fit-content;
 }
 
@@ -494,7 +494,7 @@ export default {
 
 .template-card.selected {
   border-color: #409eff;
-  background-color: #f0f9ff;
+  background-color: var(--el-color-primary-light-9);
 }
 
 .card-header {

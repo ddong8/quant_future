@@ -348,7 +348,7 @@ const getRiskWarning = () => {
 }
 
 .position-info {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;
@@ -398,7 +398,7 @@ const getRiskWarning = () => {
 }
 
 .loss-calculation {
-  background: #fef3c7;
+  background: var(--el-color-warning-light-9);
   border: 1px solid #f59e0b;
   border-radius: 8px;
   padding: 16px;

@@ -257,7 +257,7 @@ onMounted(() => {
 <style scoped>
 .simple-orders-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -270,13 +270,13 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 /* 统计卡片 */
@@ -288,7 +288,7 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -321,19 +321,19 @@ onMounted(() => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
 /* 操作卡片 */
 .actions-card, .filters-card, .orders-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -344,7 +344,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .actions {
@@ -389,7 +389,7 @@ onMounted(() => {
 
 .filter-item label {
   font-weight: 500;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .filter-item select {
@@ -409,9 +409,9 @@ onMounted(() => {
 .table-header {
   display: grid;
   grid-template-columns: 100px 120px 80px 80px 100px 100px 80px 140px 100px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .table-row {
@@ -421,7 +421,7 @@ onMounted(() => {
 }
 
 .table-row:hover {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
 }
 
 .header-cell, .table-cell {
@@ -448,8 +448,8 @@ onMounted(() => {
 }
 
 .status.pending {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--el-bg-color)3cd;
+  color: var(--el-color-warning);
 }
 
 .status.active {
@@ -463,7 +463,7 @@ onMounted(() => {
 }
 
 .status.cancelled {
-  background: #f8d7da;
+  background: var(--el-color-danger-light-9);
   color: #721c24;
 }
 

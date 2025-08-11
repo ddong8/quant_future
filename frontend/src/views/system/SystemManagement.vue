@@ -65,14 +65,14 @@ const activeTab = ref('monitor')
 }
 
 .system-tabs {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px 8px 0 0;
 }
 
@@ -81,7 +81,7 @@ const activeTab = ref('monitor')
 }
 
 :deep(.el-tab-pane) {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 0 0 8px 8px;
 }
 </style>

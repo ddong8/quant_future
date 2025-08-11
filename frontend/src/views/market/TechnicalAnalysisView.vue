@@ -227,7 +227,7 @@ onMounted(() => {
 .technical-analysis {
   padding: 20px;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
 }
 
 .page-header {
@@ -236,7 +236,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding: 20px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -275,7 +275,7 @@ onMounted(() => {
   right: 0;
   bottom: 0;
   z-index: 9999;
-  background: #fff;
+  background: var(--el-bg-color);
   padding: 20px;
   margin: 0;
 }
@@ -289,7 +289,7 @@ onMounted(() => {
 
 .tools-section {
   padding: 20px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -314,7 +314,7 @@ onMounted(() => {
 }
 
 .indicator-info {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;

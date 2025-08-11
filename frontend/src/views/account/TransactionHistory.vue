@@ -93,7 +93,7 @@ onMounted(async () => {
 .transaction-history-page {
   padding: 20px;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 
 .page-header {
@@ -102,7 +102,7 @@ onMounted(async () => {
   align-items: center;
   margin-bottom: 20px;
   padding: 20px;
-  background-color: white;
+  background-color: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -122,7 +122,7 @@ onMounted(async () => {
 .account-selector {
   margin-bottom: 20px;
   padding: 16px 20px;
-  background-color: white;
+  background-color: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }

@@ -504,7 +504,7 @@ onMounted(() => {
 
 .config-json {
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
   border-left: 4px solid #409eff;
   font-size: 12px;
@@ -546,7 +546,7 @@ onMounted(() => {
 }
 
 .step-item.completed {
-  background: #f0f9ff;
+  background: var(--el-color-primary-light-9);
   color: #409eff;
 }
 
@@ -557,7 +557,7 @@ onMounted(() => {
 .summary-item {
   text-align: center;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
 }
 

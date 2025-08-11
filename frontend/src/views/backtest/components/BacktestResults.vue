@@ -1202,7 +1202,7 @@ export default {
   align-items: center;
   padding: 20px;
   border-radius: 8px;
-  background: #fff;
+  background: var(--el-bg-color);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s;
 }
@@ -1271,7 +1271,7 @@ export default {
 }
 
 .chart-container {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -1319,7 +1319,7 @@ export default {
 }
 
 .risk-metrics {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -1352,7 +1352,7 @@ export default {
 }
 
 .data-tables {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
@@ -1417,6 +1417,6 @@ export default {
 }
 
 :deep(.el-table th) {
-  background-color: #fafafa;
+  background-color: var(--el-fill-color-light);
 }
 </style>

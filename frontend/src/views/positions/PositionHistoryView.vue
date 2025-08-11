@@ -166,7 +166,7 @@ onMounted(() => {
 <style scoped>
 .position-history-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -179,13 +179,13 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .stats-grid {
@@ -196,7 +196,7 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   display: flex;
@@ -229,7 +229,7 @@ onMounted(() => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   margin-bottom: 4px;
 }
 
@@ -239,12 +239,12 @@ onMounted(() => {
 
 .stat-label {
   font-size: 14px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
 .history-list {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -254,7 +254,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .positions-grid {
@@ -264,7 +264,7 @@ onMounted(() => {
 }
 
 .position-card {
-  background: #f8f9fa;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 16px;
   border: 1px solid #dee2e6;
@@ -274,7 +274,7 @@ onMounted(() => {
 .position-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  background: white;
+  background: var(--el-bg-color);
 }
 
 .position-header {
@@ -286,13 +286,13 @@ onMounted(() => {
 
 .position-symbol {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-size: 16px;
 }
 
 .position-date {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .position-info {
@@ -309,13 +309,13 @@ onMounted(() => {
 
 .info-row .label {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
   font-weight: 500;
 }
 
 .info-row .value {
   font-size: 14px;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-weight: 600;
 }
 

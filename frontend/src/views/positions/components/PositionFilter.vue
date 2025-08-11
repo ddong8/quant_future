@@ -339,7 +339,7 @@ const setSortOrder = (order: 'asc' | 'desc') => {
 
 <style scoped>
 .position-filter {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 16px;

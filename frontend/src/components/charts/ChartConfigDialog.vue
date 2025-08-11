@@ -118,7 +118,7 @@ const defaultConfig = {
   colors: {
     up: '#ef232a',
     down: '#14b143',
-    background: '#ffffff'
+    background: 'var(--el-bg-color)'
   }
 }
 
@@ -136,7 +136,7 @@ const presetConfigs = {
     colors: {
       up: '#ef232a',
       down: '#14b143',
-      background: '#ffffff'
+      background: 'var(--el-bg-color)'
     }
   },
   simple: {
@@ -149,7 +149,7 @@ const presetConfigs = {
     colors: {
       up: '#ef232a',
       down: '#14b143',
-      background: '#ffffff'
+      background: 'var(--el-bg-color)'
     }
   },
   professional: {
@@ -175,7 +175,7 @@ const presetConfigs = {
     colors: {
       up: '#ef232a',
       down: '#14b143',
-      background: '#ffffff'
+      background: 'var(--el-bg-color)'
     }
   }
 }

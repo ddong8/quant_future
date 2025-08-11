@@ -388,7 +388,7 @@ onUnmounted(() => {
 
 <style scoped>
 .depth-chart {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -418,7 +418,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-around;
   padding: 16px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -486,10 +486,10 @@ onUnmounted(() => {
 }
 
 :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 
 :deep(.el-table th) {
-  background-color: #fafafa;
+  background-color: var(--el-fill-color-light);
 }
 </style>

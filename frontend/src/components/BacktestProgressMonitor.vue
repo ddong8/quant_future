@@ -574,7 +574,7 @@ onUnmounted(() => {
       align-items: center;
       gap: 12px;
       padding: 16px;
-      background: #f5f7fa;
+      background: var(--el-bg-color-page);
       border-radius: 8px;
       
       .status-icon {
@@ -588,13 +588,13 @@ onUnmounted(() => {
         
         &.pending { background: #e4e7ed; color: #909399; }
         &.running { background: #e1f3d8; color: #67c23a; }
-        &.paused { background: #fdf6ec; color: #e6a23c; }
+        &.paused { background: var(--el-color-warning-light-9); color: #e6a23c; }
         &.completed { background: #e1f3d8; color: #67c23a; }
-        &.failed { background: #fef0f0; color: #f56c6c; }
+        &.failed { background: var(--el-color-danger-light-9); color: #f56c6c; }
         &.cancelled { background: #e4e7ed; color: #909399; }
         &.progress { background: #ecf5ff; color: #409eff; }
-        &.time { background: #f4f4f5; color: #909399; }
-        &.equity { background: #f0f9ff; color: #1890ff; }
+        &.time { background: var(--el-fill-color-light); color: #909399; }
+        &.equity { background: var(--el-color-primary-light-9); color: #1890ff; }
       }
       
       .status-info {
@@ -640,7 +640,7 @@ onUnmounted(() => {
     
     .metric-card {
       padding: 16px;
-      background: #fff;
+      background: var(--el-bg-color);
       border: 1px solid #ebeef5;
       border-radius: 8px;
       

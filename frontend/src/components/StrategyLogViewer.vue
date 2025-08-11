@@ -466,7 +466,7 @@ onUnmounted(() => {
   height: v-bind(height);
   display: flex;
   flex-direction: column;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   overflow: hidden;
   
@@ -475,7 +475,7 @@ onUnmounted(() => {
     justify-content: space-between;
     align-items: center;
     padding: 12px 16px;
-    background: #f5f7fa;
+    background: var(--el-bg-color-page);
     border-bottom: 1px solid #ebeef5;
     
     .toolbar-left,
@@ -494,7 +494,7 @@ onUnmounted(() => {
     
     .log-stats {
       padding: 16px;
-      background: #fafbfc;
+      background: var(--el-fill-color-light);
       border-bottom: 1px solid #ebeef5;
     }
     
@@ -508,12 +508,12 @@ onUnmounted(() => {
         padding: 12px;
         border-radius: 6px;
         border-left: 4px solid #ddd;
-        background: #fff;
+        background: var(--el-bg-color);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         
         &.log-debug {
           border-left-color: #909399;
-          background: #f4f4f5;
+          background: var(--el-fill-color-light);
         }
         
         &.log-info {
@@ -523,12 +523,12 @@ onUnmounted(() => {
         
         &.log-warning {
           border-left-color: #e6a23c;
-          background: #fdf6ec;
+          background: var(--el-color-warning-light-9);
         }
         
         &.log-error {
           border-left-color: #f56c6c;
-          background: #fef0f0;
+          background: var(--el-color-danger-light-9);
         }
         
         .log-header {
@@ -546,7 +546,7 @@ onUnmounted(() => {
           .log-source {
             font-size: 12px;
             color: #606266;
-            background: #f0f2f5;
+            background: var(--el-fill-color-light);
             padding: 2px 6px;
             border-radius: 3px;
           }
@@ -571,7 +571,7 @@ onUnmounted(() => {
           .metadata-content {
             font-size: 12px;
             color: #606266;
-            background: #f5f7fa;
+            background: var(--el-bg-color-page);
             padding: 8px;
             border-radius: 4px;
             margin: 0;
@@ -611,7 +611,7 @@ onUnmounted(() => {
 .log-detail {
   .log-message-detail {
     font-family: monospace;
-    background: #f5f7fa;
+    background: var(--el-bg-color-page);
     padding: 8px;
     border-radius: 4px;
     white-space: pre-wrap;
@@ -632,7 +632,7 @@ onUnmounted(() => {
     .stack-trace-content {
       font-size: 12px;
       color: #606266;
-      background: #f5f7fa;
+      background: var(--el-bg-color-page);
       padding: 12px;
       border-radius: 4px;
       margin: 0;

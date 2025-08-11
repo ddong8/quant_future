@@ -1,15 +1,11 @@
 <template>
   <el-container class="main-layout">
-    <!-- 移动端遮罩层 -->
-    <div 
-      v-if="mobileMenuOpen" 
-      class="mobile-overlay show" 
-      @click="closeMobileMenu"
-    ></div>
-    
+    <!-- 移动端遮罩 -->
+    <div v-if="isMobile() && mobileMenuOpen" class="mobile-overlay" @click="closeMobileMenu"></div>
+
     <!-- 侧边栏 -->
-    <el-aside 
-      :width="sidebarCollapsed ? '64px' : '240px'" 
+    <el-aside
+      :width="sidebarCollapsed ? '64px' : '260px'"
       class="sidebar"
       :class="{ 'mobile-open': mobileMenuOpen }"
     >
@@ -26,7 +22,7 @@
           </template>
         </div>
       </div>
-      
+
       <el-menu
         :default-active="activeMenu"
         :collapse="sidebarCollapsed"
@@ -43,11 +39,11 @@
             :disabled="!hasPermission(menuItem.meta?.roles)"
           >
             <el-icon v-if="menuItem.meta?.icon">
-              <component :is="menuItem.meta.icon" />
+              <component :is="getIconComponent(menuItem.meta.icon)" />
             </el-icon>
             <template #title>{{ menuItem.meta?.title }}</template>
           </el-menu-item>
-          
+
           <!-- 有子菜单的菜单项 -->
           <el-sub-menu
             v-else
@@ -56,11 +52,11 @@
           >
             <template #title>
               <el-icon v-if="menuItem.meta?.icon">
-                <component :is="menuItem.meta.icon" />
+                <component :is="getIconComponent(menuItem.meta.icon)" />
               </el-icon>
               <span>{{ menuItem.meta?.title }}</span>
             </template>
-            
+
             <el-menu-item
               v-for="child in menuItem.children"
               :key="child.path"
@@ -68,7 +64,7 @@
               :disabled="!hasPermission(child.meta?.roles)"
             >
               <el-icon v-if="child.meta?.icon">
-                <component :is="child.meta.icon" />
+                <component :is="getIconComponent(child.meta.icon)" />
               </el-icon>
               <template #title>{{ child.meta?.title }}</template>
             </el-menu-item>
@@ -81,70 +77,58 @@
       <!-- 顶部导航 -->
       <el-header class="header">
         <div class="header-left">
-          <el-button
-            text
-            @click="toggleSidebar"
-            class="sidebar-toggle"
-          >
-            <el-icon size="20">
-              <Expand v-if="sidebarCollapsed" />
+          <el-button text @click="toggleSidebar" class="sidebar-toggle">
+            <el-icon :size="isMobile() ? 16 : 20">
+              <Expand v-if="sidebarCollapsed || (isMobile() && !mobileMenuOpen)" />
               <Fold v-else />
             </el-icon>
           </el-button>
-          
+
           <el-breadcrumb separator="/" class="breadcrumb">
-            <el-breadcrumb-item
-              v-for="item in breadcrumbs"
-              :key="item.path"
-              :to="item.path"
-            >
+            <el-breadcrumb-item v-for="item in breadcrumbs" :key="item.path" :to="item.path">
               {{ item.title }}
             </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
-        
+
         <div class="header-right">
           <!-- 主题切换 -->
-          <el-button
-            text
-            @click="themeStore.toggleTheme()"
-            class="theme-toggle"
-          >
-            <el-icon size="18">
+          <el-button text @click="themeStore.toggleTheme()" class="theme-toggle">
+            <el-icon :size="isMobile() ? 16 : 18">
               <Sunny v-if="themeStore.isDark" />
               <Moon v-else />
             </el-icon>
           </el-button>
-          
+
           <!-- 通知 -->
           <el-badge :value="notificationCount" :hidden="notificationCount === 0">
             <el-button text class="notification-btn">
-              <el-icon size="18">
+              <el-icon :size="isMobile() ? 16 : 18">
                 <Bell />
               </el-icon>
             </el-button>
           </el-badge>
-          
+
           <!-- 认证状态 -->
-          <AuthStatus 
-            type="verification" 
-            :show-text="false" 
+          <AuthStatus
+            type="verification"
+            :show-text="false"
             :show-tooltip="true"
             class="auth-status-indicator"
           />
-          
+
           <!-- 用户菜单 -->
           <el-dropdown @command="handleUserCommand" class="user-dropdown">
             <div class="user-info">
               <UserAvatar
                 :avatar-url="authStore.user?.avatar_url"
                 :display-name="authStore.user?.full_name || authStore.userName"
-                :size="32"
+                :size="isMobile() ? 28 : 32"
               />
               <span class="username">{{ authStore.userName }}</span>
               <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
             </div>
-            
+
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
@@ -194,7 +178,23 @@ import {
   User,
   ArrowDown,
   Setting,
-  SwitchButton
+  SwitchButton,
+  Odometer,
+  List,
+  Plus,
+  Collection,
+  DataAnalysis,
+  DataBoard,
+  Document,
+  Monitor,
+  Edit,
+  Lightning,
+  Clock,
+  Wallet,
+  Money,
+  ChatDotRound,
+  Calendar,
+  Warning
 } from '@element-plus/icons-vue'
 import UserAvatar from '@/components/UserAvatar.vue'
 import AuthStatus from '@/components/AuthStatus.vue'
@@ -230,8 +230,8 @@ const activeMenu = computed(() => route.path)
 
 // 面包屑导航
 const breadcrumbs = computed(() => {
-  const matched = route.matched.filter(item => item.meta?.title)
-  return matched.map(item => ({
+  const matched = route.matched.filter((item) => item.meta?.title)
+  return matched.map((item) => ({
     title: item.meta?.title,
     path: item.path
   }))
@@ -331,15 +331,15 @@ const menuRoutes = computed(() => {
       ]
     }
   ]
-  
+
   // 过滤掉没有对应路由的菜单项
   const allRoutes = router.getRoutes()
-  const routePaths = new Set(allRoutes.map(route => route.path))
-  
-  return menuStructure.filter(menu => {
+  const routePaths = new Set(allRoutes.map((route) => route.path))
+
+  return menuStructure.filter((menu) => {
     // 过滤子菜单，只保留存在的路由
     if (menu.children && menu.children.length > 0) {
-      menu.children = menu.children.filter(child => routePaths.has(child.path))
+      menu.children = menu.children.filter((child) => routePaths.has(child.path))
       return menu.children.length > 0 // 只有当有子菜单时才显示父菜单
     }
     return routePaths.has(menu.path) // 单独菜单项需要路由存在
@@ -379,6 +379,35 @@ const handleResize = () => {
     mobileMenuOpen.value = false
     sidebarCollapsed.value = false
   }
+}
+
+// 图标组件映射
+const iconComponents = {
+  Dashboard: Odometer, // 使用Odometer代替Dashboard
+  List,
+  Plus,
+  Collection,
+  TrendCharts,
+  DataAnalysis,
+  DataBoard,
+  Document,
+  Monitor,
+  Edit,
+  Lightning,
+  Clock,
+  Wallet,
+  Money,
+  User,
+  ChatDotRound,
+  Calendar,
+  Warning,
+  Setting,
+  Bell
+}
+
+// 获取图标组件
+const getIconComponent = (iconName: string) => {
+  return iconComponents[iconName as keyof typeof iconComponents] || Document
 }
 
 // 检查权限
@@ -421,7 +450,7 @@ watch(
 onMounted(() => {
   // 初始化移动端状态
   initMobileState()
-  
+
   // 添加窗口大小变化监听
   window.addEventListener('resize', handleResize)
 })
@@ -441,32 +470,239 @@ onUnmounted(() => {
   background: var(--el-bg-color);
   border-right: 1px solid var(--el-border-color-light);
   transition: width 0.3s ease;
-  
+
   .logo-container {
-    height: 60px;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-bottom: 1px solid var(--el-border-color-lighter);
-    
+    padding: 0 20px;
+
     .logo {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 14px;
       color: var(--el-color-primary);
       font-weight: 600;
-      font-size: 16px;
-      
+      font-size: 17px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      width: 100%;
+      justify-content: center;
+
+      &:hover {
+        background: var(--el-color-primary-light-9);
+        transform: scale(1.02);
+      }
+
+      .el-icon {
+        font-size: 26px;
+        transition: all 0.3s ease;
+      }
+
       .logo-text {
         white-space: nowrap;
+        background: linear-gradient(
+          135deg,
+          var(--el-color-primary),
+          var(--el-color-primary-light-3)
+        );
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        letter-spacing: 0.5px;
       }
     }
   }
-  
+
   .sidebar-menu {
     border: none;
     height: calc(100vh - 60px);
     overflow-y: auto;
+
+    // 美化菜单项样式
+    :deep(.el-menu-item) {
+      height: 52px;
+      line-height: 52px;
+      padding: 0 24px;
+      margin: 3px 12px;
+      border-radius: 10px;
+      transition: all 0.3s ease;
+
+      .el-icon {
+        margin-right: 14px;
+        font-size: 20px;
+        width: 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+      }
+
+      span {
+        font-size: 15px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        letter-spacing: 0.3px;
+      }
+
+      &:hover {
+        background: var(--el-color-primary-light-9);
+        color: var(--el-color-primary);
+
+        .el-icon {
+          color: var(--el-color-primary);
+          transform: scale(1.1);
+        }
+      }
+
+      &.is-active {
+        background: var(--el-color-primary-light-8);
+        color: var(--el-color-primary);
+        font-weight: 600;
+
+        .el-icon {
+          color: var(--el-color-primary);
+          transform: scale(1.1);
+        }
+
+        &::before {
+          content: '';
+          position: absolute;
+          left: 0;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 3px;
+          height: 24px;
+          background: var(--el-color-primary);
+          border-radius: 0 2px 2px 0;
+        }
+      }
+    }
+
+    // 子菜单样式
+    :deep(.el-sub-menu) {
+      margin: 3px 12px;
+      border-radius: 10px;
+
+      .el-sub-menu__title {
+        height: 52px;
+        line-height: 52px;
+        padding: 0 24px;
+        border-radius: 10px;
+        transition: all 0.3s ease;
+
+        .el-icon {
+          margin-right: 14px;
+          font-size: 20px;
+          width: 20px;
+          text-align: center;
+          transition: all 0.3s ease;
+        }
+
+        span {
+          font-size: 15px;
+          font-weight: 500;
+          letter-spacing: 0.3px;
+        }
+
+        .el-sub-menu__icon-arrow {
+          margin-left: auto;
+          transition: transform 0.3s ease;
+        }
+
+        &:hover {
+          background: var(--el-color-primary-light-9);
+          color: var(--el-color-primary);
+
+          .el-icon {
+            color: var(--el-color-primary);
+            transform: scale(1.1);
+          }
+        }
+      }
+
+      &.is-opened {
+        .el-sub-menu__title {
+          background: var(--el-color-primary-light-9);
+          color: var(--el-color-primary);
+
+          .el-icon {
+            color: var(--el-color-primary);
+          }
+
+          .el-sub-menu__icon-arrow {
+            transform: rotateZ(180deg);
+          }
+        }
+      }
+
+      .el-menu {
+        background: transparent;
+
+        .el-menu-item {
+          height: 44px;
+          line-height: 44px;
+          padding-left: 58px;
+          margin: 2px 0;
+          font-size: 14px;
+
+          .el-icon {
+            margin-right: 12px;
+            font-size: 17px;
+            width: 17px;
+          }
+
+          &:hover {
+            background: var(--el-color-primary-light-9);
+            color: var(--el-color-primary);
+          }
+
+          &.is-active {
+            background: var(--el-color-primary-light-8);
+            color: var(--el-color-primary);
+            font-weight: 600;
+
+            &::before {
+              left: 8px;
+              width: 2px;
+              height: 16px;
+            }
+          }
+        }
+      }
+    }
+
+    // 折叠状态下的样式
+    &.el-menu--collapse {
+      .el-menu-item,
+      .el-sub-menu .el-sub-menu__title {
+        padding: 0;
+        text-align: center;
+        margin: 3px 8px;
+
+        .el-icon {
+          margin-right: 0;
+          font-size: 22px;
+        }
+
+        span {
+          display: none;
+        }
+      }
+
+      .el-menu-item {
+        &.is-active::before {
+          left: 50%;
+          transform: translate(-50%, -50%);
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          top: 10px;
+        }
+      }
+    }
   }
 }
 
@@ -483,35 +719,35 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 0 20px;
   height: 60px;
-  
+
   .header-left {
     display: flex;
     align-items: center;
     gap: 16px;
-    
+
     .sidebar-toggle {
       padding: 8px;
     }
-    
+
     .breadcrumb {
       font-size: 14px;
     }
   }
-  
+
   .header-right {
     display: flex;
     align-items: center;
     gap: 16px;
-    
+
     .theme-toggle,
     .notification-btn {
       padding: 8px;
     }
-    
+
     .auth-status-indicator {
       margin-right: 8px;
     }
-    
+
     .user-dropdown {
       .user-info {
         display: flex;
@@ -521,16 +757,16 @@ onUnmounted(() => {
         padding: 4px 8px;
         border-radius: var(--el-border-radius-base);
         transition: background-color 0.3s;
-        
+
         &:hover {
           background: var(--el-fill-color-light);
         }
-        
+
         .username {
           font-size: 14px;
           color: var(--el-text-color-primary);
         }
-        
+
         .dropdown-icon {
           font-size: 12px;
           color: var(--el-text-color-secondary);
@@ -551,14 +787,14 @@ onUnmounted(() => {
   .header {
     padding: 0 16px;
   }
-  
+
   .header-left {
     gap: 12px;
   }
-  
+
   .header-right {
     gap: 12px;
-    
+
     .auth-status-indicator {
       display: none;
     }
@@ -569,55 +805,168 @@ onUnmounted(() => {
   .main-layout {
     position: relative;
   }
-  
+
   .sidebar {
     position: fixed;
     top: 0;
     left: 0;
     z-index: 1000;
     height: 100vh;
+    width: 64px !important; // 移动端仅图标模式，与桌面端折叠宽度一致
     transform: translateX(-100%);
     transition: transform 0.3s ease;
-    
+    box-shadow: var(--el-box-shadow);
+
     &.mobile-open {
       transform: translateX(0);
     }
-    
+
     .logo-container {
+      padding: 0; // 移除内边距，logo居中
+      height: 50px; // 与移动端头部高度保持一致
+
       .logo {
-        font-size: 14px;
+        justify-content: center; // logo居中
+        padding: 8px; // 统一内边距
         
+        .el-icon {
+          font-size: 24px; // 增大logo图标以适应仅图标模式
+        }
+
         .logo-text {
+          display: none; // 移动端隐藏logo文字
+        }
+      }
+    }
+
+    .sidebar-menu {
+      height: calc(100vh - 50px); // 调整为新的头部高度
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch; // 平滑滚动
+
+      :deep(.el-menu-item),
+      :deep(.el-sub-menu .el-sub-menu__title) {
+        height: 48px;
+        line-height: 48px;
+        margin: 3px 8px; // 左右边距一致
+        padding: 0; // 移除内边距，图标居中
+        text-align: center; // 图标居中
+        -webkit-tap-highlight-color: transparent; // 移除触摸高亮
+        touch-action: manipulation; // 优化触摸响应
+
+        .el-icon {
+          font-size: 20px; // 增大图标以适应仅图标模式
+          margin-right: 0; // 移除右边距
+          width: 20px;
+          text-align: center;
+        }
+
+        span {
+          display: none; // 移动端隐藏文字，仅显示图标
+        }
+
+        // 移动端触摸反馈
+        &:active {
+          background: var(--el-color-primary-light-8);
+          transform: scale(0.95);
+          transition: all 0.1s ease;
+        }
+      }
+
+      // 移动端仅图标模式，隐藏子菜单展开功能
+      :deep(.el-sub-menu) {
+        // 隐藏子菜单箭头
+        .el-sub-menu__title {
+          .el-sub-menu__icon-arrow {
+            display: none;
+          }
+        }
+        
+        // 隐藏子菜单内容
+        .el-menu {
           display: none;
         }
       }
     }
   }
-  
+
   .main-container {
     margin-left: 0;
     width: 100%;
   }
-  
+
   .header {
     padding: 0 12px;
-    
+    height: 50px; // 减少移动端头部高度
+
     .header-left {
-      gap: 8px;
-      
+      gap: 6px;
+
+      .sidebar-toggle {
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+        min-width: 36px; // 减小触摸目标大小
+        min-height: 36px;
+        border-radius: 6px;
+        padding: 4px;
+
+        .el-icon {
+          font-size: 16px !important; // 减小图标大小
+          transition: all 0.2s ease;
+        }
+
+        &:hover {
+          background: var(--el-color-primary-light-9);
+
+          .el-icon {
+            color: var(--el-color-primary);
+          }
+        }
+
+        &:active {
+          transform: scale(0.95);
+          transition: transform 0.1s ease;
+          background: var(--el-color-primary-light-8);
+        }
+      }
+
       .breadcrumb {
         display: none;
       }
     }
-    
+
     .header-right {
-      gap: 8px;
-      
+      gap: 6px;
+
       .theme-toggle,
       .notification-btn {
-        padding: 6px;
+        padding: 4px;
+        min-width: 32px;
+        min-height: 32px;
+        border-radius: 6px;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+
+        .el-icon {
+          font-size: 16px !important; // 减小图标大小
+          transition: all 0.2s ease;
+        }
+
+        &:hover {
+          background: var(--el-color-primary-light-9);
+
+          .el-icon {
+            color: var(--el-color-primary);
+          }
+        }
+
+        &:active {
+          transform: scale(0.95);
+          transition: transform 0.1s ease;
+          background: var(--el-color-primary-light-8);
+        }
       }
-      
+
       .user-info {
         .username {
           display: none;
@@ -625,77 +974,83 @@ onUnmounted(() => {
       }
     }
   }
-  
-  // 移动端遮罩层
+
   .mobile-overlay {
     position: fixed;
     top: 0;
-    left: 0;
+    left: 64px; // 从菜单右侧开始
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
+    background: var(--el-overlay-color-lighter); // 使用主题变量
     z-index: 999;
-    opacity: 0;
-    visibility: hidden;
-    transition: all 0.3s ease;
-    
-    &.show {
+    animation: fadeIn 0.3s ease;
+    -webkit-tap-highlight-color: transparent; // 移除触摸高亮
+    touch-action: manipulation; // 优化触摸响应
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
       opacity: 1;
-      visibility: visible;
     }
   }
 }
 
 @media (max-width: 480px) {
-  .header {
-    padding: 0 8px;
-    height: 56px;
-  }
-  
-  .sidebar {
-    .logo-container {
-      height: 56px;
+  .main-layout {
+    .sidebar {
+      width: 64px !important; // 所有移动端都使用仅图标模式
     }
-    
-    .sidebar-menu {
-      height: calc(100vh - 56px);
-    }
-  }
-  
-  .header-left {
-    gap: 4px;
-    
-    .sidebar-toggle {
-      padding: 6px;
-    }
-  }
-  
-  .header-right {
-    gap: 4px;
-    
-    .theme-toggle,
-    .notification-btn {
-      padding: 4px;
-    }
-    
-    .user-dropdown {
-      .user-info {
-        padding: 2px 4px;
-        gap: 4px;
+
+    .header {
+      padding: 0 12px;
+
+      .header-left {
+        .sidebar-toggle {
+          margin-right: 8px;
+        }
+      }
+
+      .header-right {
+        .user-info {
+          .username {
+            display: none;
+          }
+        }
       }
     }
+  }
+
+  .mobile-overlay {
+    left: 64px; // 遮罩从菜单右侧开始
   }
 }
 
 @media (max-width: 360px) {
-  .header {
-    padding: 0 6px;
-  }
-  
-  .header-right {
-    .notification-btn {
-      display: none;
+  .main-layout {
+    .sidebar {
+      width: 64px !important; // 极小屏幕也使用仅图标模式
     }
+
+    .header {
+      padding: 0 8px;
+
+      .header-right {
+        .notification-btn {
+          display: none;
+        }
+
+        .theme-toggle {
+          padding: 4px;
+        }
+      }
+    }
+  }
+
+  .mobile-overlay {
+    left: 64px; // 遮罩从菜单右侧开始
   }
 }
 </style>

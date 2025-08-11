@@ -197,7 +197,7 @@ const handleAlert = (alert: RiskAlert) => {
 <style scoped>
 .risk-alerts-panel {
   padding: 20px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
 }
 
 .loading-state {
@@ -228,7 +228,7 @@ const handleAlert = (alert: RiskAlert) => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -264,7 +264,7 @@ const handleAlert = (alert: RiskAlert) => {
 }
 
 .alert-card {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -292,7 +292,7 @@ const handleAlert = (alert: RiskAlert) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 

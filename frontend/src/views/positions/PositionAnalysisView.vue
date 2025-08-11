@@ -83,7 +83,7 @@ onMounted(() => {
 <style scoped>
 .position-analysis-view {
   padding: 24px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   min-height: 100vh;
 }
 
@@ -96,13 +96,13 @@ onMounted(() => {
   margin: 0 0 8px 0;
   font-size: 32px;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .page-description {
   margin: 0;
   font-size: 18px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 .analysis-charts {
@@ -113,7 +113,7 @@ onMounted(() => {
 }
 
 .chart-card, .analysis-metrics {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -123,7 +123,7 @@ onMounted(() => {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .chart-placeholder {
@@ -132,7 +132,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   border: 2px dashed #dee2e6;
 }
@@ -187,7 +187,7 @@ onMounted(() => {
 }
 
 .metric-card {
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 8px;
   padding: 16px;
   border: 1px solid #dee2e6;
@@ -202,12 +202,12 @@ onMounted(() => {
 
 .metric-name {
   font-weight: 600;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
 }
 
 .metric-value {
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--el-text-color-primary);
   font-size: 18px;
 }
 
@@ -217,7 +217,7 @@ onMounted(() => {
 
 .metric-desc {
   font-size: 12px;
-  color: #7f8c8d;
+  color: var(--el-text-color-regular);
 }
 
 @media (max-width: 768px) {

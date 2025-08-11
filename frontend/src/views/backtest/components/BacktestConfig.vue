@@ -1050,7 +1050,7 @@ export default {
 
 :deep(.el-card__header) {
   padding: 15px 20px;
-  background-color: #fafafa;
+  background-color: var(--el-fill-color-light);
 }
 
 :deep(.el-card__body) {

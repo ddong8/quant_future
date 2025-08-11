@@ -402,7 +402,7 @@ onUnmounted(() => {
 .filters {
   margin-bottom: 20px;
   padding: 16px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
 }
 
@@ -431,7 +431,7 @@ onUnmounted(() => {
 .message-content,
 .user-agent-content {
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
   border-left: 4px solid #409eff;
   word-break: break-all;
@@ -440,7 +440,7 @@ onUnmounted(() => {
 
 .json-content {
   padding: 12px;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   border-radius: 4px;
   border-left: 4px solid #67c23a;
   font-size: 12px;
@@ -455,7 +455,7 @@ onUnmounted(() => {
 .request-id {
   font-family: monospace;
   font-size: 12px;
-  background: #f0f2f5;
+  background: var(--el-fill-color-light);
   padding: 2px 4px;
   border-radius: 2px;
 }
@@ -468,7 +468,7 @@ onUnmounted(() => {
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
   z-index: 1000;
@@ -484,7 +484,7 @@ onUnmounted(() => {
 
 /* 表格行样式 */
 :deep(.error-row) {
-  background-color: #fef0f0 !important;
+  background-color: var(--el-color-danger-light-9) !important;
 }
 
 :deep(.warning-row) {

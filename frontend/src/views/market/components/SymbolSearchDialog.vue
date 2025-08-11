@@ -226,7 +226,7 @@ onMounted(() => {
 
 .symbol-card:hover {
   border-color: #409eff;
-  background-color: #f0f9ff;
+  background-color: var(--el-color-primary-light-9);
 }
 
 .search-results {
@@ -265,7 +265,7 @@ onMounted(() => {
 }
 
 .result-item:hover {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 
 .result-item:last-child {
@@ -315,7 +315,7 @@ onMounted(() => {
 }
 
 .currency {
-  background: #fdf6ec;
+  background: var(--el-color-warning-light-9);
   color: #e6a23c;
   padding: 2px 6px;
   border-radius: 3px;

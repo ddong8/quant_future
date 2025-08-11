@@ -394,7 +394,7 @@ const getProfitInfo = () => {
 }
 
 .position-info {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
   margin-bottom: 20px;

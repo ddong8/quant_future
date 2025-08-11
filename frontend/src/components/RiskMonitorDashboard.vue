@@ -656,7 +656,7 @@ scoped lang="scss">
       display: flex;
       align-items: center;
       padding: 20px;
-      background: #fff;
+      background: var(--el-bg-color);
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       border-left: 4px solid;
@@ -665,7 +665,7 @@ scoped lang="scss">
         border-left-color: #f56c6c;
         
         .risk-icon {
-          background: #fef0f0;
+          background: var(--el-color-danger-light-9);
           color: #f56c6c;
         }
       }
@@ -674,7 +674,7 @@ scoped lang="scss">
         border-left-color: #e6a23c;
         
         .risk-icon {
-          background: #fdf6ec;
+          background: var(--el-color-warning-light-9);
           color: #e6a23c;
         }
       }
@@ -692,7 +692,7 @@ scoped lang="scss">
         border-left-color: #67c23a;
         
         .risk-icon {
-          background: #f0f9ff;
+          background: var(--el-color-primary-light-9);
           color: #67c23a;
         }
       }
@@ -809,7 +809,7 @@ scoped lang="scss">
         border-left: 4px solid;
         
         &.critical {
-          background: #fef0f0;
+          background: var(--el-color-danger-light-9);
           border-left-color: #f56c6c;
           
           .alert-icon {
@@ -850,7 +850,7 @@ scoped lang="scss">
         }
         
         &.high {
-          background: #fdf6ec;
+          background: var(--el-color-warning-light-9);
           border-left-color: #e6a23c;
           
           .alert-icon {
@@ -881,7 +881,7 @@ scoped lang="scss">
     .limit-item {
       text-align: center;
       padding: 16px;
-      background: #f8f9fa;
+      background: var(--el-bg-color-page);
       border-radius: 6px;
       
       .limit-label {

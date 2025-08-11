@@ -342,7 +342,7 @@ const getPnLClass = (value: number) => {
 }
 
 .summary-card {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -443,7 +443,7 @@ const getPnLClass = (value: number) => {
 
 .chart-container,
 .position-list {
-  background: white;
+  background: var(--el-bg-color);
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -476,7 +476,7 @@ const getPnLClass = (value: number) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px;
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 6px;
 }
 

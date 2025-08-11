@@ -216,7 +216,7 @@ onMounted(() => {
 .risk-monitoring {
   padding: 20px;
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
 }
 
 .page-header {
@@ -225,7 +225,7 @@ onMounted(() => {
   align-items: center;
   margin-bottom: 20px;
   padding: 20px;
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -253,7 +253,7 @@ onMounted(() => {
 }
 
 :deep(.el-tabs) {
-  background: #fff;
+  background: var(--el-bg-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   overflow: hidden;
@@ -261,7 +261,7 @@ onMounted(() => {
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-bottom: 1px solid #e4e7ed;
 }
 
@@ -274,7 +274,7 @@ onMounted(() => {
 }
 
 :deep(.el-tab-pane) {
-  background: #f5f7fa;
+  background: var(--el-bg-color-page);
   min-height: 600px;
 }
 </style>

@@ -259,6 +259,6 @@ const handleAddToWatchlist = (quote: Quote) => {
 }
 
 :deep(.el-table__row:hover) {
-  background-color: #f5f7fa;
+  background-color: var(--el-fill-color-light);
 }
 </style>

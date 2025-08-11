@@ -496,7 +496,7 @@ const formatHistoryDetails = (details: any) => {
 }
 
 .pnl-card {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
   text-align: center;
@@ -545,7 +545,7 @@ const formatHistoryDetails = (details: any) => {
 }
 
 .notes {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 6px;
   padding: 12px;
   font-size: 14px;
@@ -554,7 +554,7 @@ const formatHistoryDetails = (details: any) => {
 }
 
 .history-container {
-  background: #f9fafb;
+  background: var(--el-fill-color-lighter);
   border-radius: 8px;
   padding: 16px;
 }

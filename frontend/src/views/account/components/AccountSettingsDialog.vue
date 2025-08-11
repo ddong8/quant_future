@@ -585,7 +585,7 @@ const handleClose = () => {
   justify-content: space-between;
   align-items: center;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
   margin-bottom: 10px;
 }
@@ -615,7 +615,7 @@ const handleClose = () => {
   justify-content: space-between;
   align-items: center;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--el-bg-color-page);
   border-radius: 6px;
 }
 
