@@ -469,7 +469,10 @@ onUnmounted(() => {
 .sidebar {
   background: var(--el-bg-color);
   border-right: 1px solid var(--el-border-color-light);
-  transition: width 0.3s ease;
+  transition: 
+    width 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 
   .logo-container {
     height: 64px;
@@ -756,7 +759,9 @@ onUnmounted(() => {
         cursor: pointer;
         padding: 4px 8px;
         border-radius: var(--el-border-radius-base);
-        transition: background-color 0.3s;
+        transition: 
+          background-color var(--transition-duration, 0.3s) ease,
+          color var(--transition-duration, 0.3s) ease;
 
         &:hover {
           background: var(--el-fill-color-light);

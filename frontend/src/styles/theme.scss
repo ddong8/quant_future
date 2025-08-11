@@ -47,12 +47,31 @@
   --el-mask-color-extra-light: rgba(255, 255, 255, 0.3);
 }
 
-// 确保主题切换时的过渡效果
+// 使用CSS变量控制过渡时间
+:root {
+  --transition-duration: 0.3s;
+}
+
+// 主题切换过渡效果
 * {
   transition:
-    background-color 0.3s ease,
-    border-color 0.3s ease,
-    color 0.3s ease;
+    background-color var(--transition-duration, 0.3s) ease,
+    border-color var(--transition-duration, 0.3s) ease,
+    color var(--transition-duration, 0.3s) ease;
+}
+
+// Element Plus组件特殊处理
+.el-menu,
+.el-menu-item,
+.el-sub-menu__title,
+.el-card,
+.el-button,
+.sidebar,
+.sidebar-menu {
+  transition:
+    background-color var(--transition-duration, 0.3s) ease,
+    border-color var(--transition-duration, 0.3s) ease,
+    color var(--transition-duration, 0.3s) ease;
 }
 
 // 修复可能的主题问题
