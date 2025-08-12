@@ -96,7 +96,7 @@ async def root():
         ]
     }
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 async def health_check():
     return {
         "status": "healthy",
@@ -119,12 +119,18 @@ async def system_info():
         "timestamp": datetime.now().isoformat()
     }
 
+# 登录请求模型
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+    remember_me: bool = False
+
 # 认证相关API
-@app.post("/api/v1/auth/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+@app.post("/api/v1/auth/login")
+async def login(login_data: LoginRequest):
     user = None
     for u in mock_users:
-        if u["username"] == form_data.username and u["password"] == form_data.password:
+        if u["username"] == login_data.username and u["password"] == login_data.password:
             user = u
             break
     
@@ -136,25 +142,51 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         )
     
     return {
-        "access_token": "mock-jwt-token-" + user["username"],
-        "token_type": "bearer",
-        "user": {
-            "id": user["id"],
+        "success": True,
+        "data": {
+            "access_token": "mock-jwt-token-" + user["username"],
+            "refresh_token": "mock-refresh-token-" + user["username"],
+            "token_type": "bearer",
+            "expires_in": 3600,
+            "user_id": user["id"],
             "username": user["username"],
-            "email": user["email"],
-            "role": user["role"],
-            "is_active": True
-        }
+            "role": user["role"]
+        },
+        "message": "登录成功"
     }
 
 @app.get("/api/v1/auth/profile")
 async def get_profile(token: str = Depends(oauth2_scheme)):
     return {
-        "id": 1,
-        "username": "admin",
-        "email": "admin@trading.com",
-        "role": "admin",
-        "is_active": True
+        "success": True,
+        "data": {
+            "id": 1,
+            "username": "admin",
+            "email": "admin@trading.com",
+            "role": "admin",
+            "is_active": True,
+            "is_verified": True,
+            "created_at": "2024-01-01T10:00:00Z",
+            "updated_at": "2024-01-01T10:00:00Z"
+        },
+        "message": "获取用户信息成功"
+    }
+
+@app.get("/api/v1/auth/me")
+async def get_current_user():
+    return {
+        "success": True,
+        "data": {
+            "id": 1,
+            "username": "admin",
+            "email": "admin@trading.com",
+            "role": "admin",
+            "is_active": True,
+            "is_verified": True,
+            "created_at": "2024-01-01T10:00:00Z",
+            "updated_at": "2024-01-01T10:00:00Z"
+        },
+        "message": "获取用户信息成功"
     }
 
 # 用户管理API
@@ -205,6 +237,128 @@ async def get_instruments():
             {"symbol": "SHFE.au2312", "name": "沪金2312", "exchange": "SHFE"},
             {"symbol": "DCE.i2401", "name": "铁矿石2401", "exchange": "DCE"},
         ]
+    }
+
+@app.get("/api/v1/market/quotes")
+async def get_market_quotes():
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": 1,
+                "symbol_id": 1,
+                "symbol": {
+                    "id": 1,
+                    "symbol": "AAPL",
+                    "name": "苹果公司",
+                    "exchange": "NASDAQ",
+                    "asset_type": "stock",
+                    "currency": "USD",
+                    "is_tradable": True,
+                    "is_active": True
+                },
+                "price": 175.50,
+                "bid_price": 175.45,
+                "ask_price": 175.55,
+                "change": 2.30,
+                "change_percent": 1.33,
+                "volume": 45678900,
+                "turnover": 8012345678.90,
+                "open_price": 173.20,
+                "high_price": 176.80,
+                "low_price": 172.90,
+                "prev_close": 173.20,
+                "data_provider": "mock",
+                "data_status": "ACTIVE",
+                "delay_seconds": 0,
+                "quote_time": datetime.now().isoformat(),
+                "received_at": datetime.now().isoformat()
+            },
+            {
+                "id": 2,
+                "symbol_id": 2,
+                "symbol": {
+                    "id": 2,
+                    "symbol": "TSLA",
+                    "name": "特斯拉",
+                    "exchange": "NASDAQ",
+                    "asset_type": "stock",
+                    "currency": "USD",
+                    "is_tradable": True,
+                    "is_active": True
+                },
+                "price": 245.80,
+                "bid_price": 245.70,
+                "ask_price": 245.90,
+                "change": -3.20,
+                "change_percent": -1.28,
+                "volume": 32456789,
+                "turnover": 7987654321.10,
+                "open_price": 249.00,
+                "high_price": 250.50,
+                "low_price": 244.20,
+                "prev_close": 249.00,
+                "data_provider": "mock",
+                "data_status": "ACTIVE",
+                "delay_seconds": 0,
+                "quote_time": datetime.now().isoformat(),
+                "received_at": datetime.now().isoformat()
+            }
+        ]
+    }
+
+@app.get("/api/v1/market/watchlist")
+async def get_watchlist():
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": 1,
+                "symbol": {
+                    "id": 1,
+                    "symbol": "AAPL",
+                    "name": "苹果公司",
+                    "exchange": "NASDAQ",
+                    "asset_type": "stock",
+                    "currency": "USD",
+                    "is_tradable": True,
+                    "is_active": True
+                },
+                "quote": {
+                    "price": 175.50,
+                    "change": 2.30,
+                    "change_percent": 1.33,
+                    "volume": 45678900,
+                    "turnover": 8012345678.90,
+                    "data_status": "ACTIVE",
+                    "quote_time": datetime.now().isoformat()
+                },
+                "sort_order": 1,
+                "created_at": "2024-01-01T10:00:00Z"
+            }
+        ]
+    }
+
+@app.post("/api/v1/market/watchlist")
+async def add_to_watchlist():
+    return {
+        "success": True,
+        "data": {
+            "id": 2,
+            "symbol": {
+                "id": 2,
+                "symbol": "TSLA",
+                "name": "特斯拉",
+                "exchange": "NASDAQ",
+                "asset_type": "stock",
+                "currency": "USD",
+                "is_tradable": True,
+                "is_active": True
+            },
+            "sort_order": 2,
+            "created_at": datetime.now().isoformat()
+        },
+        "message": "添加到自选股成功"
     }
 
 @app.get("/api/v1/market/quotes/{symbol}")
@@ -258,18 +412,72 @@ async def get_backtest_result(backtest_id: int):
 
 # 交易API
 @app.get("/api/v1/accounts")
-async def get_account():
+async def get_accounts():
+    return {
+        "success": True,
+        "data": [
+            {
+                "id": "account_001",
+                "user_id": "user_001",
+                "account_type": "CASH",
+                "currency": "CNY",
+                "balance": 100000.0,
+                "available_balance": 86320.0,
+                "frozen_balance": 13680.0,
+                "margin_balance": 0.0,
+                "equity": 100000.0,
+                "margin_ratio": 0.0,
+                "risk_level": "LOW",
+                "status": "ACTIVE",
+                "created_at": "2024-01-01T10:00:00Z",
+                "updated_at": datetime.now().isoformat()
+            }
+        ]
+    }
+
+@app.get("/api/v1/transactions/search")
+async def search_transactions():
     return {
         "success": True,
         "data": {
-            "account_id": "123456789",
-            "balance": 100000.0,
-            "available": 86320.0,
-            "margin": 13680.0,
-            "frozen_margin": 0.0,
-            "realized_pnl": 500.0,
-            "unrealized_pnl": 200.0,
-            "updated_at": datetime.now().isoformat()
+            "data": [
+                {
+                    "id": "tx_001",
+                    "account_id": "account_001",
+                    "transaction_type": "TRADE",
+                    "amount": -1000.0,
+                    "balance_before": 101000.0,
+                    "balance_after": 100000.0,
+                    "currency": "CNY",
+                    "description": "买入SHFE.cu2401",
+                    "reference_id": "order_001",
+                    "status": "COMPLETED",
+                    "created_at": "2024-01-01T10:00:00Z",
+                    "updated_at": "2024-01-01T10:00:00Z"
+                }
+            ],
+            "meta": {
+                "total": 1,
+                "page": 1,
+                "page_size": 50,
+                "total_pages": 1
+            }
+        }
+    }
+
+@app.get("/api/v1/transactions/statistics/summary")
+async def get_transaction_statistics():
+    return {
+        "success": True,
+        "data": {
+            "total_income": 5000.0,
+            "total_expense": 4500.0,
+            "net_profit": 500.0,
+            "transaction_count": 25,
+            "avg_transaction_amount": 200.0,
+            "period": "month",
+            "period_start": "2024-01-01T00:00:00Z",
+            "period_end": "2024-01-31T23:59:59Z"
         }
     }
 

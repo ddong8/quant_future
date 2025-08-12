@@ -195,17 +195,17 @@ export interface TransactionAudit {
 
 // 创建交易流水记录
 export const createTransaction = (data: TransactionCreate): Promise<Transaction> => {
-  return request.post('/api/v1/transactions/', data)
+  return request.post('/v1/transactions/', data)
 }
 
 // 搜索交易流水
 export const searchTransactions = (params: TransactionSearchParams): Promise<TransactionSearchResult> => {
-  return request.get('/api/v1/transactions/search', { params })
+  return request.get('/v1/transactions/search', { params })
 }
 
 // 获取单个交易流水
 export const getTransaction = (transactionId: string): Promise<Transaction> => {
-  return request.get(`/api/v1/transactions/${transactionId}`)
+  return request.get(`/v1/transactions/${transactionId}`)
 }
 
 // 获取账户交易流水
@@ -220,7 +220,7 @@ export const getAccountTransactions = (
     end_date?: string
   }
 ): Promise<Transaction[]> => {
-  return request.get(`/api/v1/transactions/account/${accountId}`, { params })
+  return request.get(`/v1/transactions/account/${accountId}`, { params })
 }
 
 // 更新交易状态
@@ -229,7 +229,7 @@ export const updateTransactionStatus = (
   status: string,
   metadata?: Record<string, any>
 ): Promise<Transaction> => {
-  return request.put(`/api/v1/transactions/${transactionId}/status`, {
+  return request.put(`/v1/transactions/${transactionId}/status`, {
     status,
     metadata
   })
@@ -237,19 +237,19 @@ export const updateTransactionStatus = (
 
 // 获取交易分类统计
 export const getTransactionCategories = (): Promise<TransactionCategories> => {
-  return request.get('/api/v1/transactions/categories/statistics')
+  return request.get('/v1/transactions/categories/statistics')
 }
 
 // 获取交易统计分析
 export const getTransactionStatistics = (period: string = 'month'): Promise<TransactionStatistics> => {
-  return request.get('/api/v1/transactions/statistics/summary', {
+  return request.get('/v1/transactions/statistics/summary', {
     params: { period }
   })
 }
 
 // 现金流分析
 export const getCashFlowAnalysis = (period: string = 'month'): Promise<CashFlowAnalysis> => {
-  return request.get('/api/v1/transactions/analysis/cash-flow', {
+  return request.get('/v1/transactions/analysis/cash-flow', {
     params: { period }
   })
 }
@@ -260,7 +260,7 @@ export const generateTransactionReport = (
   startDate?: string,
   endDate?: string
 ): Promise<any> => {
-  return request.get('/api/v1/transactions/reports/generate', {
+  return request.get('/v1/transactions/reports/generate', {
     params: {
       report_type: reportType,
       start_date: startDate,
@@ -279,7 +279,7 @@ export const exportTransactions = (
     end_date?: string
   }
 ): Promise<Blob> => {
-  return request.post('/api/v1/transactions/export', null, {
+  return request.post('/v1/transactions/export', null, {
     params: {
       export_format: exportFormat,
       ...params
@@ -290,14 +290,14 @@ export const exportTransactions = (
 
 // 交易流水审计
 export const auditTransactions = (auditType: string = 'consistency'): Promise<TransactionAudit> => {
-  return request.get('/api/v1/transactions/audit/check', {
+  return request.get('/v1/transactions/audit/check', {
     params: { audit_type: auditType }
   })
 }
 
 // 获取可疑交易
 export const getSuspiciousTransactions = (days: number = 30): Promise<SuspiciousTransaction[]> => {
-  return request.get('/api/v1/transactions/audit/suspicious', {
+  return request.get('/v1/transactions/audit/suspicious', {
     params: { days }
   })
 }

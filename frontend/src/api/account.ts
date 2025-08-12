@@ -67,14 +67,14 @@ export const accountApi = {
    * 获取账户列表
    */
   async getAccounts(): Promise<{ data: Account[] }> {
-    return request.get('/accounts')
+    return request.get('/v1/accounts')
   },
 
   /**
    * 获取账户详情
    */
   async getAccount(accountId: string): Promise<{ data: Account }> {
-    return request.get(`/accounts/${accountId}`)
+    return request.get(`/v1/accounts/${accountId}`)
   },
 
   /**
@@ -85,35 +85,35 @@ export const accountApi = {
     currency: string
     initial_balance?: number
   }): Promise<{ data: Account }> {
-    return request.post('/accounts', data)
+    return request.post('/v1/accounts', data)
   },
 
   /**
    * 更新账户设置
    */
   async updateAccountSettings(accountId: string, settings: Partial<AccountSettings>): Promise<{ data: Account }> {
-    return request.put(`/accounts/${accountId}/settings`, settings)
+    return request.put(`/v1/accounts/${accountId}/settings`, settings)
   },
 
   /**
    * 充值
    */
   async deposit(accountId: string, data: DepositRequest): Promise<{ data: AccountTransaction }> {
-    return request.post(`/accounts/${accountId}/deposit`, data)
+    return request.post(`/v1/accounts/${accountId}/deposit`, data)
   },
 
   /**
    * 提现
    */
   async withdraw(accountId: string, data: WithdrawRequest): Promise<{ data: AccountTransaction }> {
-    return request.post(`/accounts/${accountId}/withdraw`, data)
+    return request.post(`/v1/accounts/${accountId}/withdraw`, data)
   },
 
   /**
    * 转账
    */
   async transfer(fromAccountId: string, data: TransferRequest): Promise<{ data: AccountTransaction }> {
-    return request.post(`/accounts/${fromAccountId}/transfer`, data)
+    return request.post(`/v1/accounts/${fromAccountId}/transfer`, data)
   },
 
   /**
@@ -137,7 +137,7 @@ export const accountApi = {
       }
     }
   }> {
-    const url = accountId ? `/accounts/${accountId}/transactions` : '/transactions'
+    const url = accountId ? `/v1/accounts/${accountId}/transactions` : '/v1/transactions'
     return request.get(url, { params })
   },
 
@@ -155,7 +155,7 @@ export const accountApi = {
       sharpe_ratio: number
     }
   }> {
-    return request.get(`/accounts/${accountId}/stats`, { params: { period } })
+    return request.get(`/v1/accounts/${accountId}/stats`, { params: { period } })
   },
 
   /**
@@ -169,21 +169,21 @@ export const accountApi = {
       frozen_balance: number
     }>
   }> {
-    return request.get(`/accounts/${accountId}/balance-history`, { params: { period } })
+    return request.get(`/v1/accounts/${accountId}/balance-history`, { params: { period } })
   },
 
   /**
    * 冻结/解冻账户
    */
   async toggleAccountStatus(accountId: string, status: Account['status']): Promise<{ data: Account }> {
-    return request.patch(`/accounts/${accountId}/status`, { status })
+    return request.patch(`/v1/accounts/${accountId}/status`, { status })
   },
 
   /**
    * 删除账户
    */
   async deleteAccount(accountId: string): Promise<{ message: string }> {
-    return request.delete(`/accounts/${accountId}`)
+    return request.delete(`/v1/accounts/${accountId}`)
   }
 }
 

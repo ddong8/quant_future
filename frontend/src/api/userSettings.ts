@@ -101,42 +101,42 @@ export interface TwoFactorQRCode {
 
 // 获取用户个人资料
 export const getUserProfile = (): Promise<UserProfile> => {
-  return request.get('/api/v1/user-settings/profile')
+  return request.get('/v1/user-settings/profile')
 }
 
 // 更新用户个人资料
 export const updateUserProfile = (profileData: Partial<UserProfile>): Promise<{ message: string; profile: UserProfile }> => {
-  return request.put('/api/v1/user-settings/profile', profileData)
+  return request.put('/v1/user-settings/profile', profileData)
 }
 
 // 获取用户设置
 export const getUserSettings = (): Promise<UserSettings> => {
-  return request.get('/api/v1/user-settings/settings')
+  return request.get('/v1/user-settings/settings')
 }
 
 // 更新用户设置
 export const updateUserSettings = (settingsData: Partial<UserSettings>): Promise<{ message: string; settings: UserSettings }> => {
-  return request.put('/api/v1/user-settings/settings', settingsData)
+  return request.put('/v1/user-settings/settings', settingsData)
 }
 
 // 获取安全设置
 export const getSecuritySettings = (): Promise<SecuritySettings> => {
-  return request.get('/api/v1/user-settings/security')
+  return request.get('/v1/user-settings/security')
 }
 
 // 更新安全设置
 export const updateSecuritySettings = (securityData: Partial<SecuritySettings>): Promise<{ message: string; settings: SecuritySettings }> => {
-  return request.put('/api/v1/user-settings/security', securityData)
+  return request.put('/v1/user-settings/security', securityData)
 }
 
 // 修改密码
 export const changePassword = (passwordData: PasswordChangeRequest): Promise<{ message: string }> => {
-  return request.post('/api/v1/user-settings/change-password', passwordData)
+  return request.post('/v1/user-settings/change-password', passwordData)
 }
 
 // 启用/关闭双因子认证
 export const toggleTwoFactor = (enabled: boolean, verificationCode?: string): Promise<{ message: string; enabled: boolean }> => {
-  return request.post('/api/v1/user-settings/two-factor/toggle', {
+  return request.post('/v1/user-settings/two-factor/toggle', {
     enabled,
     verification_code: verificationCode
   })
@@ -144,37 +144,37 @@ export const toggleTwoFactor = (enabled: boolean, verificationCode?: string): Pr
 
 // 获取双因子认证二维码
 export const getTwoFactorQRCode = (): Promise<TwoFactorQRCode> => {
-  return request.get('/api/v1/user-settings/two-factor/qr-code')
+  return request.get('/v1/user-settings/two-factor/qr-code')
 }
 
 // 验证双因子认证码
 export const verifyTwoFactorCode = (code: string): Promise<{ message: string; valid: boolean }> => {
-  return request.post('/api/v1/user-settings/two-factor/verify', { code })
+  return request.post('/v1/user-settings/two-factor/verify', { code })
 }
 
 // 获取通知设置
 export const getNotificationSettings = (): Promise<NotificationSettings> => {
-  return request.get('/api/v1/user-settings/notifications')
+  return request.get('/v1/user-settings/notifications')
 }
 
 // 更新通知设置
 export const updateNotificationSettings = (notificationData: Partial<NotificationSettings>): Promise<{ message: string; settings: NotificationSettings }> => {
-  return request.put('/api/v1/user-settings/notifications', notificationData)
+  return request.put('/v1/user-settings/notifications', notificationData)
 }
 
 // 获取登录设备列表
 export const getLoginDevices = (): Promise<LoginDevice[]> => {
-  return request.get('/api/v1/user-settings/devices')
+  return request.get('/v1/user-settings/devices')
 }
 
 // 移除登录设备
 export const removeLoginDevice = (deviceId: number): Promise<{ message: string }> => {
-  return request.delete(`/api/v1/user-settings/devices/${deviceId}`)
+  return request.delete(`/v1/user-settings/devices/${deviceId}`)
 }
 
 // 登出所有设备
 export const logoutAllDevices = (): Promise<{ message: string }> => {
-  return request.post('/api/v1/user-settings/devices/logout-all')
+  return request.post('/v1/user-settings/devices/logout-all')
 }
 
 // 获取用户活动日志
@@ -187,7 +187,7 @@ export const getUserActivityLog = (limit: number = 50, skip: number = 0): Promis
     has_more: boolean
   }
 }> => {
-  return request.get('/api/v1/user-settings/activity-log', {
+  return request.get('/v1/user-settings/activity-log', {
     params: { limit, skip }
   })
 }
@@ -201,12 +201,12 @@ export const exportUserData = (exportType: string = 'all'): Promise<{
   file_size?: number
   created_at: string
 }> => {
-  return request.post('/api/v1/user-settings/export-data', { export_type: exportType })
+  return request.post('/v1/user-settings/export-data', { export_type: exportType })
 }
 
 // 删除账户
 export const deleteAccount = (password: string, reason?: string): Promise<{ message: string }> => {
-  return request.delete('/api/v1/user-settings/account', {
+  return request.delete('/v1/user-settings/account', {
     data: { password, reason }
   })
 }
@@ -399,19 +399,19 @@ export interface SettingsTemplate {
 
 // 获取设置分类
 export const getSettingsCategories = (): Promise<SettingsCategory[]> => {
-  return request.get('/api/v1/user-settings/categories')
+  return request.get('/v1/user-settings/categories')
 }
 
 // 获取设置项
 export const getSettingsItems = (categoryId?: number): Promise<SettingsItem[]> => {
-  return request.get('/api/v1/user-settings/items', {
+  return request.get('/v1/user-settings/items', {
     params: categoryId ? { category_id: categoryId } : {}
   })
 }
 
 // 获取单个设置值
 export const getSettingValue = (settingsItemId: number): Promise<{ value: any }> => {
-  return request.get(`/api/v1/user-settings/values/${settingsItemId}`)
+  return request.get(`/v1/user-settings/values/${settingsItemId}`)
 }
 
 // 设置单个设置值
@@ -426,7 +426,7 @@ export const setSettingValue = (
   version: number
   previous_value: any
 }> => {
-  return request.put(`/api/v1/user-settings/values/${settingsItemId}`, {
+  return request.put(`/v1/user-settings/values/${settingsItemId}`, {
     value,
     reason,
     source
@@ -442,7 +442,7 @@ export const batchUpdateSettings = (
   updated_count: number
   failed_items: string[]
 }> => {
-  return request.post('/api/v1/user-settings/batch-update', {
+  return request.post('/v1/user-settings/batch-update', {
     settings,
     reason
   })
@@ -462,7 +462,7 @@ export const getSettingsHistory = (
     has_more: boolean
   }
 }> => {
-  return request.get('/api/v1/user-settings/history', {
+  return request.get('/v1/user-settings/history', {
     params: {
       settings_item_id: settingsItemId,
       limit,
@@ -482,7 +482,7 @@ export const rollbackSetting = (
   version: number
   previous_value: any
 }> => {
-  return request.post('/api/v1/user-settings/rollback', {
+  return request.post('/v1/user-settings/rollback', {
     settings_item_id: settingsItemId,
     target_version: targetVersion,
     reason
@@ -491,7 +491,7 @@ export const rollbackSetting = (
 
 // 获取设置模板
 export const getSettingsTemplates = (): Promise<SettingsTemplate[]> => {
-  return request.get('/api/v1/user-settings/templates')
+  return request.get('/v1/user-settings/templates')
 }
 
 // 应用设置模板
@@ -504,7 +504,7 @@ export const applySettingsTemplate = (
   failed_items: string[]
   template_name: string
 }> => {
-  return request.post(`/api/v1/user-settings/templates/${templateId}/apply`, {
+  return request.post(`/v1/user-settings/templates/${templateId}/apply`, {
     reason
   })
 }
@@ -516,7 +516,7 @@ export const exportSettings = (): Promise<{
   settings_count: number
   settings_data: Record<string, any>
 }> => {
-  return request.get('/api/v1/user-settings/export')
+  return request.get('/v1/user-settings/export')
 }
 
 // 导入用户设置
@@ -528,7 +528,7 @@ export const importSettings = (
   updated_count: number
   failed_items: string[]
 }> => {
-  return request.post('/api/v1/user-settings/import', {
+  return request.post('/v1/user-settings/import', {
     settings_data: settingsData,
     reason
   })

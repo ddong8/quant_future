@@ -57,79 +57,46 @@ export function getMarketQuotes(symbols?: string, limit?: number) {
   const params: any = {}
   if (symbols) params.symbols = symbols
   if (limit) params.limit = limit
-  
-  return request<Quote[]>({
-    url: '/market/quotes',
-    method: 'GET',
-    params
-  })
+
+  return request.get('/v1/market/quotes', { params })
 }
 
 // 获取单个标的行情
 export function getSymbolQuote(symbolCode: string) {
-  return request<Quote>({
-    url: `/market/quotes/${symbolCode}`,
-    method: 'GET'
-  })
+  return request.get(`/v1/market/quotes/${symbolCode}`)
 }
 
 // 搜索标的
 export function searchSymbols(params: SymbolSearchParams) {
-  return request<Symbol[]>({
-    url: '/market/symbols/search',
-    method: 'GET',
-    params
-  })
+  return request.get('/v1/market/symbols/search', { params })
 }
 
 // 获取热门标的
 export function getPopularSymbols(limit?: number) {
-  return request<Symbol[]>({
-    url: '/market/symbols/popular',
-    method: 'GET',
-    params: { limit }
-  })
+  return request.get('/v1/market/symbols/popular', { params: { limit } })
 }
 
 // 获取自选股列表
 export function getWatchlist() {
-  return request<WatchlistItem[]>({
-    url: '/market/watchlist',
-    method: 'GET'
-  })
+  return request.get('/v1/market/watchlist')
 }
 
 // 添加到自选股
 export function addToWatchlist(symbolCode: string) {
-  return request<WatchlistItem>({
-    url: '/market/watchlist',
-    method: 'POST',
-    data: { symbol_code: symbolCode }
-  })
+  return request.post('/v1/market/watchlist', { symbol_code: symbolCode })
 }
 
 // 从自选股移除
 export function removeFromWatchlist(watchlistId: number) {
-  return request({
-    url: `/market/watchlist/${watchlistId}`,
-    method: 'DELETE'
-  })
+  return request.delete(`/v1/market/watchlist/${watchlistId}`)
 }
 
 // 更新自选股排序
 export function updateWatchlistItem(watchlistId: number, sortOrder: number) {
-  return request<WatchlistItem>({
-    url: `/market/watchlist/${watchlistId}`,
-    method: 'PUT',
-    data: { sort_order: sortOrder }
-  })
+  return request.put(`/v1/market/watchlist/${watchlistId}`, { sort_order: sortOrder })
 }
 
 // 重新排序自选股
 export function reorderWatchlist(watchlistIds: number[]) {
-  return request({
-    url: '/market/watchlist/reorder',
-    method: 'POST',
-    data: watchlistIds
-  })
+  return request.post('/v1/market/watchlist/reorder', watchlistIds)
 }

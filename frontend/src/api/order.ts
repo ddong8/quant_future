@@ -223,84 +223,84 @@ export interface OrderRiskCheckResult {
 export const orderApi = {
   // 创建订单
   createOrder: (data: OrderCreate) => 
-    request.post<Order>('/api/v1/orders/', data),
+    request.post<Order>('/v1/orders/', data),
 
   // 搜索订单
   searchOrders: (params: OrderSearchParams) => 
-    request.get<{ data: Order[], meta: any }>('/api/v1/orders/', { params }),
+    request.get<{ data: Order[], meta: any }>('/v1/orders/', { params }),
 
   // 获取订单统计
   getOrderStats: () => 
-    request.get<OrderStats>('/api/v1/orders/stats'),
+    request.get<OrderStats>('/v1/orders/stats'),
 
   // 获取活跃订单
   getActiveOrders: () => 
-    request.get<Order[]>('/api/v1/orders/active'),
+    request.get<Order[]>('/v1/orders/active'),
 
   // 获取我的订单
   getMyOrders: (params?: { status?: OrderStatus, limit?: number }) => 
-    request.get<Order[]>('/api/v1/orders/my', { params }),
+    request.get<Order[]>('/v1/orders/my', { params }),
 
   // 获取订单详情
   getOrder: (orderId: number) => 
-    request.get<Order>(`/api/v1/orders/${orderId}`),
+    request.get<Order>(`/v1/orders/${orderId}`),
 
   // 通过UUID获取订单
   getOrderByUuid: (uuid: string) => 
-    request.get<Order>(`/api/v1/orders/uuid/${uuid}`),
+    request.get<Order>(`/v1/orders/uuid/${uuid}`),
 
   // 更新订单
   updateOrder: (orderId: number, data: OrderUpdate) => 
-    request.put<Order>(`/api/v1/orders/${orderId}`, data),
+    request.put<Order>(`/v1/orders/${orderId}`, data),
 
   // 取消订单
   cancelOrder: (orderId: number, reason?: string) => 
-    request.delete<Order>(`/api/v1/orders/${orderId}`, { 
+    request.delete<Order>(`/v1/orders/${orderId}`, { 
       params: reason ? { reason } : undefined 
     }),
 
   // 批量取消订单
   batchCancelOrders: (orderIds: number[]) => 
-    request.post<any>('/api/v1/orders/batch/cancel', orderIds),
+    request.post<any>('/v1/orders/batch/cancel', orderIds),
 
   // 订单风险检查
   checkOrderRisk: (data: OrderRiskCheck) => 
-    request.post<OrderRiskCheckResult>('/api/v1/orders/risk-check', data),
+    request.post<OrderRiskCheckResult>('/v1/orders/risk-check', data),
 
   // 获取订单成交记录
   getOrderFills: (orderId: number) => 
-    request.get<OrderFill[]>(`/api/v1/orders/${orderId}/fills`),
+    request.get<OrderFill[]>(`/v1/orders/${orderId}/fills`),
 
   // 获取订单模板列表
   getOrderTemplates: (params?: { category?: string, is_official?: boolean }) => 
-    request.get<OrderTemplate[]>('/api/v1/orders/templates/', { params }),
+    request.get<OrderTemplate[]>('/v1/orders/templates/', { params }),
 
   // 获取订单模板详情
   getOrderTemplate: (templateId: number) => 
-    request.get<OrderTemplate>(`/api/v1/orders/templates/${templateId}`),
+    request.get<OrderTemplate>(`/v1/orders/templates/${templateId}`),
 
   // 创建订单模板
   createOrderTemplate: (data: Partial<OrderTemplate>) => 
-    request.post<OrderTemplate>('/api/v1/orders/templates/', data),
+    request.post<OrderTemplate>('/v1/orders/templates/', data),
 
   // 订单执行相关
   executeOrder: (orderId: number, tradingSystem?: string) => 
-    request.post(`/api/v1/orders/${orderId}/execute`, {}, { 
+    request.post(`/v1/orders/${orderId}/execute`, {}, { 
       params: tradingSystem ? { trading_system: tradingSystem } : undefined 
     }),
 
   getOrderExecutionStatus: (orderId: number) => 
-    request.get(`/api/v1/orders/${orderId}/execution-status`),
+    request.get(`/v1/orders/${orderId}/execution-status`),
 
   getExecutionServiceStatus: () => 
-    request.get('/api/v1/orders/execution/service-status'),
+    request.get('/v1/orders/execution/service-status'),
 
   getExecutionStatistics: () => 
-    request.get('/api/v1/orders/execution/statistics'),
+    request.get('/v1/orders/execution/statistics'),
 
   startExecutionService: () => 
-    request.post('/api/v1/orders/execution/start-service'),
+    request.post('/v1/orders/execution/start-service'),
 
   stopExecutionService: () => 
-    request.post('/api/v1/orders/execution/stop-service')
+    request.post('/v1/orders/execution/stop-service')
 }

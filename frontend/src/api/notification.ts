@@ -185,12 +185,12 @@ export const getUserNotifications = (params: {
     has_more: boolean
   }
 }> => {
-  return request.get('/api/v1/notifications/', { params })
+  return request.get('/v1/notifications/', { params })
 }
 
 // 创建通知
 export const createNotification = (data: CreateNotificationRequest): Promise<Notification> => {
-  return request.post('/api/v1/notifications/', data)
+  return request.post('/v1/notifications/', data)
 }
 
 // 批量创建通知
@@ -200,34 +200,34 @@ export const batchCreateNotifications = (data: BatchCreateNotificationRequest): 
   failed_count: number
   notification_ids: number[]
 }> => {
-  return request.post('/api/v1/notifications/batch', data)
+  return request.post('/v1/notifications/batch', data)
 }
 
 // 搜索通知
 export const searchNotifications = (data: NotificationSearchRequest): Promise<NotificationSearchResponse> => {
-  return request.post('/api/v1/notifications/search', data)
+  return request.post('/v1/notifications/search', data)
 }
 
 // 标记通知为已读
 export const markNotificationsRead = (notification_ids: number[]): Promise<{ message: string }> => {
-  return request.post('/api/v1/notifications/mark-read', { notification_ids })
+  return request.post('/v1/notifications/mark-read', { notification_ids })
 }
 
 // 标记所有通知为已读
 export const markAllNotificationsRead = (): Promise<{ message: string }> => {
-  return request.post('/api/v1/notifications/mark-all-read')
+  return request.post('/v1/notifications/mark-all-read')
 }
 
 // 批量删除通知
 export const deleteNotifications = (notification_ids: number[], delete_type: 'soft' | 'hard' = 'soft'): Promise<{ message: string }> => {
-  return request.delete('/api/v1/notifications/', {
+  return request.delete('/v1/notifications/', {
     data: { notification_ids, delete_type }
   })
 }
 
 // 删除所有通知
 export const deleteAllNotifications = (delete_type: 'soft' | 'hard' = 'soft'): Promise<{ message: string }> => {
-  return request.delete('/api/v1/notifications/all', {
+  return request.delete('/v1/notifications/all', {
     params: { delete_type }
   })
 }
@@ -236,48 +236,48 @@ export const deleteAllNotifications = (delete_type: 'soft' | 'hard' = 'soft'): P
 
 // 获取通知偏好设置
 export const getNotificationPreferences = (): Promise<NotificationPreference> => {
-  return request.get('/api/v1/notifications/preferences')
+  return request.get('/v1/notifications/preferences')
 }
 
 // 更新通知偏好设置
 export const updateNotificationPreferences = (data: Partial<NotificationPreference>): Promise<NotificationPreference> => {
-  return request.put('/api/v1/notifications/preferences', data)
+  return request.put('/v1/notifications/preferences', data)
 }
 
 // ==================== 通知规则管理 ====================
 
 // 创建通知规则
 export const createNotificationRule = (data: Omit<NotificationRule, 'id' | 'user_id' | 'trigger_count' | 'last_triggered_at' | 'created_at' | 'updated_at'>): Promise<NotificationRule> => {
-  return request.post('/api/v1/notifications/rules', data)
+  return request.post('/v1/notifications/rules', data)
 }
 
 // 获取通知规则列表
 export const getNotificationRules = (): Promise<NotificationRule[]> => {
-  return request.get('/api/v1/notifications/rules')
+  return request.get('/v1/notifications/rules')
 }
 
 // 更新通知规则
 export const updateNotificationRule = (rule_id: number, data: Partial<NotificationRule>): Promise<NotificationRule> => {
-  return request.put(`/api/v1/notifications/rules/${rule_id}`, data)
+  return request.put(`/v1/notifications/rules/${rule_id}`, data)
 }
 
 // 删除通知规则
 export const deleteNotificationRule = (rule_id: number): Promise<{ message: string }> => {
-  return request.delete(`/api/v1/notifications/rules/${rule_id}`)
+  return request.delete(`/v1/notifications/rules/${rule_id}`)
 }
 
 // ==================== 通知模板管理 ====================
 
 // 获取通知模板列表
 export const getNotificationTemplates = (type_filter?: NotificationType): Promise<NotificationTemplate[]> => {
-  return request.get('/api/v1/notifications/templates', {
+  return request.get('/v1/notifications/templates', {
     params: type_filter ? { type_filter } : {}
   })
 }
 
 // 获取通知模板详情
 export const getNotificationTemplate = (template_code: string): Promise<NotificationTemplate> => {
-  return request.get(`/api/v1/notifications/templates/${template_code}`)
+  return request.get(`/v1/notifications/templates/${template_code}`)
 }
 
 // 测试通知模板
@@ -287,21 +287,21 @@ export const testNotificationTemplate = (data: {
   variables?: Record<string, any>
   recipient?: string
 }): Promise<any> => {
-  return request.post('/api/v1/notifications/templates/test', data)
+  return request.post('/v1/notifications/templates/test', data)
 }
 
 // ==================== 通知统计 ====================
 
 // 获取通知统计
 export const getNotificationStats = (days: number = 30): Promise<NotificationStats> => {
-  return request.get('/api/v1/notifications/stats', {
+  return request.get('/v1/notifications/stats', {
     params: { days }
   })
 }
 
 // 获取未读通知数量
 export const getUnreadCount = (): Promise<{ unread_count: number }> => {
-  return request.get('/api/v1/notifications/unread-count')
+  return request.get('/v1/notifications/unread-count')
 }
 
 // ==================== 通知导出 ====================
@@ -320,7 +320,7 @@ export const exportNotifications = (data: {
   expires_at?: string
   created_at: string
 }> => {
-  return request.post('/api/v1/notifications/export', data)
+  return request.post('/v1/notifications/export', data)
 }
 
 // ==================== 工具函数 ====================

@@ -170,7 +170,7 @@ export const dataExportApi = {
 
   // 下载导出文件
   downloadExportFile: (taskId: number): string => {
-    return `/api/v1/data-export/export/download/${taskId}`
+    return `/v1/data-export/export/download/${taskId}`
   },
 
   // 创建系统备份

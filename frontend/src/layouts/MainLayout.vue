@@ -469,7 +469,7 @@ onUnmounted(() => {
 .sidebar {
   background: var(--el-bg-color);
   border-right: 1px solid var(--el-border-color-light);
-  transition: 
+  transition:
     width 0.3s ease,
     background-color 0.3s ease,
     border-color 0.3s ease;
@@ -759,7 +759,7 @@ onUnmounted(() => {
         cursor: pointer;
         padding: 4px 8px;
         border-radius: var(--el-border-radius-base);
-        transition: 
+        transition:
           background-color var(--transition-duration, 0.3s) ease,
           color var(--transition-duration, 0.3s) ease;
 
@@ -833,7 +833,7 @@ onUnmounted(() => {
       .logo {
         justify-content: center; // logo居中
         padding: 8px; // 统一内边距
-        
+
         .el-icon {
           font-size: 24px; // 增大logo图标以适应仅图标模式
         }
@@ -886,7 +886,7 @@ onUnmounted(() => {
             display: none;
           }
         }
-        
+
         // 隐藏子菜单内容
         .el-menu {
           display: none;

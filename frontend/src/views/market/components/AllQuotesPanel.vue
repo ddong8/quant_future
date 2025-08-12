@@ -186,7 +186,7 @@ interface Emits {
   (e: 'add-to-watchlist', symbolCode: string): void
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 // 筛选条件

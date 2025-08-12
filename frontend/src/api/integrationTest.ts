@@ -53,28 +53,28 @@ export const integrationTestApi = {
    * 运行完整集成测试
    */
   async runIntegrationTests(): Promise<{ message: string; status: string }> {
-    return request.post('/api/v1/integration-tests/run')
+    return request.post('/v1/integration-tests/run')
   },
 
   /**
    * 获取所有测试套件
    */
   async getTestSuites(): Promise<TestSuite[]> {
-    return request.get('/api/v1/integration-tests/suites')
+    return request.get('/v1/integration-tests/suites')
   },
 
   /**
    * 获取指定测试套件
    */
   async getTestSuite(suiteId: string): Promise<TestSuite> {
-    return request.get(`/api/v1/integration-tests/suites/${suiteId}`)
+    return request.get(`/v1/integration-tests/suites/${suiteId}`)
   },
 
   /**
    * 获取测试摘要
    */
   async getTestSummary(): Promise<TestSummary> {
-    return request.get('/api/v1/integration-tests/summary')
+    return request.get('/v1/integration-tests/summary')
   },
 
   /**
@@ -85,7 +85,7 @@ export const integrationTestApi = {
     consistency_checks: any
     timestamp: string
   }> {
-    return request.post('/api/v1/integration-tests/validate-data-consistency')
+    return request.post('/v1/integration-tests/validate-data-consistency')
   },
 
   /**
@@ -97,7 +97,7 @@ export const integrationTestApi = {
     results: any
     timestamp: string
   }> {
-    return request.post('/api/v1/integration-tests/simulate-trading-scenario', config)
+    return request.post('/v1/integration-tests/simulate-trading-scenario', config)
   },
 
   /**
@@ -108,14 +108,14 @@ export const integrationTestApi = {
     exception_tests: any
     timestamp: string
   }> {
-    return request.post('/api/v1/integration-tests/test-exception-handling')
+    return request.post('/v1/integration-tests/test-exception-handling')
   },
 
   /**
    * 健康检查
    */
   async healthCheck(): Promise<HealthStatus> {
-    return request.get('/api/v1/integration-tests/health-check')
+    return request.get('/v1/integration-tests/health-check')
   },
 
   /**
@@ -126,6 +126,6 @@ export const integrationTestApi = {
     status: string
     config: StressTestConfig
   }> {
-    return request.post('/api/v1/integration-tests/stress-test', config)
+    return request.post('/v1/integration-tests/stress-test', config)
   }
 }

@@ -52,4 +52,4 @@ fi
 echo "🎉 后端服务启动完成！"
 
 # 启动应用
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+exec python mock_app.py

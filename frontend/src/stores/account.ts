@@ -36,7 +36,13 @@ export const useAccountStore = defineStore('account', () => {
       loading.value = true
       error.value = null
       const response = await accountApi.getAccounts()
-      accounts.value = response.data
+      // 后端返回格式: { success: true, data: [...] }
+      // 响应拦截器返回完整的 data 对象
+      if (response && response.data) {
+        accounts.value = response.data
+      } else {
+        accounts.value = response || []
+      }
     } catch (err: any) {
       error.value = err.message || '加载账户失败'
       console.error('Failed to load accounts:', err)
@@ -50,8 +56,9 @@ export const useAccountStore = defineStore('account', () => {
       loading.value = true
       error.value = null
       const response = await accountApi.getAccount(accountId)
-      currentAccount.value = response.data
-      return response.data
+      const accountData = response && response.data ? response.data : response
+      currentAccount.value = accountData
+      return accountData
     } catch (err: any) {
       error.value = err.message || '获取账户详情失败'
       console.error('Failed to get account:', err)
@@ -66,8 +73,17 @@ export const useAccountStore = defineStore('account', () => {
       loading.value = true
       error.value = null
       const response = await accountApi.getTransactions(accountId, params)
-      transactions.value = response.data.data
-      return response.data
+      // 处理嵌套的 data 结构
+      if (response && response.data && response.data.data) {
+        transactions.value = response.data.data
+        return response.data
+      } else if (response && response.data) {
+        transactions.value = response.data
+        return response
+      } else {
+        transactions.value = []
+        return { data: [], meta: {} }
+      }
     } catch (err: any) {
       error.value = err.message || '加载交易记录失败'
       console.error('Failed to load transactions:', err)

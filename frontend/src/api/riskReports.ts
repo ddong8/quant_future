@@ -225,7 +225,7 @@ export const riskReportsApi = {
 
   // 导出报告
   exportReport: (reportId: string, format: 'pdf' | 'excel' | 'json'): string => {
-    return `/api/v1/risk-reports/${reportId}/export?format=${format}`
+    return `/v1/risk-reports/${reportId}/export?format=${format}`
   },
 
   // 配置定期报告

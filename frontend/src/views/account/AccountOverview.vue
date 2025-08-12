@@ -304,7 +304,7 @@ watch(selectedAccountId, () => {
 const loadData = async () => {
   try {
     loading.value = true
-    await accountStore.fetchAccounts()
+    await accountStore.loadAccounts()
     
     if (accounts.value.length > 0 && !selectedAccountId.value) {
       selectedAccountId.value = accounts.value[0].id

@@ -64,7 +64,7 @@ const goBack = () => {
 
 const refreshData = () => {
   // 刷新账户数据
-  accountStore.fetchAccounts()
+  accountStore.loadAccounts()
 }
 
 const handleAccountChange = () => {
@@ -77,7 +77,7 @@ const handleAccountChange = () => {
 // 初始化
 onMounted(async () => {
   // 加载账户列表
-  await accountStore.fetchAccounts()
+  await accountStore.loadAccounts()
   
   // 从URL参数获取账户ID
   const accountIdFromQuery = route.query.accountId
