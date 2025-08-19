@@ -276,9 +276,9 @@ class TQSDKAdapter:
         """获取模拟合约信息"""
         mock_data = [
             {
-                "symbol": "SHFE.cu2401",
+                "symbol": "SHFE.cu2601",
                 "exchange": "SHFE",
-                "name": "沪铜2401",
+                "name": "沪铜2601",
                 "product_id": "cu",
                 "volume_multiple": 5,
                 "price_tick": 10,
@@ -288,9 +288,9 @@ class TQSDKAdapter:
                 "trading_time": {"day": [["09:00:00", "10:15:00"], ["10:30:00", "11:30:00"]]},
             },
             {
-                "symbol": "DCE.i2401",
+                "symbol": "DCE.i2601",
                 "exchange": "DCE",
-                "name": "铁矿石2401",
+                "name": "铁矿石2601",
                 "product_id": "i",
                 "volume_multiple": 100,
                 "price_tick": 0.5,
@@ -300,9 +300,9 @@ class TQSDKAdapter:
                 "trading_time": {"day": [["09:00:00", "10:15:00"], ["10:30:00", "11:30:00"]]},
             },
             {
-                "symbol": "CZCE.MA401",
+                "symbol": "CZCE.MA601",
                 "exchange": "CZCE",
-                "name": "甲醇401",
+                "name": "甲醇601",
                 "product_id": "MA",
                 "volume_multiple": 10,
                 "price_tick": 1,
@@ -360,7 +360,20 @@ class TQSDKAdapter:
         """获取模拟行情数据"""
         import random
         
-        base_price = 50000 if "cu" in symbol else 500
+        # 根据2025年8月的价格水平调整基础价格
+        if "cu" in symbol:
+            base_price = 75000  # 沪铜当前价格水平
+        elif "i" in symbol:
+            base_price = 800    # 铁矿石当前价格水平
+        elif "MA" in symbol:
+            base_price = 2500   # 甲醇当前价格水平
+        elif "rb" in symbol:
+            base_price = 3500   # 螺纹钢当前价格水平
+        elif "c" in symbol:
+            base_price = 2800   # 玉米当前价格水平
+        else:
+            base_price = 3000   # 默认价格
+            
         price = base_price + random.uniform(-base_price * 0.05, base_price * 0.05)
         
         return {
@@ -429,7 +442,20 @@ class TQSDKAdapter:
         """获取模拟K线数据"""
         import random
         
-        base_price = 50000 if "cu" in symbol else 500
+        # 根据2025年8月的价格水平调整基础价格
+        if "cu" in symbol:
+            base_price = 75000  # 沪铜当前价格水平
+        elif "i" in symbol:
+            base_price = 800    # 铁矿石当前价格水平
+        elif "MA" in symbol:
+            base_price = 2500   # 甲醇当前价格水平
+        elif "rb" in symbol:
+            base_price = 3500   # 螺纹钢当前价格水平
+        elif "c" in symbol:
+            base_price = 2800   # 玉米当前价格水平
+        else:
+            base_price = 3000   # 默认价格
+            
         klines = []
         
         current_time = datetime.now()

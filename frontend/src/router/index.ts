@@ -101,6 +101,26 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
+        path: 'trading/algo',
+        name: 'AlgoTrading',
+        component: () => import('@/views/trading/AlgoTradingView.vue'),
+        meta: {
+          title: '算法交易',
+          icon: 'Cpu',
+          parent: 'trading'
+        }
+      },
+      {
+        path: 'trading/realtime',
+        name: 'RealTimeTrading',
+        component: () => import('@/views/trading/RealTimeTradingView.vue'),
+        meta: {
+          title: '实时交易',
+          icon: 'Monitor',
+          parent: 'trading'
+        }
+      },
+      {
         path: 'orders',
         name: 'OrdersList',
         component: () => import('@/views/orders/OrdersView.vue'),
@@ -384,44 +404,40 @@ const routes: RouteRecordRaw[] = [
         }
       },
       {
-        path: 'settings',
+        path: '/settings',
         name: 'GeneralSettings',
         component: () => import('@/views/settings/SettingsView.vue'),
         meta: {
           title: '通用设置',
           icon: 'Setting',
-          parent: 'settings',
           roles: ['admin']
         }
       },
       {
-        path: 'settings/account',
+        path: '/settings/account',
         name: 'AccountSettings',
         component: () => import('@/views/settings/AccountSettingsView.vue'),
         meta: {
           title: '账户设置',
-          icon: 'User',
-          parent: 'settings'
+          icon: 'User'
         }
       },
       {
-        path: 'settings/trading',
+        path: '/settings/trading',
         name: 'TradingSettings',
         component: () => import('@/views/settings/TradingSettingsView.vue'),
         meta: {
           title: '交易设置',
-          icon: 'TrendCharts',
-          parent: 'settings'
+          icon: 'TrendCharts'
         }
       },
       {
-        path: 'settings/notifications',
+        path: '/settings/notifications',
         name: 'NotificationSettings',
         component: () => import('@/views/settings/NotificationSettingsView.vue'),
         meta: {
           title: '通知设置',
-          icon: 'Bell',
-          parent: 'settings'
+          icon: 'Bell'
         }
       }
     ]

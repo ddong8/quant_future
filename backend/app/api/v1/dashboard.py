@@ -4,7 +4,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ...core.dependencies import get_db, get_current_user
+from ...core.dependencies import get_db, get_current_user, get_current_user_dict
 from ...core.response import success_response, error_response
 from ...models.user import User
 
@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("/summary")
 async def get_dashboard_summary(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
     db: Session = Depends(get_db),
 ):
     """获取仪表板摘要信息"""

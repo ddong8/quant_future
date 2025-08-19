@@ -692,6 +692,10 @@ main() {
                 dev_mode=true
                 shift
                 ;;
+            --help)
+                show_help
+                exit 0
+                ;;
             *)
                 if [ "$command" = "logs" ] && [ -z "$2" ]; then
                     show_service_logs "$1"

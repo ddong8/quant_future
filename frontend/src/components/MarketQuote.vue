@@ -5,18 +5,39 @@
         <span class="symbol">{{ symbol }}</span>
         <span class="symbol-name">{{ symbolName }}</span>
         <el-tag v-if="connected" type="success" size="small">实时</el-tag>
-        <el-tag v-else type="danger" size="small">离线</el-tag>
+        <el-tag v-else-if="connectionState === 'connecting' || loading" type="warning" size="small">连接中</el-tag>
+        <el-tag v-else-if="connectionState === 'error'" type="danger" size="small">连接失败</el-tag>
+        <el-tag v-else type="info" size="small">离线</el-tag>
       </div>
       
       <div class="quote-controls">
         <el-button 
           size="small" 
           :icon="autoUpdate ? 'VideoPause' : 'VideoPlay'"
+          :loading="loading"
           @click="toggleAutoUpdate"
         >
           {{ autoUpdate ? '暂停' : '开始' }}
         </el-button>
+        <el-button 
+          v-if="error || connectionState === 'error'"
+          size="small" 
+          type="primary"
+          @click="forceReconnect"
+        >
+          重连
+        </el-button>
       </div>
+    </div>
+    
+    <!-- 错误提示 -->
+    <div v-if="error" class="error-message">
+      <el-alert
+        :title="error"
+        type="error"
+        :closable="false"
+        show-icon
+      />
     </div>
     
     <div class="quote-content">
@@ -152,6 +173,7 @@ const emit = defineEmits<{
 
 // 响应式数据
 const autoUpdate = ref(props.autoStart)
+// 初始化行情数据，提供默认值
 const quote = ref({
   last_price: 0,
   open: 0,
@@ -165,7 +187,12 @@ const quote = ref({
   update_time: new Date().toISOString()
 })
 
-const buyOrders = ref([
+// 错误状态管理
+const error = ref<string | null>(null)
+const loading = ref(false)
+
+// 深度数据，提供默认值和类型安全
+const buyOrders = ref<Array<{price: number, volume: number}>>([
   { price: 71990, volume: 10 },
   { price: 71980, volume: 15 },
   { price: 71970, volume: 8 },
@@ -173,7 +200,7 @@ const buyOrders = ref([
   { price: 71950, volume: 20 }
 ])
 
-const sellOrders = ref([
+const sellOrders = ref<Array<{price: number, volume: number}>>([
   { price: 72010, volume: 8 },
   { price: 72020, volume: 12 },
   { price: 72030, volume: 15 },
@@ -184,6 +211,7 @@ const sellOrders = ref([
 // WebSocket连接
 const { ws, subscribeQuote, subscribeDepth } = useMarketWebSocket()
 const connected = computed(() => ws.connected.value)
+const connectionState = computed(() => ws.getConnectionState())
 
 // 计算价格变化
 const priceChange = computed(() => quote.value.last_price - quote.value.prev_close)
@@ -243,49 +271,134 @@ const getPriceClass = (current: number, previous: number) => {
   return 'price-neutral'
 }
 
-// 切换自动更新
-const toggleAutoUpdate = () => {
+// 切换自动更新（改进版本）
+const toggleAutoUpdate = async () => {
   autoUpdate.value = !autoUpdate.value
   if (autoUpdate.value) {
-    startRealTimeUpdate()
+    await startRealTimeUpdate()
   } else {
-    stopRealTimeUpdate()
+    await stopRealTimeUpdate()
   }
 }
 
-// 开始实时更新
-const startRealTimeUpdate = () => {
-  if (!ws.connected.value) {
-    ws.connect()
-  }
-  
-  // 订阅行情数据
-  subscribeQuote(props.symbol)
-  
-  // 订阅深度数据
-  if (props.showDepth) {
-    subscribeDepth(props.symbol)
+// 强制重连
+const forceReconnect = async () => {
+  try {
+    error.value = null
+    ws.forceReconnect()
+    if (autoUpdate.value) {
+      await startRealTimeUpdate()
+    }
+  } catch (err: any) {
+    error.value = err.message || '重连失败'
   }
 }
 
-// 停止实时更新
-const stopRealTimeUpdate = () => {
-  ws.unsubscribe('quote')
-  ws.unsubscribe('depth')
+// 开始实时更新（改进版本，添加错误处理）
+const startRealTimeUpdate = async () => {
+  try {
+    loading.value = true
+    error.value = null
+    
+    // 确保WebSocket连接
+    if (!ws.isConnected()) {
+      console.log('WebSocket未连接，尝试建立连接...')
+      ws.connect()
+      
+      // 等待连接建立或失败
+      let attempts = 0
+      const maxAttempts = 30 // 3秒超时
+      while (!ws.isConnected() && ws.getConnectionState() !== 'error' && attempts < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+      
+      if (!ws.isConnected()) {
+        throw new Error('WebSocket连接失败')
+      }
+    }
+    
+    // 订阅行情数据
+    console.log(`订阅行情数据: ${props.symbol}`)
+    const quoteResult = await subscribeQuote(props.symbol)
+    if (!quoteResult) {
+      console.warn('行情数据订阅失败')
+    }
+    
+    // 订阅深度数据
+    if (props.showDepth) {
+      console.log(`订阅深度数据: ${props.symbol}`)
+      const depthResult = await subscribeDepth(props.symbol)
+      if (!depthResult) {
+        console.warn('深度数据订阅失败')
+      }
+    }
+    
+  } catch (err: any) {
+    console.error('启动实时更新失败:', err)
+    error.value = err.message || '启动实时更新失败'
+  } finally {
+    loading.value = false
+  }
 }
 
-// 处理WebSocket消息
+// 停止实时更新（改进版本，添加错误处理）
+const stopRealTimeUpdate = async () => {
+  try {
+    if (ws.isConnected()) {
+      await ws.unsubscribe('quote')
+      if (props.showDepth) {
+        await ws.unsubscribe('depth')
+      }
+    }
+  } catch (err) {
+    console.error('停止实时更新失败:', err)
+  }
+}
+
+// 处理WebSocket消息（改进版本，添加数据验证）
 const handleWebSocketMessage = (message: WebSocketMessage) => {
   if (!autoUpdate.value) return
   
-  if (message.type === 'quote' && message.data.symbol === props.symbol) {
-    quote.value = { ...quote.value, ...message.data }
-    emit('quoteUpdate', message.data)
-  } else if (message.type === 'depth' && message.data.symbol === props.symbol) {
-    const depth = message.data
-    buyOrders.value = depth.bids || []
-    sellOrders.value = depth.asks || []
-    emit('depthUpdate', depth)
+  try {
+    if (message.type === 'quote' && message.data?.symbol === props.symbol) {
+      // 验证和合并行情数据
+      const newQuoteData = {
+        last_price: Number(message.data.last_price) || quote.value.last_price,
+        open: Number(message.data.open) || quote.value.open,
+        high: Number(message.data.high) || quote.value.high,
+        low: Number(message.data.low) || quote.value.low,
+        prev_close: Number(message.data.prev_close) || quote.value.prev_close,
+        prev_settlement: Number(message.data.prev_settlement) || quote.value.prev_settlement,
+        volume: Number(message.data.volume) || quote.value.volume,
+        amount: Number(message.data.amount) || quote.value.amount,
+        open_interest: Number(message.data.open_interest) || quote.value.open_interest,
+        update_time: message.data.update_time || new Date().toISOString()
+      }
+      
+      quote.value = newQuoteData
+      emit('quoteUpdate', newQuoteData)
+      
+    } else if (message.type === 'depth' && message.data?.symbol === props.symbol) {
+      const depth = message.data
+      
+      // 验证深度数据
+      if (Array.isArray(depth.bids)) {
+        buyOrders.value = depth.bids.filter((item: any) => 
+          typeof item.price === 'number' && typeof item.volume === 'number'
+        )
+      }
+      
+      if (Array.isArray(depth.asks)) {
+        sellOrders.value = depth.asks.filter((item: any) => 
+          typeof item.price === 'number' && typeof item.volume === 'number'
+        )
+      }
+      
+      emit('depthUpdate', depth)
+    }
+  } catch (err) {
+    console.error('处理WebSocket消息失败:', err)
   }
 }
 
@@ -327,6 +440,11 @@ onUnmounted(() => {
   border: 1px solid var(--el-border-color-light);
   border-radius: var(--el-border-radius-base);
   overflow: hidden;
+  
+  .error-message {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--el-border-color-lighter);
+  }
   
   .quote-header {
     display: flex;

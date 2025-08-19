@@ -11,7 +11,7 @@ from .market import router as market_router
 from .market_quotes import router as market_quotes_router
 from .technical_analysis import router as technical_analysis_router
 from .market_depth import router as market_depth_router
-from .risk_monitoring import router as risk_monitoring_router
+# from .risk_monitoring import router as risk_monitoring_router
 from .orders import router as orders_router
 from .positions import router as positions_router
 from .accounts import router as accounts_router
@@ -27,6 +27,14 @@ from .logs import router as logs_router
 from .reports import router as reports_router
 from .health import router as health_router
 from .dashboard import router as dashboard_router
+from .simple_trading import router as simple_trading_router
+from .simple_backtest import router as simple_backtest_router
+from .technical_analysis import router as technical_analysis_new_router
+# from .risk_monitoring import router as risk_monitoring_new_router
+from .strategy_management import router as strategy_management_router
+from .algo_trading import router as algo_trading_router
+from .simple_risk import router as simple_risk_router
+from .influxdb import router as influxdb_router
 
 # 创建API路由器
 api_router = APIRouter()
@@ -40,7 +48,7 @@ api_router.include_router(market_router, prefix="/market", tags=["市场数据"]
 api_router.include_router(market_quotes_router, prefix="/market", tags=["行情数据"])
 api_router.include_router(technical_analysis_router, prefix="/technical", tags=["技术分析"])
 api_router.include_router(market_depth_router, prefix="/depth", tags=["市场深度"])
-api_router.include_router(risk_monitoring_router, prefix="/risk-monitoring", tags=["风险监控"])
+# api_router.include_router(risk_monitoring_router, prefix="/risk-monitoring", tags=["风险监控"])
 api_router.include_router(orders_router, prefix="/orders", tags=["订单管理"])
 api_router.include_router(positions_router, prefix="/positions", tags=["持仓管理"])
 api_router.include_router(accounts_router, prefix="/accounts", tags=["账户管理"])
@@ -55,4 +63,12 @@ api_router.include_router(monitoring_router, prefix="/monitoring", tags=["系统
 api_router.include_router(logs_router, prefix="/logs", tags=["日志管理"])
 api_router.include_router(reports_router, prefix="/reports", tags=["报告生成"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["仪表板"])
+api_router.include_router(simple_trading_router, prefix="/trading", tags=["简单交易"])
+api_router.include_router(simple_backtest_router, prefix="/backtest", tags=["简单回测"])
+api_router.include_router(technical_analysis_new_router, prefix="/technical-analysis", tags=["技术分析增强"])
+# api_router.include_router(risk_monitoring_new_router, prefix="/risk", tags=["风险监控增强"])
+api_router.include_router(strategy_management_router, prefix="/strategy", tags=["策略管理增强"])
+api_router.include_router(algo_trading_router, prefix="/algo-trading", tags=["算法交易引擎"])
+api_router.include_router(simple_risk_router, prefix="/simple-risk", tags=["简单风险监控"])
+api_router.include_router(influxdb_router, prefix="/influxdb", tags=["InfluxDB时序数据"])
 api_router.include_router(health_router, tags=["健康检查"])

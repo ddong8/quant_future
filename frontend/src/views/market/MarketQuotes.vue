@@ -71,13 +71,20 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, TrendCharts } from '@element-plus/icons-vue'
 import { 
   getWatchlist, 
-  getMarketQuotes, 
   addToWatchlist, 
   removeFromWatchlist,
   reorderWatchlist,
   type WatchlistItem,
   type Quote
 } from '@/api/marketQuotes'
+import {
+  getRealTimeQuotes,
+  getContractList,
+  getTechnicalIndicators,
+  getMarketStatus,
+  type RealTimeQuote,
+  type ContractInfo
+} from '@/api/realTimeData'
 import WatchlistPanel from './components/WatchlistPanel.vue'
 import PopularQuotesPanel from './components/PopularQuotesPanel.vue'
 import AllQuotesPanel from './components/AllQuotesPanel.vue'
@@ -119,12 +126,49 @@ const loadWatchlist = async () => {
   }
 }
 
-// 加载热门行情
+// 加载热门行情 - 使用真实数据
 const loadPopularQuotes = async () => {
   try {
     popularLoading.value = true
-    const response = await getMarketQuotes(undefined, 50)
-    popularQuotes.value = response.data
+    
+    // 获取合约列表
+    const contractsResponse = await getContractList()
+    if (contractsResponse.success && contractsResponse.data) {
+      const contractsData = Array.isArray(contractsResponse.data) ? contractsResponse.data : []
+      const contracts = contractsData.slice(0, 10) // 取前10个作为热门
+      
+      // 获取这些合约的实时行情
+      const symbols = contracts.map((contract: ContractInfo) => contract.symbol)
+      const quotesResponse = await getRealTimeQuotes(symbols)
+      
+      if (quotesResponse.success && quotesResponse.data) {
+        const quotesData = Array.isArray(quotesResponse.data) ? quotesResponse.data : []
+        popularQuotes.value = quotesData.map((quote: RealTimeQuote) => {
+          const contract = contracts.find((c: ContractInfo) => c.symbol === quote.symbol)
+          return {
+            symbol: {
+              symbol: quote.symbol,
+              name: contract?.name || quote.symbol,
+              exchange: contract?.exchange || 'UNKNOWN',
+              asset_type: 'future'
+            },
+            price: quote.last_price,
+            change: quote.change,
+            change_percent: quote.change_percent,
+            volume: quote.volume,
+            turnover: quote.volume * quote.last_price,
+            open_price: quote.open,
+            high_price: quote.high,
+            low_price: quote.low,
+            data_status: 'ACTIVE',
+            quote_time: quote.datetime,
+            bid_price: quote.bid_price,
+            ask_price: quote.ask_price,
+            open_interest: quote.open_interest
+          }
+        })
+      }
+    }
   } catch (error) {
     console.error('加载热门行情失败:', error)
     ElMessage.error('加载热门行情失败')
@@ -133,12 +177,49 @@ const loadPopularQuotes = async () => {
   }
 }
 
-// 加载全部行情
+// 加载全部行情 - 使用真实数据
 const loadAllQuotes = async () => {
   try {
     allLoading.value = true
-    const response = await getMarketQuotes(undefined, 100)
-    allQuotes.value = response.data
+    
+    // 获取合约列表
+    const contractsResponse = await getContractList()
+    if (contractsResponse.success && contractsResponse.data) {
+      const contractsData = Array.isArray(contractsResponse.data) ? contractsResponse.data : []
+      const contracts = contractsData
+      
+      // 获取所有合约的实时行情
+      const symbols = contracts.map((contract: ContractInfo) => contract.symbol)
+      const quotesResponse = await getRealTimeQuotes(symbols)
+      
+      if (quotesResponse.success && quotesResponse.data) {
+        const quotesData = Array.isArray(quotesResponse.data) ? quotesResponse.data : []
+        allQuotes.value = quotesData.map((quote: RealTimeQuote) => {
+          const contract = contracts.find((c: ContractInfo) => c.symbol === quote.symbol)
+          return {
+            symbol: {
+              symbol: quote.symbol,
+              name: contract?.name || quote.symbol,
+              exchange: contract?.exchange || 'UNKNOWN',
+              asset_type: 'future'
+            },
+            price: quote.last_price,
+            change: quote.change,
+            change_percent: quote.change_percent,
+            volume: quote.volume,
+            turnover: quote.volume * quote.last_price,
+            open_price: quote.open,
+            high_price: quote.high,
+            low_price: quote.low,
+            data_status: 'ACTIVE',
+            quote_time: quote.datetime,
+            bid_price: quote.bid_price,
+            ask_price: quote.ask_price,
+            open_interest: quote.open_interest
+          }
+        })
+      }
+    }
   } catch (error) {
     console.error('加载全部行情失败:', error)
     ElMessage.error('加载全部行情失败')

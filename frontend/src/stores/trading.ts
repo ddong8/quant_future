@@ -14,6 +14,25 @@ import type {
 import { tradingApi } from '@/api/trading'
 import { ElMessage } from 'element-plus'
 
+// 错误消息处理函数
+const getErrorMessage = (error: any): string => {
+  if (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED') {
+    return '网络连接失败，请检查网络连接'
+  } else if (error.code === 'ECONNABORTED') {
+    return '请求超时，请稍后重试'
+  } else if (error.response?.status === 401) {
+    return '登录已过期，请重新登录'
+  } else if (error.response?.status === 403) {
+    return '没有权限访问该资源'
+  } else if (error.response?.status === 404) {
+    return '请求的资源不存在'
+  } else if (error.response?.status >= 500) {
+    return '服务器暂时不可用，请稍后重试'
+  } else {
+    return error.message || '操作失败，请稍后重试'
+  }
+}
+
 export const useTradingStore = defineStore('trading', () => {
   // 状态
   const orders = ref<Order[]>([])
@@ -59,7 +78,7 @@ export const useTradingStore = defineStore('trading', () => {
     positions.value.filter(pos => pos.side === 'short')
   )
 
-  // 获取订单列表
+  // 获取订单列表（改进版本，添加重试和默认值）
   const fetchOrders = async (params?: {
     account_id?: number
     symbol?: string
@@ -69,35 +88,61 @@ export const useTradingStore = defineStore('trading', () => {
     end_date?: string
     page?: number
     page_size?: number
-  }) => {
+  }, retryCount = 0) => {
     try {
       loading.value = true
       const response = await tradingApi.getOrders(params)
       
-      if (response.success) {
-        orders.value = response.data.orders
-        ordersTotal.value = response.data.total
+      if (response?.success && response?.data) {
+        orders.value = Array.isArray(response.data.orders) ? response.data.orders : []
+        ordersTotal.value = Number(response.data.total) || 0
+      } else {
+        // 如果响应格式不正确，使用默认值
+        orders.value = []
+        ordersTotal.value = 0
+        console.warn('订单数据格式不正确:', response)
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '获取订单列表失败')
+      console.error('获取订单列表失败:', error)
+      
+      // 网络错误重试
+      if (retryCount < 2 && (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED')) {
+        console.log(`网络错误，${retryCount + 1}秒后重试...`)
+        setTimeout(() => {
+          fetchOrders(params, retryCount + 1)
+        }, (retryCount + 1) * 1000)
+        return
+      }
+      
+      // 设置默认值
+      orders.value = []
+      ordersTotal.value = 0
+      
+      // 用户友好的错误提示
+      const errorMessage = getErrorMessage(error)
+      ElMessage.error(errorMessage)
     } finally {
       loading.value = false
     }
   }
 
-  // 创建订单
+  // 创建订单（改进版本，添加更好的错误处理）
   const createOrder = async (data: CreateOrderRequest) => {
     try {
       loading.value = true
       const response = await tradingApi.createOrder(data)
       
-      if (response.success) {
+      if (response?.success && response?.data?.order) {
         orders.value.unshift(response.data.order)
         ElMessage.success('订单创建成功')
         return response.data.order
+      } else {
+        throw new Error('订单创建响应格式不正确')
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '创建订单失败')
+      console.error('创建订单失败:', error)
+      const errorMessage = getErrorMessage(error)
+      ElMessage.error(errorMessage)
       throw error
     } finally {
       loading.value = false
@@ -170,19 +215,38 @@ export const useTradingStore = defineStore('trading', () => {
     }
   }
 
-  // 获取持仓列表
+  // 获取持仓列表（改进版本，添加重试和默认值）
   const fetchPositions = async (params?: {
     account_id?: number
     symbol?: string
-  }) => {
+  }, retryCount = 0) => {
     try {
       const response = await tradingApi.getPositions(params)
       
-      if (response.success) {
-        positions.value = response.data.positions
+      if (response?.success && response?.data) {
+        positions.value = Array.isArray(response.data.positions) ? response.data.positions : []
+      } else {
+        positions.value = []
+        console.warn('持仓数据格式不正确:', response)
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '获取持仓列表失败')
+      console.error('获取持仓列表失败:', error)
+      
+      // 网络错误重试
+      if (retryCount < 2 && (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED')) {
+        console.log(`网络错误，${retryCount + 1}秒后重试...`)
+        setTimeout(() => {
+          fetchPositions(params, retryCount + 1)
+        }, (retryCount + 1) * 1000)
+        return
+      }
+      
+      // 设置默认值
+      positions.value = []
+      
+      // 用户友好的错误提示
+      const errorMessage = getErrorMessage(error)
+      ElMessage.error(errorMessage)
     }
   }
 
@@ -202,19 +266,38 @@ export const useTradingStore = defineStore('trading', () => {
     }
   }
 
-  // 获取账户列表
-  const fetchAccounts = async () => {
+  // 获取账户列表（改进版本，添加重试和默认值）
+  const fetchAccounts = async (retryCount = 0) => {
     try {
       const response = await tradingApi.getAccounts()
       
-      if (response.success) {
-        accounts.value = response.data.accounts
+      if (response?.success && response?.data) {
+        accounts.value = Array.isArray(response.data.accounts) ? response.data.accounts : []
         if (accounts.value.length > 0 && !currentAccount.value) {
           currentAccount.value = accounts.value[0]
         }
+      } else {
+        accounts.value = []
+        console.warn('账户数据格式不正确:', response)
       }
     } catch (error: any) {
-      ElMessage.error(error.message || '获取账户列表失败')
+      console.error('获取账户列表失败:', error)
+      
+      // 网络错误重试
+      if (retryCount < 2 && (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED')) {
+        console.log(`网络错误，${retryCount + 1}秒后重试...`)
+        setTimeout(() => {
+          fetchAccounts(retryCount + 1)
+        }, (retryCount + 1) * 1000)
+        return
+      }
+      
+      // 设置默认值
+      accounts.value = []
+      
+      // 用户友好的错误提示
+      const errorMessage = getErrorMessage(error)
+      ElMessage.error(errorMessage)
     }
   }
 

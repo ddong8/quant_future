@@ -31,13 +31,25 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     last_login_at = Column(DateTime(timezone=True))
     
-    # 关系 - 只保留确实存在的模型关系
+    # 关系 - 添加所有需要的关系
     strategies = relationship("Strategy", back_populates="user", cascade="all, delete-orphan")
     backtests = relationship("Backtest", back_populates="user", cascade="all, delete-orphan")
     orders = relationship("Order", back_populates="user")
     positions = relationship("Position", back_populates="user")
+    accounts = relationship("Account", back_populates="user", cascade="all, delete-orphan")
     role_assignments = relationship("UserRoleAssignment", foreign_keys="UserRoleAssignment.user_id", back_populates="user", cascade="all, delete-orphan")
     trading_account = relationship("TradingAccount", back_populates="user", uselist=False)
+    risk_events = relationship("RiskEvent", back_populates="user", cascade="all, delete-orphan")
+    watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
+    risk_profile = relationship("RiskProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    security_settings = relationship("SecuritySettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    notification_settings = relationship("NotificationSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    login_devices = relationship("LoginDevice", back_populates="user", cascade="all, delete-orphan")
+    activity_logs = relationship("UserActivityLog", back_populates="user", cascade="all, delete-orphan")
+    api_keys = relationship("APIKey", back_populates="user", cascade="all, delete-orphan")
+    preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    alert_rules = relationship("AlertRule", back_populates="creator", foreign_keys="AlertRule.created_by", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role='{self.role}')>"

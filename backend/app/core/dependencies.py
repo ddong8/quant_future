@@ -64,8 +64,24 @@ def get_current_user_id(
 def get_current_user(
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db),
+) -> User:
+    """获取当前用户对象"""
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        raise AuthenticationError("用户不存在")
+    
+    if not user.is_active:
+        raise AuthenticationError("用户账户已被禁用")
+    
+    return user
+
+
+def get_current_user_dict(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
 ) -> dict:
-    """获取当前用户（使用原生SQL避免ORM关系问题）"""
+    """获取当前用户（字典格式，用于兼容性）"""
     from sqlalchemy import text
     
     result = db.execute(
@@ -96,7 +112,7 @@ def get_current_user(
 
 
 def get_current_active_user(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
 ) -> dict:
     """获取当前活跃用户"""
     if not current_user["is_active"]:

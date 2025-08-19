@@ -39,6 +39,30 @@ services:
       timeout: 5s
       retries: 5
 
+  # InfluxDB 时序数据库
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: trading_influxdb
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: admin123456
+      DOCKER_INFLUXDB_INIT_ORG: trading-org
+      DOCKER_INFLUXDB_INIT_BUCKET: market-data
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-secret-auth-token
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
+    networks:
+      - trading_network
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
   # 后端服务
   backend:
     build:
@@ -48,7 +72,11 @@ services:
     environment:
       - DATABASE_URL=postgresql://trading_user:trading_password@postgres:5432/trading_platform
       - REDIS_URL=redis://redis:6379/0
-      - SKIP_INFLUXDB_CHECK=true
+      - INFLUXDB_URL=http://influxdb:8086
+      - INFLUXDB_TOKEN=my-super-secret-auth-token
+      - INFLUXDB_ORG=trading-org
+      - INFLUXDB_BUCKET=market-data
+      - SKIP_INFLUXDB_CHECK=false
       - SECRET_KEY=your-secret-key-change-this-in-production
       - DEBUG=true
       - ENVIRONMENT=development
@@ -63,6 +91,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      influxdb:
         condition: service_healthy
     networks:
       - trading_network
@@ -130,6 +160,10 @@ volumes:
   postgres_data:
     driver: local
   redis_data:
+    driver: local
+  influxdb_data:
+    driver: local
+  influxdb_config:
     driver: local
 
 networks:

@@ -124,6 +124,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh, Setting } from '@element-plus/icons-vue'
+import { getRiskMetrics } from '@/api/realTimeData'
 import RiskMonitorDashboard from '@/components/RiskMonitorDashboard.vue'
 
 // 响应式数据

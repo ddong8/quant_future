@@ -4,32 +4,58 @@
 import { request } from '@/utils/request'
 
 export interface Account {
-  id: string
-  user_id: string
-  account_type: 'CASH' | 'MARGIN' | 'FUTURES'
-  currency: string
-  balance: number
-  available_balance: number
-  frozen_balance: number
-  margin_balance?: number
-  equity?: number
-  margin_ratio?: number
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH'
-  status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED'
-  created_at: string
-  updated_at: string
+  id: number
+  user_id: number
+  account_id: string  // 后端使用account_id而不是account_number
+  account_name: string
+  broker?: string
+  
+  // 资金信息 - 匹配后端字段名
+  balance?: number  // 总余额
+  available?: number  // 可用资金
+  margin?: number  // 保证金
+  frozen?: number  // 冻结资金
+  
+  // 盈亏信息
+  realized_pnl?: number
+  unrealized_pnl?: number
+  total_pnl?: number
+  risk_ratio?: number
+  
+  // 状态
+  is_active?: boolean
+  
+  // 时间信息
+  created_at?: string
+  updated_at?: string
+  
+  // 兼容前端显示的计算属性
+  account_number?: string  // 映射到account_id
+  account_type?: 'CASH' | 'MARGIN' | 'FUTURES' | 'OPTIONS'
+  base_currency?: string
+  status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'CLOSED'
+  risk_level?: 'LOW' | 'MEDIUM' | 'HIGH'
+  total_assets?: number
+  available_cash?: number
+  frozen_cash?: number
+  market_value?: number
+  buying_power?: number
+  last_activity_at?: string
 }
 
 export interface AccountTransaction {
-  id: string
-  account_id: string
-  transaction_type: 'DEPOSIT' | 'WITHDRAW' | 'TRADE' | 'FEE' | 'INTEREST' | 'DIVIDEND' | 'TRANSFER'
+  id: number
+  account_id: number
+  transaction_type: 'DEPOSIT' | 'WITHDRAW' | 'TRADE' | 'FEE' | 'INTEREST' | 'DIVIDEND' | 'TRANSFER' | 'FREEZE' | 'UNFREEZE'
   amount: number
   balance_before: number
   balance_after: number
   currency: string
   description?: string
   reference_id?: string
+  order_id?: number
+  position_id?: number
+  symbol?: string
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
   created_at: string
   updated_at: string

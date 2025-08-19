@@ -351,12 +351,13 @@ const maxQuantity = computed(() => {
   const account = tradingStore.currentAccount
   if (!account || !currentSymbol.value) return 1000
   
-  const availableCash = account.available_cash
-  const marginRatio = currentSymbol.value.margin_ratio || 0.1
-  const price = orderForm.value.price || currentPrice.value
+  const availableCash = Number(account.available_cash) || 0
+  const marginRatio = Number(currentSymbol.value.margin_ratio) || 0.1
+  const price = Number(orderForm.value.price) || Number(currentPrice.value) || 0
+  const multiplier = Number(currentSymbol.value.multiplier) || 1
   
-  if (price > 0) {
-    const maxByMargin = Math.floor(availableCash / (price * marginRatio * currentSymbol.value.multiplier))
+  if (price > 0 && availableCash > 0) {
+    const maxByMargin = Math.floor(availableCash / (price * marginRatio * multiplier))
     return Math.max(1, Math.min(maxByMargin, 1000))
   }
   
@@ -391,7 +392,10 @@ const totalCost = computed(() => {
   return estimatedMargin.value + estimatedFee.value
 })
 
-const strategies = computed(() => strategyStore.strategies)
+const strategies = computed(() => {
+  const strats = strategyStore.strategies || []
+  return Array.isArray(strats) ? strats : []
+})
 
 // 方法
 const searchSymbols = async (query: string) => {
@@ -461,18 +465,23 @@ const checkRisk = () => {
   const account = tradingStore.currentAccount
   if (!account) return
   
+  // 安全地获取数值
+  const availableCash = Number(account.available_cash) || 0
+  const marginRatio = Number(account.margin_ratio) || 0
+  const totalCostValue = Number(totalCost.value) || 0
+  
   // 检查可用资金
-  if (totalCost.value > account.available_cash) {
+  if (totalCostValue > availableCash) {
     riskWarnings.value.push({
       type: 'insufficient_funds',
       level: 'error',
       title: '资金不足',
-      message: `所需资金 ${formatCurrency(totalCost.value)} 超过可用资金 ${formatCurrency(account.available_cash)}`
+      message: `所需资金 ${formatCurrency(totalCostValue)} 超过可用资金 ${formatCurrency(availableCash)}`
     })
   }
   
   // 检查保证金比率
-  if (account.margin_ratio > 0.8) {
+  if (marginRatio > 0.8) {
     riskWarnings.value.push({
       type: 'high_margin',
       level: 'warning',
@@ -482,8 +491,11 @@ const checkRisk = () => {
   }
   
   // 检查价格偏离
-  if (orderForm.value.price && currentPrice.value) {
-    const deviation = Math.abs((orderForm.value.price - currentPrice.value) / currentPrice.value)
+  const orderPrice = Number(orderForm.value.price) || 0
+  const currentPriceValue = Number(currentPrice.value) || 0
+  
+  if (orderPrice > 0 && currentPriceValue > 0) {
+    const deviation = Math.abs((orderPrice - currentPriceValue) / currentPriceValue)
     if (deviation > 0.05) {
       riskWarnings.value.push({
         type: 'price_deviation',

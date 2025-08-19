@@ -239,6 +239,13 @@ const breadcrumbs = computed(() => {
 
 // 菜单路由
 const menuRoutes = computed(() => {
+  // 获取所有路由用于调试
+  const allRoutes = router.getRoutes()
+  const routePaths = new Set(allRoutes.map((route) => route.path))
+  
+  // 调试信息
+  console.log('🔍 [菜单调试] 所有可用路由:', Array.from(routePaths))
+  
   // 根据spec文档定义的核心功能模块构建菜单
   const menuStructure = [
     {
@@ -272,7 +279,9 @@ const menuRoutes = computed(() => {
       children: [
         { path: '/trading', meta: { title: '交易面板', icon: 'Monitor' } },
         { path: '/trading/manual', meta: { title: '手动交易', icon: 'Edit' } },
-        { path: '/trading/quick', meta: { title: '快速交易', icon: 'Lightning' } }
+        { path: '/trading/quick', meta: { title: '快速交易', icon: 'Lightning' } },
+        { path: '/trading/algo', meta: { title: '算法交易', icon: 'Cpu' } },
+        { path: '/trading/realtime', meta: { title: '实时交易', icon: 'Monitor' } }
       ]
     },
     {
@@ -333,17 +342,32 @@ const menuRoutes = computed(() => {
   ]
 
   // 过滤掉没有对应路由的菜单项
-  const allRoutes = router.getRoutes()
-  const routePaths = new Set(allRoutes.map((route) => route.path))
-
-  return menuStructure.filter((menu) => {
+  const filteredMenus = menuStructure.filter((menu) => {
+    console.log(`🔍 [菜单调试] 检查菜单项: ${menu.meta?.title} (${menu.path})`)
+    
     // 过滤子菜单，只保留存在的路由
     if (menu.children && menu.children.length > 0) {
-      menu.children = menu.children.filter((child) => routePaths.has(child.path))
-      return menu.children.length > 0 // 只有当有子菜单时才显示父菜单
+      const originalChildrenCount = menu.children.length
+      menu.children = menu.children.filter((child) => {
+        const exists = routePaths.has(child.path)
+        console.log(`  └─ 子菜单: ${child.meta?.title} (${child.path}) - ${exists ? '✅ 存在' : '❌ 不存在'}`)
+        return exists
+      })
+      
+      const hasVisibleChildren = menu.children.length > 0
+      console.log(`  📊 ${menu.meta?.title}: ${originalChildrenCount} -> ${menu.children.length} 个子菜单, 显示: ${hasVisibleChildren ? '✅' : '❌'}`)
+      return hasVisibleChildren // 只有当有子菜单时才显示父菜单
     }
-    return routePaths.has(menu.path) // 单独菜单项需要路由存在
+    
+    const exists = routePaths.has(menu.path)
+    console.log(`  📊 ${menu.meta?.title}: 路由存在 ${exists ? '✅' : '❌'}`)
+    return exists // 单独菜单项需要路由存在
   })
+  
+  console.log('🎯 [菜单调试] 最终显示的菜单数量:', filteredMenus.length)
+  console.log('🎯 [菜单调试] 最终菜单项:', filteredMenus.map(m => m.meta?.title))
+  
+  return filteredMenus
 })
 
 // 切换侧边栏

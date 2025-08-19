@@ -27,7 +27,7 @@ from .core.exceptions import (
     create_error_response,
 )
 from .api.v1 import api_router
-from .core.dependencies import get_current_user, get_db
+from .core.dependencies import get_current_user, get_current_user_dict, get_db
 from .core.response import success_response, error_response
 from .models.user import User
 from sqlalchemy.orm import Session
@@ -74,6 +74,12 @@ async def lifespan(app: FastAPI):
         from .services.market_service import market_service
 
         await market_service.initialize()
+        
+        # 启动简单交易服务
+        print("💰 启动简单交易服务...")
+        from .services.simple_trading_service import simple_trading_service
+        
+        await simple_trading_service.initialize()
 
         # 启动实时数据推送服务
         print("📡 启动实时数据推送服务...")
@@ -86,6 +92,15 @@ async def lifespan(app: FastAPI):
         from .services.scheduler_service import scheduler_service
 
         scheduler_service.start()
+
+        # 初始化用户数据
+        print("📊 初始化用户数据...")
+        try:
+            from .services.data_init_service import init_all_data
+            init_all_data()
+            print("✅ 用户数据初始化完成")
+        except Exception as e:
+            print(f"⚠️ 用户数据初始化失败: {e}")
 
         print("✅ 应用启动成功")
         print(f"📊 整体健康状态: {health_result['overall_status']}")
@@ -337,7 +352,7 @@ async def legacy_dashboard_summary(
 # 在API路由中也添加兼容性路由
 @app.get("/api/v1/user/profile")
 async def api_user_profile(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
     db: Session = Depends(get_db),
 ):
     """API路由：获取用户资料"""
@@ -345,7 +360,7 @@ async def api_user_profile(
 
 @app.get("/api/v1/dashboard/summary")
 async def api_dashboard_summary(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
     db: Session = Depends(get_db),
 ):
     """API路由：获取仪表板摘要"""
@@ -371,7 +386,7 @@ if __name__ == "__main__":
 # 兼容性路由 - 为前端旧的API路径提供支持
 @app.get("/api/user/profile")
 async def legacy_user_profile_route(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
     db: Session = Depends(get_db),
 ):
     """兼容性路由：获取用户资料"""
@@ -380,8 +395,13 @@ async def legacy_user_profile_route(
 
 @app.get("/api/dashboard/summary")
 async def legacy_dashboard_summary_route(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
     db: Session = Depends(get_db),
 ):
     """兼容性路由：获取仪表板摘要"""
     return await legacy_dashboard_summary(current_user, db)
+
+
+# 策略管理兼容性路由
+from .api.v1.strategies import router as strategies_router
+app.include_router(strategies_router, prefix="/api/strategies", tags=["策略管理兼容性"])

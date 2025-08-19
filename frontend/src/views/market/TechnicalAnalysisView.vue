@@ -4,230 +4,511 @@
     <div class="page-header">
       <div class="header-left">
         <h1 class="page-title">技术分析</h1>
-        <p class="page-description">专业的技术分析图表和指标工具</p>
+        <p class="page-description">基于tqsdk的实时技术指标分析</p>
       </div>
       <div class="header-right">
-        <el-button @click="showFullscreen = !showFullscreen">
-          <el-icon><FullScreen /></el-icon>
-          {{ showFullscreen ? '退出全屏' : '全屏显示' }}
+        <el-select v-model="selectedSymbol" placeholder="选择合约" @change="loadTechnicalData">
+          <el-option
+            v-for="contract in contracts"
+            :key="contract.symbol"
+            :label="`${contract.name} (${contract.symbol})`"
+            :value="contract.symbol"
+          />
+        </el-select>
+        <el-select v-model="selectedPeriod" placeholder="选择周期" @change="loadTechnicalData">
+          <el-option label="1分钟" value="1m" />
+          <el-option label="5分钟" value="5m" />
+          <el-option label="15分钟" value="15m" />
+          <el-option label="1小时" value="1h" />
+          <el-option label="1天" value="1d" />
+        </el-select>
+        <el-button @click="loadTechnicalData" :loading="loading">
+          <el-icon><Refresh /></el-icon>
+          刷新
         </el-button>
       </div>
     </div>
 
-    <!-- 图表容器 -->
-    <div class="chart-wrapper" :class="{ 'fullscreen': showFullscreen }">
-      <TechnicalChart 
-        :symbol="selectedSymbol"
-        :height="chartHeight"
-        @symbol-change="handleSymbolChange"
-      />
+    <!-- 主要内容 -->
+    <div v-if="selectedSymbol" class="analysis-content">
+      <!-- 基础信息卡片 -->
+      <el-row :gutter="20" class="info-cards">
+        <el-col :span="6">
+          <el-card class="info-card">
+            <div class="info-item">
+              <div class="info-label">当前价格</div>
+              <div class="info-value price">
+                {{ currentQuote?.last_price?.toFixed(2) || '--' }}
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card class="info-card">
+            <div class="info-item">
+              <div class="info-label">涨跌幅</div>
+              <div class="info-value" :class="getChangeClass(currentQuote?.change_percent)">
+                {{ formatPercent(currentQuote?.change_percent) }}
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card class="info-card">
+            <div class="info-item">
+              <div class="info-label">成交量</div>
+              <div class="info-value">
+                {{ formatVolume(currentQuote?.volume) }}
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        <el-col :span="6">
+          <el-card class="info-card">
+            <div class="info-item">
+              <div class="info-label">持仓量</div>
+              <div class="info-value">
+                {{ formatVolume(currentQuote?.open_interest) }}
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+
+      <!-- 技术指标面板 -->
+      <el-row :gutter="20">
+        <!-- 左侧：技术指标数值 -->
+        <el-col :span="8">
+          <el-card title="技术指标">
+            <template #header>
+              <div class="card-header">
+                <span>技术指标</span>
+                <el-tag v-if="indicators.timestamp" size="small" type="info">
+                  {{ formatTime(indicators.timestamp) }}
+                </el-tag>
+              </div>
+            </template>
+
+            <div class="indicators-list">
+              <!-- 移动平均线 -->
+              <div class="indicator-group">
+                <h4>移动平均线</h4>
+                <div class="indicator-items">
+                  <div class="indicator-item">
+                    <span class="indicator-name">MA5</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.ma5) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">MA10</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.ma10) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">MA20</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.ma20) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- RSI -->
+              <div class="indicator-group">
+                <h4>相对强弱指标</h4>
+                <div class="indicator-items">
+                  <div class="indicator-item">
+                    <span class="indicator-name">RSI</span>
+                    <span class="indicator-value">{{ formatRSI(indicators.latest_values?.rsi) }}</span>
+                    <el-tag 
+                      v-if="indicators.signals?.rsi" 
+                      :type="getSignalType(indicators.signals.rsi)" 
+                      size="small"
+                    >
+                      {{ indicators.signals.rsi }}
+                    </el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <!-- MACD -->
+              <div class="indicator-group">
+                <h4>MACD</h4>
+                <div class="indicator-items">
+                  <div class="indicator-item">
+                    <span class="indicator-name">MACD</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.macd) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">Signal</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.macd_signal) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">Histogram</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.macd_histogram) }}</span>
+                    <el-tag 
+                      v-if="indicators.signals?.macd" 
+                      :type="getSignalType(indicators.signals.macd)" 
+                      size="small"
+                    >
+                      {{ indicators.signals.macd }}
+                    </el-tag>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 布林带 -->
+              <div class="indicator-group">
+                <h4>布林带</h4>
+                <div class="indicator-items">
+                  <div class="indicator-item">
+                    <span class="indicator-name">上轨</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.bb_upper) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">中轨</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.bb_middle) }}</span>
+                  </div>
+                  <div class="indicator-item">
+                    <span class="indicator-name">下轨</span>
+                    <span class="indicator-value">{{ formatPrice(indicators.latest_values?.bb_lower) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+
+        <!-- 右侧：交易信号和多时间框架分析 -->
+        <el-col :span="16">
+          <el-card>
+            <template #header>
+              <el-tabs v-model="rightTabActive">
+                <el-tab-pane label="交易信号" name="signals" />
+                <el-tab-pane label="多时间框架" name="timeframes" />
+                <el-tab-pane label="K线数据" name="klines" />
+              </el-tabs>
+            </template>
+
+            <!-- 交易信号 -->
+            <div v-if="rightTabActive === 'signals'" class="signals-panel">
+              <div v-if="tradingSignals.length === 0" class="empty-state">
+                <el-empty description="暂无交易信号" />
+              </div>
+              <div v-else class="signals-list">
+                <div v-for="signal in tradingSignals" :key="signal.timestamp" class="signal-item">
+                  <div class="signal-header">
+                    <el-tag :type="getSignalType(signal.signal)" size="large">
+                      {{ signal.signal }}
+                    </el-tag>
+                    <span class="signal-time">{{ formatTime(signal.timestamp) }}</span>
+                  </div>
+                  <div class="signal-details">
+                    <div class="signal-info">
+                      <span>指标: {{ signal.indicator }}</span>
+                      <span>置信度: {{ (signal.confidence * 100).toFixed(1) }}%</span>
+                      <span>价格: {{ signal.price }}</span>
+                    </div>
+                    <div class="signal-description">{{ signal.description }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 多时间框架分析 -->
+            <div v-if="rightTabActive === 'timeframes'" class="timeframes-panel">
+              <div v-if="!multiTimeframe.symbol" class="empty-state">
+                <el-empty description="暂无多时间框架数据" />
+              </div>
+              <div v-else class="timeframes-grid">
+                <div v-for="(analysis, period) in multiTimeframe.analysis" :key="period" class="timeframe-item">
+                  <div class="timeframe-header">
+                    <h4>{{ getPeriodName(period) }}</h4>
+                    <el-tag :type="getTrendType(analysis.trend)" size="small">
+                      {{ analysis.trend }}
+                    </el-tag>
+                  </div>
+                  <div class="timeframe-indicators">
+                    <div class="tf-indicator">
+                      <span>RSI: {{ formatRSI(analysis.rsi) }}</span>
+                      <el-tag v-if="analysis.rsi_signal" :type="getSignalType(analysis.rsi_signal)" size="small">
+                        {{ analysis.rsi_signal }}
+                      </el-tag>
+                    </div>
+                    <div class="tf-indicator">
+                      <span>MACD: {{ analysis.macd_signal || '中性' }}</span>
+                    </div>
+                    <div class="tf-indicator">
+                      <span>MA趋势: {{ analysis.ma_trend || '中性' }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- K线数据 -->
+            <div v-if="rightTabActive === 'klines'" class="klines-panel">
+              <div v-if="klineData.length === 0" class="empty-state">
+                <el-empty description="暂无K线数据" />
+              </div>
+              <div v-else class="klines-table">
+                <el-table :data="klineData.slice(0, 20)" size="small" height="400">
+                  <el-table-column prop="datetime" label="时间" width="150">
+                    <template #default="{ row }">
+                      {{ formatTime(row.datetime) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="open" label="开盘" width="80">
+                    <template #default="{ row }">
+                      {{ row.open.toFixed(2) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="high" label="最高" width="80">
+                    <template #default="{ row }">
+                      {{ row.high.toFixed(2) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="low" label="最低" width="80">
+                    <template #default="{ row }">
+                      {{ row.low.toFixed(2) }}
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="close" label="收盘" width="80">
+                    <template #default="{ row }">
+                      <span :class="getChangeClass(row.close - row.open)">
+                        {{ row.close.toFixed(2) }}
+                      </span>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="volume" label="成交量" width="100">
+                    <template #default="{ row }">
+                      {{ formatVolume(row.volume) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
 
-    <!-- 快捷工具栏 -->
-    <div v-if="!showFullscreen" class="quick-tools">
-      <div class="tools-section">
-        <h3>常用指标</h3>
-        <div class="indicator-buttons">
-          <el-button 
-            v-for="indicator in commonIndicators"
-            :key="indicator.key"
-            size="small"
-            :type="activeIndicators.includes(indicator.key) ? 'primary' : 'default'"
-            @click="toggleIndicator(indicator.key)"
-          >
-            {{ indicator.name }}
-          </el-button>
-        </div>
-      </div>
-
-      <div class="tools-section">
-        <h3>时间周期</h3>
-        <div class="interval-buttons">
-          <el-button-group>
-            <el-button 
-              v-for="interval in timeIntervals"
-              :key="interval.value"
-              size="small"
-              :type="selectedInterval === interval.value ? 'primary' : 'default'"
-              @click="setInterval(interval.value)"
-            >
-              {{ interval.label }}
-            </el-button>
-          </el-button-group>
-        </div>
-      </div>
-
-      <div class="tools-section">
-        <h3>热门标的</h3>
-        <div class="symbol-buttons">
-          <el-button 
-            v-for="symbol in popularSymbols"
-            :key="symbol.code"
-            size="small"
-            :type="selectedSymbol === symbol.code ? 'primary' : 'default'"
-            @click="setSymbol(symbol.code)"
-          >
-            {{ symbol.code }}
-          </el-button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 指标说明面板 -->
-    <div v-if="!showFullscreen" class="indicator-info">
-      <el-collapse v-model="activeInfoPanels">
-        <el-collapse-item title="移动平均线 (MA)" name="ma">
-          <div class="indicator-description">
-            <p>移动平均线是技术分析中最基本的指标之一，通过计算一定周期内的平均价格来平滑价格波动。</p>
-            <ul>
-              <li><strong>MA5:</strong> 5日移动平均线，反映短期趋势</li>
-              <li><strong>MA10:</strong> 10日移动平均线，反映中短期趋势</li>
-              <li><strong>MA20:</strong> 20日移动平均线，反映中期趋势</li>
-              <li><strong>MA60:</strong> 60日移动平均线，反映长期趋势</li>
-            </ul>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item title="布林带 (BOLL)" name="bollinger">
-          <div class="indicator-description">
-            <p>布林带由三条线组成：中轨（移动平均线）、上轨和下轨（标准差线）。</p>
-            <ul>
-              <li><strong>上轨:</strong> 中轨 + 2倍标准差，通常作为阻力位</li>
-              <li><strong>中轨:</strong> 20日移动平均线</li>
-              <li><strong>下轨:</strong> 中轨 - 2倍标准差，通常作为支撑位</li>
-            </ul>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item title="相对强弱指数 (RSI)" name="rsi">
-          <div class="indicator-description">
-            <p>RSI是衡量价格变动速度和变化的动量振荡器，取值范围0-100。</p>
-            <ul>
-              <li><strong>超买区:</strong> RSI > 70，可能出现回调</li>
-              <li><strong>超卖区:</strong> RSI < 30，可能出现反弹</li>
-              <li><strong>中性区:</strong> 30 ≤ RSI ≤ 70，趋势延续</li>
-            </ul>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item title="MACD指标" name="macd">
-          <div class="indicator-description">
-            <p>MACD由快线、慢线和柱状图组成，用于判断趋势变化。</p>
-            <ul>
-              <li><strong>MACD线:</strong> 12日EMA - 26日EMA</li>
-              <li><strong>信号线:</strong> MACD线的9日EMA</li>
-              <li><strong>柱状图:</strong> MACD线 - 信号线</li>
-            </ul>
-          </div>
-        </el-collapse-item>
-
-        <el-collapse-item title="KDJ指标" name="kdj">
-          <div class="indicator-description">
-            <p>KDJ是随机指标，由K、D、J三条线组成，用于判断超买超卖。</p>
-            <ul>
-              <li><strong>K线:</strong> 快速随机值</li>
-              <li><strong>D线:</strong> K线的移动平均</li>
-              <li><strong>J线:</strong> 3K - 2D，更敏感的指标</li>
-            </ul>
-          </div>
-        </el-collapse-item>
-      </el-collapse>
+    <!-- 未选择合约时的提示 -->
+    <div v-else class="empty-state-main">
+      <el-empty description="请选择一个合约开始技术分析" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { FullScreen } from '@element-plus/icons-vue'
-import TechnicalChart from '@/components/charts/TechnicalChart.vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { Refresh } from '@element-plus/icons-vue'
+import {
+  getContractList,
+  getRealTimeQuote,
+  getTechnicalIndicators,
+  getTradingSignals,
+  getMultiTimeframeAnalysis,
+  getKlineData,
+  type ContractInfo,
+  type RealTimeQuote,
+  type TechnicalIndicators
+} from '@/api/realTimeData'
 
 // 响应式数据
-const selectedSymbol = ref('AAPL')
-const selectedInterval = ref('1d')
-const showFullscreen = ref(false)
-const activeIndicators = ref(['ma5', 'ma10', 'ma20'])
-const activeInfoPanels = ref(['ma'])
+const loading = ref(false)
+const selectedSymbol = ref('')
+const selectedPeriod = ref('1m')
+const rightTabActive = ref('signals')
 
-// 常用指标
-const commonIndicators = [
-  { key: 'ma5', name: 'MA5' },
-  { key: 'ma10', name: 'MA10' },
-  { key: 'ma20', name: 'MA20' },
-  { key: 'ma60', name: 'MA60' },
-  { key: 'bollinger', name: '布林带' },
-  { key: 'rsi', name: 'RSI' },
-  { key: 'macd', name: 'MACD' },
-  { key: 'kdj', name: 'KDJ' }
-]
-
-// 时间周期
-const timeIntervals = [
-  { label: '1分', value: '1m' },
-  { label: '5分', value: '5m' },
-  { label: '15分', value: '15m' },
-  { label: '1小时', value: '1h' },
-  { label: '1天', value: '1d' },
-  { label: '1周', value: '1w' }
-]
-
-// 热门标的
-const popularSymbols = [
-  { code: 'AAPL', name: '苹果' },
-  { code: 'GOOGL', name: '谷歌' },
-  { code: 'MSFT', name: '微软' },
-  { code: 'TSLA', name: '特斯拉' },
-  { code: 'AMZN', name: '亚马逊' },
-  { code: 'NVDA', name: '英伟达' },
-  { code: 'META', name: 'Meta' },
-  { code: 'NFLX', name: '奈飞' }
-]
-
-// 图表高度
-const chartHeight = computed(() => {
-  return showFullscreen.value ? window.innerHeight - 100 : 600
+// 数据
+const contracts = ref<ContractInfo[]>([])
+const currentQuote = ref<RealTimeQuote | null>(null)
+const indicators = ref<TechnicalIndicators>({
+  symbol: '',
+  period: '',
+  latest_values: {},
+  signals: {},
+  timestamp: ''
 })
+const tradingSignals = ref([])
+const multiTimeframe = ref({ symbol: '', analysis: {} })
+const klineData = ref([])
 
-// 切换指标
-const toggleIndicator = (indicator: string) => {
-  const index = activeIndicators.value.indexOf(indicator)
-  if (index > -1) {
-    activeIndicators.value.splice(index, 1)
-  } else {
-    activeIndicators.value.push(indicator)
+// 定时器
+let refreshTimer: NodeJS.Timeout | null = null
+
+// 加载合约列表
+const loadContracts = async () => {
+  try {
+    const response = await getContractList()
+    if (response.success && response.data) {
+      contracts.value = response.data.slice(0, 20) // 取前20个合约
+      if (contracts.value.length > 0 && !selectedSymbol.value) {
+        selectedSymbol.value = contracts.value[0].symbol
+        await loadTechnicalData()
+      }
+    }
+  } catch (error) {
+    console.error('加载合约列表失败:', error)
+    ElMessage.error('加载合约列表失败')
   }
 }
 
-// 设置时间周期
-const setInterval = (interval: string) => {
-  selectedInterval.value = interval
+// 加载技术分析数据
+const loadTechnicalData = async () => {
+  if (!selectedSymbol.value) return
+  
+  loading.value = true
+  try {
+    // 并行加载多个数据
+    const [quoteRes, indicatorsRes, signalsRes, multiTimeRes, klineRes] = await Promise.allSettled([
+      getRealTimeQuote(selectedSymbol.value),
+      getTechnicalIndicators(selectedSymbol.value, selectedPeriod.value),
+      getTradingSignals(selectedSymbol.value, selectedPeriod.value),
+      getMultiTimeframeAnalysis(selectedSymbol.value),
+      getKlineData(selectedSymbol.value, selectedPeriod.value, 50)
+    ])
+
+    // 处理实时行情
+    if (quoteRes.status === 'fulfilled' && quoteRes.value.success) {
+      currentQuote.value = quoteRes.value.data
+    }
+
+    // 处理技术指标
+    if (indicatorsRes.status === 'fulfilled' && indicatorsRes.value.success) {
+      indicators.value = indicatorsRes.value.data
+    }
+
+    // 处理交易信号
+    if (signalsRes.status === 'fulfilled' && signalsRes.value.success) {
+      tradingSignals.value = signalsRes.value.data.signals || []
+    }
+
+    // 处理多时间框架
+    if (multiTimeRes.status === 'fulfilled' && multiTimeRes.value.success) {
+      multiTimeframe.value = multiTimeRes.value.data
+    }
+
+    // 处理K线数据
+    if (klineRes.status === 'fulfilled' && klineRes.value.success) {
+      klineData.value = klineRes.value.data.data || []
+    }
+
+  } catch (error) {
+    console.error('加载技术分析数据失败:', error)
+    ElMessage.error('加载数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
-// 设置标的
-const setSymbol = (symbol: string) => {
-  selectedSymbol.value = symbol
+// 格式化函数
+const formatPrice = (price: number | undefined) => {
+  return price ? price.toFixed(2) : '--'
 }
 
-// 处理标的变化
-const handleSymbolChange = (symbol: string) => {
-  selectedSymbol.value = symbol
+const formatRSI = (rsi: number | undefined) => {
+  return rsi ? rsi.toFixed(1) : '--'
+}
+
+const formatPercent = (percent: number | undefined) => {
+  if (percent === undefined) return '--'
+  return `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`
+}
+
+const formatVolume = (volume: number | undefined) => {
+  if (!volume) return '--'
+  if (volume >= 10000) {
+    return `${(volume / 10000).toFixed(1)}万`
+  }
+  return volume.toString()
+}
+
+const formatTime = (timestamp: string) => {
+  return new Date(timestamp).toLocaleString()
+}
+
+const getPeriodName = (period: string) => {
+  const names: Record<string, string> = {
+    '1m': '1分钟',
+    '5m': '5分钟',
+    '15m': '15分钟',
+    '1h': '1小时',
+    '1d': '1天'
+  }
+  return names[period] || period
+}
+
+// 样式类函数
+const getChangeClass = (change: number | undefined) => {
+  if (!change) return ''
+  return change >= 0 ? 'positive' : 'negative'
+}
+
+const getSignalType = (signal: string) => {
+  switch (signal) {
+    case '买入':
+    case 'BUY':
+    case '看涨':
+      return 'success'
+    case '卖出':
+    case 'SELL':
+    case '看跌':
+      return 'danger'
+    case '中性':
+    case 'HOLD':
+      return 'info'
+    default:
+      return 'warning'
+  }
+}
+
+const getTrendType = (trend: string) => {
+  switch (trend) {
+    case '上涨':
+    case '看涨':
+      return 'success'
+    case '下跌':
+    case '看跌':
+      return 'danger'
+    case '震荡':
+    case '中性':
+      return 'info'
+    default:
+      return 'warning'
+  }
+}
+
+// 启动定时刷新
+const startAutoRefresh = () => {
+  refreshTimer = setInterval(() => {
+    if (selectedSymbol.value) {
+      loadTechnicalData()
+    }
+  }, 30000) // 30秒刷新一次
+}
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
 }
 
 // 组件挂载
 onMounted(() => {
-  // 监听ESC键退出全屏
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && showFullscreen.value) {
-      showFullscreen.value = false
-    }
-  })
+  loadContracts()
+  startAutoRefresh()
+})
+
+// 组件卸载
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 
 <style scoped>
 .technical-analysis {
   padding: 20px;
-  min-height: 100vh;
-  background: var(--el-bg-color-page);
 }
 
 .page-header {
@@ -235,10 +516,8 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 20px;
-  background: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e4e7ed;
 }
 
 .header-left {
@@ -263,92 +542,181 @@ onMounted(() => {
   gap: 12px;
 }
 
-.chart-wrapper {
-  margin-bottom: 20px;
-  transition: all 0.3s ease;
-}
-
-.chart-wrapper.fullscreen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
-  background: var(--el-bg-color);
-  padding: 20px;
-  margin: 0;
-}
-
-.quick-tools {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 20px;
+.info-cards {
   margin-bottom: 20px;
 }
 
-.tools-section {
-  padding: 20px;
-  background: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+.info-card {
+  text-align: center;
 }
 
-.tools-section h3 {
-  margin: 0 0 16px 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+.info-item {
+  padding: 10px;
 }
 
-.indicator-buttons,
-.symbol-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.interval-buttons {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.indicator-info {
-  background: var(--el-bg-color);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
-
-.indicator-description {
-  padding: 16px;
-  color: #606266;
-  line-height: 1.6;
-}
-
-.indicator-description p {
-  margin: 0 0 12px 0;
-}
-
-.indicator-description ul {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.indicator-description li {
+.info-label {
+  font-size: 14px;
+  color: #909399;
   margin-bottom: 8px;
 }
 
-.indicator-description strong {
+.info-value {
+  font-size: 20px;
+  font-weight: 600;
   color: #303133;
 }
 
-:deep(.el-collapse-item__header) {
-  padding: 0 20px;
-  font-weight: 600;
+.info-value.price {
+  font-size: 24px;
 }
 
-:deep(.el-collapse-item__content) {
-  padding: 0;
+.positive {
+  color: #67c23a;
+}
+
+.negative {
+  color: #f56c6c;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.indicators-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.indicator-group {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.indicator-group h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #606266;
+}
+
+.indicator-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.indicator-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+}
+
+.indicator-name {
+  font-size: 13px;
+  color: #909399;
+  min-width: 60px;
+}
+
+.indicator-value {
+  font-weight: 600;
+  color: #303133;
+}
+
+.signals-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.signal-item {
+  padding: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.signal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.signal-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.signal-details {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.signal-info {
+  display: flex;
+  gap: 15px;
+  font-size: 12px;
+  color: #606266;
+}
+
+.signal-description {
+  font-size: 13px;
+  color: #909399;
+  font-style: italic;
+}
+
+.timeframes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.timeframe-item {
+  padding: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+}
+
+.timeframe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.timeframe-header h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.timeframe-indicators {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tf-indicator {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #606266;
+}
+
+.klines-table {
+  height: 400px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+}
+
+.empty-state-main {
+  text-align: center;
+  padding: 100px;
 }
 </style>

@@ -134,6 +134,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { getPositions, getAccountInfo } from '@/api/realTimeData'
 
 // 响应式数据
 const showRiskAnalysis = ref(false)

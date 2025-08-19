@@ -77,9 +77,9 @@
           <label>交易品种:</label>
           <select v-model="filters.symbol">
             <option value="">全部</option>
-            <option value="BTCUSDT">BTC/USDT</option>
-            <option value="ETHUSDT">ETH/USDT</option>
-            <option value="ADAUSDT">ADA/USDT</option>
+            <option value="SHFE.cu2601">沪铜2601</option>
+            <option value="DCE.i2601">铁矿石2601</option>
+            <option value="CZCE.MA601">甲醇2601</option>
           </select>
         </div>
         <div class="filter-item">
@@ -97,37 +97,59 @@
     <!-- 订单列表 -->
     <div class="orders-card">
       <h3>📋 订单列表</h3>
-      <div class="orders-table">
-        <div class="table-header">
-          <div class="header-cell">订单ID</div>
-          <div class="header-cell">交易品种</div>
-          <div class="header-cell">类型</div>
-          <div class="header-cell">方向</div>
-          <div class="header-cell">数量</div>
-          <div class="header-cell">价格</div>
-          <div class="header-cell">状态</div>
-          <div class="header-cell">时间</div>
-          <div class="header-cell">操作</div>
+      <div v-loading="loading" class="orders-table">
+        <div v-if="filteredOrders.length === 0" class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">暂无订单数据</div>
         </div>
-        
-        <div v-for="order in filteredOrders" :key="order.id" class="table-row">
-          <div class="table-cell">{{ order.id }}</div>
-          <div class="table-cell">{{ order.symbol }}</div>
-          <div class="table-cell">{{ order.type }}</div>
-          <div class="table-cell" :class="order.side">{{ order.side === 'buy' ? '买入' : '卖出' }}</div>
-          <div class="table-cell">{{ order.quantity }}</div>
-          <div class="table-cell">{{ order.price }}</div>
-          <div class="table-cell">
-            <span class="status" :class="order.status">{{ getStatusText(order.status) }}</span>
-          </div>
-          <div class="table-cell">{{ formatTime(order.created_at) }}</div>
-          <div class="table-cell">
-            <button v-if="order.status === 'pending'" class="btn-small danger" @click="cancelOrder(order.id)">
-              取消
-            </button>
-            <button class="btn-small" @click="viewOrder(order.id)">
-              详情
-            </button>
+        <div v-else class="orders-grid">
+          <div v-for="order in filteredOrders" :key="order.order_id || order.id" class="order-card">
+            <div class="order-header">
+              <span class="order-id">#{{ order.order_id || order.id }}</span>
+              <span class="order-status" :class="order.status">
+                {{ getStatusText(order.status) }}
+              </span>
+            </div>
+            <div class="order-content">
+              <div class="order-info">
+                <div class="info-row">
+                  <span class="label">品种:</span>
+                  <span class="value">{{ order.symbol }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">方向:</span>
+                  <span class="value" :class="order.direction || order.side">
+                    {{ getDirectionText(order.direction || order.side) }}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="label">数量:</span>
+                  <span class="value">{{ order.volume || order.quantity }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">价格:</span>
+                  <span class="value">
+                    {{ order.price ? formatNumber(order.price) : '市价' }}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="label">时间:</span>
+                  <span class="value">{{ formatTime(order.created_at || order.insert_date_time) }}</span>
+                </div>
+              </div>
+              <div class="order-actions">
+                <button 
+                  v-if="order.status === 'ALIVE' || order.status === 'pending'" 
+                  class="btn-small danger" 
+                  @click="cancelOrder(order)"
+                >
+                  ❌ 撤单
+                </button>
+                <button class="btn-small" @click="viewOrderDetail(order)">
+                  👁️ 详情
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -136,121 +158,289 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { request } from '@/utils/request'
 
 // 响应式数据
+const loading = ref(false)
 const showFilters = ref(false)
-const orderStats = ref({
-  totalOrders: 156,
-  activeOrders: 23,
-  completedOrders: 128,
-  cancelledOrders: 5
+
+// 订单统计
+const orderStats = reactive({
+  totalOrders: 0,
+  activeOrders: 0,
+  completedOrders: 0,
+  cancelledOrders: 0
 })
 
-const filters = ref({
+// 筛选条件
+const filters = reactive({
   status: '',
   symbol: '',
   type: ''
 })
 
-// 模拟订单数据
-const orders = ref([
-  {
-    id: 'ORD001',
-    symbol: 'BTCUSDT',
-    type: 'limit',
-    side: 'buy',
-    quantity: 0.5,
-    price: 45000,
-    status: 'pending',
-    created_at: new Date('2025-08-05T10:30:00')
-  },
-  {
-    id: 'ORD002',
-    symbol: 'ETHUSDT',
-    type: 'market',
-    side: 'sell',
-    quantity: 2.0,
-    price: 3200,
-    status: 'completed',
-    created_at: new Date('2025-08-05T09:15:00')
-  },
-  {
-    id: 'ORD003',
-    symbol: 'ADAUSDT',
-    type: 'limit',
-    side: 'buy',
-    quantity: 1000,
-    price: 0.45,
-    status: 'active',
-    created_at: new Date('2025-08-05T08:45:00')
-  },
-  {
-    id: 'ORD004',
-    symbol: 'BTCUSDT',
-    type: 'stop',
-    side: 'sell',
-    quantity: 0.3,
-    price: 44000,
-    status: 'cancelled',
-    created_at: new Date('2025-08-05T07:20:00')
-  }
-])
+// 订单列表
+const orders = ref([])
 
-// 计算属性
+// 过滤后的订单
 const filteredOrders = computed(() => {
-  return orders.value.filter(order => {
-    if (filters.value.status && order.status !== filters.value.status) return false
-    if (filters.value.symbol && order.symbol !== filters.value.symbol) return false
-    if (filters.value.type && order.type !== filters.value.type) return false
-    return true
-  })
+  let filtered = orders.value
+  
+  if (filters.status) {
+    filtered = filtered.filter(order => order.status === filters.status)
+  }
+  
+  if (filters.symbol) {
+    filtered = filtered.filter(order => order.symbol === filters.symbol)
+  }
+  
+  if (filters.type) {
+    filtered = filtered.filter(order => (order.order_type || order.type) === filters.type)
+  }
+  
+  return filtered
 })
 
-// 工具函数
-const formatTime = (time: Date) => {
-  return time.toLocaleString('zh-CN')
+// 加载订单数据
+const loadOrders = async () => {
+  loading.value = true
+  try {
+    // 尝试多个API路径，按优先级顺序
+    const apiConfigs = [
+      {
+        path: '/v1/orders/my',
+        params: { limit: 100 }
+      },
+      {
+        path: '/v1/simple-trading/orders',
+        params: {}
+      },
+      {
+        path: '/v1/algo-trading/orders',
+        params: { limit: 100 }
+      }
+    ]
+    
+    let success = false
+    for (const config of apiConfigs) {
+      try {
+        const result = await request.get(config.path, { params: config.params })
+        
+        if (result.success && result.data) {
+          // 处理不同API返回的数据格式
+          let orderData = result.data
+          if (Array.isArray(result.data.orders)) {
+            orderData = result.data.orders
+          } else if (!Array.isArray(orderData)) {
+            orderData = []
+          }
+          
+          orders.value = orderData.map(order => ({
+            id: order.order_id || order.id || order.uuid,
+            order_id: order.order_id || order.id || order.uuid,
+            symbol: order.symbol,
+            direction: order.direction || order.side,
+            volume: order.volume || order.quantity,
+            price: order.price,
+            status: order.status,
+            order_type: order.order_type || order.type,
+            created_at: order.created_at || order.insert_date_time || order.submitted_at
+          }))
+          
+          updateOrderStats()
+          success = true
+          console.log(`✅ 成功从 ${config.path} 加载 ${orders.value.length} 个订单`)
+          break
+        }
+      } catch (apiError) {
+        console.log(`❌ API ${config.path} 失败:`, apiError.message)
+        continue
+      }
+    }
+    
+    if (!success) {
+      console.warn('⚠️ 所有订单API都无法访问，使用模拟数据')
+      ElMessage.warning('连接订单API失败，使用模拟数据')
+      loadMockOrders()
+    }
+  } catch (error) {
+    console.error('❌ 加载订单失败:', error)
+    ElMessage.warning('连接订单API失败，使用模拟数据')
+    loadMockOrders()
+  } finally {
+    loading.value = false
+  }
 }
 
+// 加载模拟订单数据
+const loadMockOrders = () => {
+  orders.value = [
+    {
+      id: 'ORD001',
+      symbol: 'SHFE.cu2601',
+      direction: 'BUY',
+      volume: 1,
+      price: 71520,
+      status: 'ALIVE',
+      order_type: 'LIMIT',
+      created_at: new Date().toISOString()
+    },
+    {
+      id: 'ORD002',
+      symbol: 'DCE.i2601',
+      direction: 'SELL',
+      volume: 2,
+      price: 820,
+      status: 'FINISHED',
+      order_type: 'LIMIT',
+      created_at: new Date(Date.now() - 3600000).toISOString()
+    },
+    {
+      id: 'ORD003',
+      symbol: 'CZCE.MA601',
+      direction: 'BUY',
+      volume: 1,
+      price: null,
+      status: 'FINISHED',
+      order_type: 'MARKET',
+      created_at: new Date(Date.now() - 7200000).toISOString()
+    }
+  ]
+  updateOrderStats()
+}
+
+// 更新订单统计
+const updateOrderStats = () => {
+  orderStats.totalOrders = orders.value.length
+  orderStats.activeOrders = orders.value.filter(o => o.status === 'ALIVE' || o.status === 'pending').length
+  orderStats.completedOrders = orders.value.filter(o => o.status === 'FINISHED' || o.status === 'completed').length
+  orderStats.cancelledOrders = orders.value.filter(o => o.status === 'CANCELLED' || o.status === 'cancelled').length
+}
+
+// 刷新订单
+const refreshOrders = async () => {
+  await loadOrders()
+  ElMessage.success('订单数据已刷新')
+}
+
+// 创建订单
+const createOrder = () => {
+  ElMessage.info('跳转到交易页面创建订单')
+  // 这里可以跳转到交易页面
+}
+
+// 导出订单
+const exportOrders = () => {
+  try {
+    const exportData = {
+      orders: orders.value,
+      export_time: new Date().toISOString(),
+      total_count: orders.value.length
+    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+      type: 'application/json'
+    })
+    
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `orders_export_${new Date().toISOString().split('T')[0]}.json`
+    a.click()
+    
+    URL.revokeObjectURL(url)
+    ElMessage.success('订单数据导出成功')
+  } catch (error) {
+    ElMessage.error('导出失败')
+  }
+}
+
+// 撤销订单
+const cancelOrder = async (order: any) => {
+  try {
+    await ElMessageBox.confirm(`确定要撤销订单 #${order.order_id || order.id} 吗？`, '确认撤单', {
+      type: 'warning'
+    })
+    
+    // 尝试多个撤单API路径
+    const cancelApis = [
+      `/v1/orders/${order.order_id || order.id}`,
+      `/v1/simple-trading/orders/${order.order_id || order.id}`
+    ]
+    
+    let success = false
+    for (const apiPath of cancelApis) {
+      try {
+        const result = await request.delete(apiPath)
+        
+        if (result.success) {
+          ElMessage.success('订单撤销成功')
+          await loadOrders()
+          success = true
+          break
+        }
+      } catch (apiError) {
+        console.log(`撤单API ${apiPath} 失败:`, apiError)
+        continue
+      }
+    }
+    
+    if (!success) {
+      throw new Error('所有撤单API都无法访问')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('❌ 撤单失败:', error)
+      ElMessage.error(`撤单失败: ${error.message || error}`)
+    }
+  }
+}
+
+// 查看订单详情
+const viewOrderDetail = (order: any) => {
+  ElMessage.info(`查看订单详情: #${order.order_id || order.id}`)
+  // 这里可以打开订单详情对话框
+}
+
+// 工具函数
 const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    pending: '待处理',
-    active: '活跃',
-    completed: '已完成',
-    cancelled: '已取消'
+  const statusMap = {
+    'ALIVE': '活跃',
+    'FINISHED': '已完成',
+    'CANCELLED': '已取消',
+    'pending': '待处理',
+    'active': '活跃',
+    'completed': '已完成',
+    'cancelled': '已取消'
   }
   return statusMap[status] || status
 }
 
-// 页面操作
-const refreshOrders = () => {
-  console.log('🔄 刷新订单数据...')
-  // 这里可以调用API刷新数据
+const getDirectionText = (direction: string) => {
+  const directionMap = {
+    'BUY': '买入',
+    'SELL': '卖出',
+    'buy': '买入',
+    'sell': '卖出'
+  }
+  return directionMap[direction] || direction
 }
 
-const createOrder = () => {
-  console.log('➕ 创建新订单...')
-  // 这里可以打开创建订单的对话框
+const formatNumber = (num: number) => {
+  return new Intl.NumberFormat('zh-CN').format(num)
 }
 
-const exportOrders = () => {
-  console.log('📤 导出订单数据...')
-  // 这里可以导出订单数据
+const formatTime = (timestamp: string) => {
+  if (!timestamp) return '--'
+  return new Date(timestamp).toLocaleString()
 }
 
-const cancelOrder = (orderId: string) => {
-  console.log('❌ 取消订单:', orderId)
-  // 这里可以调用API取消订单
-}
-
-const viewOrder = (orderId: string) => {
-  console.log('👁️ 查看订单详情:', orderId)
-  // 这里可以跳转到订单详情页面
-}
-
-// 生命周期
+// 页面初始化
 onMounted(() => {
   console.log('📋 订单管理页面已加载')
+  loadOrders()
 })
 </script>
 
@@ -279,10 +469,9 @@ onMounted(() => {
   color: var(--el-text-color-regular);
 }
 
-/* 统计卡片 */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 20px;
   margin-bottom: 32px;
 }
@@ -312,6 +501,7 @@ onMounted(() => {
   justify-content: center;
   border-radius: 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
 }
 
 .stat-content {
@@ -323,6 +513,7 @@ onMounted(() => {
   font-weight: 700;
   color: var(--el-text-color-primary);
   margin-bottom: 4px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
 .stat-label {
@@ -331,7 +522,6 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 操作卡片 */
 .actions-card, .filters-card, .orders-card {
   background: var(--el-bg-color);
   border-radius: 12px;
@@ -374,11 +564,10 @@ onMounted(() => {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-/* 筛选器 */
 .filters {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
 }
 
 .filter-item {
@@ -388,102 +577,148 @@ onMounted(() => {
 }
 
 .filter-item label {
+  font-size: 14px;
   font-weight: 500;
   color: var(--el-text-color-primary);
 }
 
 .filter-item select {
   padding: 8px 12px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--el-border-color);
   border-radius: 6px;
-  font-size: 14px;
-}
-
-/* 订单表格 */
-.orders-table {
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e9ecef;
-}
-
-.table-header {
-  display: grid;
-  grid-template-columns: 100px 120px 80px 80px 100px 100px 80px 140px 100px;
   background: var(--el-bg-color-page);
+  color: var(--el-text-color-primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--el-text-color-secondary);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 16px;
+}
+
+.orders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.order-card {
+  background: var(--el-bg-color-page);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid var(--el-border-color-light);
+  transition: all 0.3s ease;
+}
+
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.order-id {
+  font-size: 16px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
 
-.table-row {
-  display: grid;
-  grid-template-columns: 100px 120px 80px 80px 100px 100px 80px 140px 100px;
-  border-top: 1px solid #e9ecef;
-}
-
-.table-row:hover {
-  background: var(--el-bg-color-page);
-}
-
-.header-cell, .table-cell {
-  padding: 12px 8px;
-  text-align: center;
-  font-size: 14px;
-}
-
-.table-cell.buy {
-  color: #27ae60;
-  font-weight: 600;
-}
-
-.table-cell.sell {
-  color: #e74c3c;
-  font-weight: 600;
-}
-
-.status {
-  padding: 4px 8px;
-  border-radius: 4px;
+.order-status {
+  padding: 4px 12px;
+  border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
 }
 
-.status.pending {
-  background: var(--el-bg-color)3cd;
-  color: var(--el-color-warning);
+.order-status.ALIVE, .order-status.pending {
+  background: #fff3cd;
+  color: #856404;
 }
 
-.status.active {
-  background: #d1ecf1;
-  color: #0c5460;
-}
-
-.status.completed {
+.order-status.FINISHED, .order-status.completed {
   background: #d4edda;
   color: #155724;
 }
 
-.status.cancelled {
-  background: var(--el-color-danger-light-9);
+.order-status.CANCELLED, .order-status.cancelled {
+  background: #f8d7da;
   color: #721c24;
 }
 
+.order-info {
+  margin-bottom: 16px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.label {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+  font-weight: 500;
+}
+
+.value {
+  font-size: 14px;
+  color: var(--el-text-color-primary);
+  font-weight: 600;
+}
+
+.value.BUY, .value.buy {
+  color: #27ae60;
+}
+
+.value.SELL, .value.sell {
+  color: #e74c3c;
+}
+
+.order-actions {
+  display: flex;
+  gap: 8px;
+}
+
 .btn-small {
-  padding: 4px 8px;
+  padding: 6px 12px;
   font-size: 12px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  margin: 0 2px;
   background: #6c757d;
   color: white;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-small:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-small.danger {
   background: #dc3545;
-}
-
-.btn-small:hover {
-  opacity: 0.8;
 }
 
 /* 响应式设计 */
@@ -500,8 +735,12 @@ onMounted(() => {
     flex-direction: column;
   }
   
-  .orders-table {
-    overflow-x: auto;
+  .filters {
+    flex-direction: column;
+  }
+  
+  .orders-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

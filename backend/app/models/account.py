@@ -1,7 +1,7 @@
 """
 账户管理数据模型
 """
-from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Boolean, ForeignKey, Enum, Text, JSON
+from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Boolean, ForeignKey, Enum, Text, JSON, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -59,61 +59,34 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
-    # 账户基本信息
-    account_number = Column(String(50), unique=True, nullable=False, index=True)
-    account_name = Column(String(100), nullable=False)
-    account_type = Column(Enum(AccountType), nullable=False, index=True)
-    status = Column(Enum(AccountStatus), default=AccountStatus.ACTIVE, index=True)
+    # 账户基本信息 - 兼容现有数据库结构
+    account_id = Column(String(50), unique=True, nullable=False, index=True)  # 主要账户标识
+    account_name = Column(String(100), nullable=True)  # 允许为空以兼容现有数据
+    broker = Column(String(50), nullable=True)  # 券商信息
+    is_active = Column(Boolean, default=True, nullable=True)  # 账户状态
     
-    # 货币信息
-    base_currency = Column(String(10), default="USD", nullable=False)
+    # 资金信息 - 兼容现有数据库结构
+    balance = Column(Float, nullable=True)  # 总余额
+    available = Column(Float, nullable=True)  # 可用资金
+    margin = Column(Float, nullable=True)  # 保证金
+    frozen = Column(Float, nullable=True)  # 冻结资金
     
-    # 资金信息
-    cash_balance = Column(DECIMAL(20, 8), default=Decimal('0'), nullable=False)  # 现金余额
-    available_cash = Column(DECIMAL(20, 8), default=Decimal('0'), nullable=False)  # 可用现金
-    frozen_cash = Column(DECIMAL(20, 8), default=Decimal('0'), nullable=False)  # 冻结资金
+    # 盈亏信息 - 兼容现有数据库结构
+    realized_pnl = Column(Float, nullable=True)  # 已实现盈亏
+    unrealized_pnl = Column(Float, nullable=True)  # 未实现盈亏
+    total_pnl = Column(Float, nullable=True)  # 总盈亏
+    risk_ratio = Column(Float, nullable=True)  # 风险比率
     
-    # 保证金信息（保证金账户）
-    margin_balance = Column(DECIMAL(20, 8), default=Decimal('0'))  # 保证金余额
-    maintenance_margin = Column(DECIMAL(20, 8), default=Decimal('0'))  # 维持保证金
-    initial_margin = Column(DECIMAL(20, 8), default=Decimal('0'))  # 初始保证金
-    margin_ratio = Column(DECIMAL(10, 6), default=Decimal('0'))  # 保证金比率
-    
-    # 资产信息
-    total_assets = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总资产
-    total_liabilities = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总负债
-    net_assets = Column(DECIMAL(20, 8), default=Decimal('0'))  # 净资产
-    market_value = Column(DECIMAL(20, 8), default=Decimal('0'))  # 市值
-    
-    # 盈亏信息
-    realized_pnl = Column(DECIMAL(20, 8), default=Decimal('0'))  # 已实现盈亏
-    unrealized_pnl = Column(DECIMAL(20, 8), default=Decimal('0'))  # 未实现盈亏
-    total_pnl = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总盈亏
-    
-    # 统计信息
-    total_deposits = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总入金
-    total_withdrawals = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总出金
-    total_fees = Column(DECIMAL(20, 8), default=Decimal('0'))  # 总手续费
-    
-    # 风险控制
-    max_position_value = Column(DECIMAL(20, 8))  # 最大持仓价值限制
-    max_daily_loss = Column(DECIMAL(20, 8))  # 最大日亏损限制
-    risk_level = Column(String(20), default="MEDIUM")  # 风险等级
-    
-    # 账户设置
-    settings = Column(JSON, default=dict)  # 账户设置
-    
-    # 时间戳
-    created_at = Column(DateTime, default=func.now())
-    updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
-    last_activity_at = Column(DateTime)  # 最后活动时间
+    # 时间戳 - 兼容现有数据库结构
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), nullable=True)
     
     # 关系
     user = relationship("User", back_populates="accounts")
     transactions = relationship("Transaction", back_populates="account", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Account(id={self.id}, account_number='{self.account_number}', user_id={self.user_id})>"
+        return f"<Account(id={self.id}, account_id='{self.account_id}', user_id={self.user_id})>"
     
     def update_balances(self):
         """更新账户余额"""

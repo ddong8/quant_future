@@ -325,19 +325,53 @@ class PermissionChecker:
         
         return accessible_features
 
+# 权限映射 - 将API权限映射到系统权限
+PERMISSION_MAPPING = {
+    "account:read": Permissions.VIEW_ACCOUNT,
+    "account:create": Permissions.MANAGE_ACCOUNT,
+    "account:update": Permissions.MANAGE_ACCOUNT,
+    "account:delete": Permissions.MANAGE_ACCOUNT,
+    "account:deposit": Permissions.MANAGE_ACCOUNT,
+    "account:withdraw": Permissions.MANAGE_ACCOUNT,
+    "account:manage": Permissions.MANAGE_ACCOUNT,
+    "order:read": Permissions.VIEW_ORDERS,
+    "order:create": Permissions.CREATE_ORDERS,
+    "order:cancel": Permissions.CANCEL_ORDERS,
+    "position:read": Permissions.VIEW_POSITIONS,
+    "position:close": Permissions.CLOSE_POSITIONS,
+    "transaction:read": Permissions.VIEW_TRANSACTIONS,
+    "risk:read": Permissions.VIEW_RISK,
+    "risk:manage": Permissions.MANAGE_RISK,
+}
+
 # 权限装饰器
 def require_permission(permission: str):
-    """权限检查装饰器"""
+    """权限检查装饰器 - 支持FastAPI"""
+    from functools import wraps
+    from fastapi import HTTPException, status
+    
     def decorator(func):
-        def wrapper(*args, **kwargs):
-            # 这里需要从参数中获取用户对象
-            # 具体实现取决于框架和调用方式
-            user = kwargs.get('current_user') or args[0] if args else None
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # 从kwargs中获取current_user
+            user = kwargs.get('current_user')
             
-            if not user or not check_user_permission(user, permission):
-                raise PermissionError(f"需要权限: {get_permission_description(permission)}")
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="未认证用户"
+                )
             
-            return func(*args, **kwargs)
+            # 映射API权限到系统权限
+            system_permission = PERMISSION_MAPPING.get(permission, permission)
+            
+            if not check_user_permission(user, system_permission):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"权限不足，需要权限: {get_permission_description(system_permission)}"
+                )
+            
+            return await func(*args, **kwargs)
         return wrapper
     return decorator
 

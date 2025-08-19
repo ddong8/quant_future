@@ -34,23 +34,23 @@ export const tradingApi = {
     page?: number
     page_size?: number
   }) => {
-    return http.get<OrderListResponse>('/trading/orders', { params })
+    return http.get<OrderListResponse>('/v1/trading/orders', { params })
   },
 
   getOrder: (orderId: number) => {
-    return http.get<{ order: Order }>(`/trading/orders/${orderId}`)
+    return http.get<{ order: Order }>(`/v1/trading/orders/${orderId}`)
   },
 
   createOrder: (data: CreateOrderRequest) => {
-    return http.post<{ order: Order }>('/trading/orders', data)
+    return http.post<{ order: Order }>('/v1/trading/orders', data)
   },
 
   modifyOrder: (orderId: number, data: ModifyOrderRequest) => {
-    return http.put<{ order: Order }>(`/trading/orders/${orderId}`, data)
+    return http.put<{ order: Order }>(`/v1/trading/orders/${orderId}`, data)
   },
 
   cancelOrder: (orderId: number) => {
-    return http.delete(`/trading/orders/${orderId}`)
+    return http.delete(`/v1/trading/orders/${orderId}`)
   },
 
   cancelAllOrders: (params?: {
@@ -70,7 +70,7 @@ export const tradingApi = {
     account_id?: number
     symbol?: string
   }) => {
-    return http.get<PositionListResponse>('/trading/positions', { params })
+    return http.get<PositionListResponse>('/v1/trading/positions', { params })
   },
 
   getPosition: (positionId: number) => {
@@ -87,11 +87,11 @@ export const tradingApi = {
 
   // 账户管理
   getAccounts: () => {
-    return http.get<{ accounts: TradingAccount[] }>('/trading/accounts')
+    return http.get<{ accounts: TradingAccount[] }>('/v1/trading/account')
   },
 
-  getAccount: (accountId: number) => {
-    return http.get<TradingAccountResponse>(`/trading/accounts/${accountId}`)
+  getAccount: (accountId?: number) => {
+    return http.get<TradingAccountResponse>(`/v1/trading/account`)
   },
 
   updateAccount: (accountId: number, data: Partial<TradingAccount>) => {

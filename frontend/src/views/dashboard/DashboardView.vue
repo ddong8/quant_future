@@ -44,6 +44,26 @@
       </div>
     </div>
 
+    <!-- 实时数据面板 -->
+    <div class="realtime-panel">
+      <div class="panel-wrapper">
+        <ErrorBoundary 
+          v-if="showRealTimePanel" 
+          fallback-message="实时数据面板加载失败"
+          :show-retry="true"
+          @error="onRealTimePanelError"
+          @retry="onRealTimePanelRetry"
+        >
+          <RealTimeDataPanel />
+        </ErrorBoundary>
+        <div v-else class="temp-panel">
+          <h3>📊 实时数据面板</h3>
+          <p>正在加载中...</p>
+          <button @click="enableRealTimePanel" class="enable-btn">启用实时数据</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 用户信息和系统状态 -->
     <div class="info-grid">
       <div class="info-card">
@@ -132,6 +152,8 @@
 import { ref, onMounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import RealTimeDataPanel from '@/components/dashboard/RealTimeDataPanel.vue'
+import ErrorBoundary from '@/components/ErrorBoundary.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -140,6 +162,7 @@ const authStore = useAuthStore()
 const lastUpdateTime = ref(new Date())
 const dataLoaded = ref(false)
 const apiResult = ref('')
+const showRealTimePanel = ref(false)  // 控制实时数据面板显示
 
 // 仪表板数据
 const dashboardData = reactive({
@@ -198,6 +221,23 @@ const goToPositions = () => {
   router.push('/positions')
 }
 
+// 启用实时数据面板
+const enableRealTimePanel = () => {
+  console.log('🔄 手动启用实时数据面板...')
+  showRealTimePanel.value = true
+}
+
+// 实时数据面板错误处理
+const onRealTimePanelError = (error: Error) => {
+  console.error('🚨 实时数据面板发生错误:', error)
+  // 可以在这里添加错误上报逻辑
+}
+
+const onRealTimePanelRetry = () => {
+  console.log('🔄 重试加载实时数据面板...')
+  // 重试时可以重新初始化一些状态
+}
+
 // 数据加载
 const loadDashboardData = async () => {
   try {
@@ -242,8 +282,21 @@ const loadDashboardSummary = async () => {
     } else {
       console.warn('⚠️ 仪表板摘要响应格式异常:', response)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 加载仪表板摘要失败:', error)
+    
+    // 如果是422错误，提供更详细的错误信息
+    if (error.response?.status === 422) {
+      console.error('❌ 422错误详情:', error.response.data)
+      console.warn('⚠️ 仪表板API参数错误，使用默认数据')
+    }
+    
+    // 使用默认数据，确保页面能正常显示
+    dashboardData.accountBalance = 0
+    dashboardData.activeOrders = 0
+    dashboardData.activePositions = 0
+    dashboardData.marketStatus = 'closed'
+    dashboardData.todayPnl = 0
   }
 }
 
@@ -264,8 +317,16 @@ const loadUserProfile = async () => {
     } else {
       console.warn('⚠️ 用户资料响应格式异常:', response)
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 加载用户资料失败:', error)
+    
+    // 如果是422错误，提供更详细的错误信息
+    if (error.response?.status === 422) {
+      console.error('❌ 422错误详情:', error.response.data)
+      console.warn('⚠️ 用户资料API参数错误，跳过用户资料更新')
+    }
+    
+    // 不抛出错误，允许仪表板继续加载其他数据
   }
 }
 
@@ -277,6 +338,11 @@ onMounted(async () => {
   
   if (authStore.isAuthenticated) {
     await loadDashboardData()
+    
+    // 延迟启用实时数据面板，确保其他数据先加载完成
+    setTimeout(() => {
+      showRealTimePanel.value = true
+    }, 3000)
   } else {
     console.warn('⚠️ 用户未认证，无法加载仪表板数据')
   }
@@ -845,5 +911,47 @@ onMounted(async () => {
     padding: 10px 12px;
     font-size: 12px;
   }
+}
+
+/* 实时数据面板样式 */
+.realtime-panel {
+  margin-bottom: 24px;
+}
+
+.temp-panel {
+  text-align: center;
+  padding: 40px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 2px dashed #dee2e6;
+}
+
+.enable-btn {
+  margin-top: 15px;
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.enable-btn:hover {
+  background: #0056b3;
+}
+
+.realtime-panel :deep(.el-card) {
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.realtime-panel :deep(.el-card__header) {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.realtime-panel :deep(.el-card__body) {
+  padding: 20px;
 }
 </style>

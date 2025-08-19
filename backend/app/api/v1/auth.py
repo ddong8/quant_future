@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.orm import Session
 from typing import List
 
-from ...core.dependencies import get_current_user
+from ...core.dependencies import get_current_user, get_current_user_dict
 from ...core.database import get_db
 from ...core.response import (
     success_response,
@@ -166,7 +166,7 @@ async def change_password(
 
 @router.get("/me")
 async def get_current_user_info(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user_dict),
 ):
     """获取当前用户信息"""
     from ...core.response import success_response

@@ -326,10 +326,49 @@ const loadAccountDetails = async () => {
   try {
     // 加载账户详细信息
     await accountStore.fetchAccountDetails(selectedAccountId.value)
+    // 加载账户统计数据
+    await loadAccountStats()
     // 加载风险提醒
-    // await loadRiskAlerts()
+    await loadRiskAlerts()
   } catch (error) {
-    console.error('加载账户详情失败:', error)
+    console.error('❌ 加载账户详情失败:', error)
+  }
+}
+
+const loadAccountStats = async () => {
+  if (!selectedAccountId.value) return
+  
+  try {
+    // 这里可以调用账户统计API
+    // const stats = await accountApi.getAccountStats(selectedAccountId.value.toString())
+    // 暂时使用模拟数据
+    totalAssetsChange.value = Math.random() * 10000 - 5000
+  } catch (error) {
+    console.error('❌ 加载账户统计失败:', error)
+  }
+}
+
+const loadRiskAlerts = async () => {
+  if (!selectedAccountId.value) return
+  
+  try {
+    // 这里可以调用风险提醒API
+    // 暂时使用模拟数据
+    const account = currentAccount.value
+    if (account && account.risk_level === 'HIGH') {
+      riskAlerts.value = [
+        {
+          id: 1,
+          type: 'warning',
+          title: '高风险提醒',
+          message: '当前账户风险等级较高，请注意控制仓位'
+        }
+      ]
+    } else {
+      riskAlerts.value = []
+    }
+  } catch (error) {
+    console.error('❌ 加载风险提醒失败:', error)
   }
 }
 

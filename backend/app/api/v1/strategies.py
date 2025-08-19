@@ -38,11 +38,11 @@ async def create_strategy(
         return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
-@router.get("/", response_model=List[StrategyListResponse], summary="获取策略列表")
+@router.get("/", summary="获取策略列表")
 async def get_strategies(
     keyword: Optional[str] = Query(None, description="关键词搜索"),
-    strategy_type: Optional[StrategyType] = Query(None, description="策略类型"),
-    status: Optional[StrategyStatus] = Query(None, description="策略状态"),
+    strategy_type: Optional[str] = Query(None, description="策略类型"),
+    status: Optional[str] = Query(None, description="策略状态"),
     is_public: Optional[bool] = Query(None, description="是否公开"),
     is_template: Optional[bool] = Query(None, description="是否为模板"),
     is_running: Optional[bool] = Query(None, description="是否正在运行"),
@@ -55,24 +55,30 @@ async def get_strategies(
 ):
     """获取策略列表"""
     try:
-        search_params = StrategySearchParams(
-            keyword=keyword,
-            strategy_type=strategy_type,
-            status=status,
-            is_public=is_public,
-            is_template=is_template,
-            is_running=is_running,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            page=page,
-            page_size=page_size
-        )
+        # 获取策略列表
+        strategies = await strategy_service.get_strategy_list(str(current_user.id))
         
-        strategies, total = strategy_service.search_strategies(db, search_params, current_user.id)
+        # 应用筛选条件
+        filtered_strategies = strategies
+        
+        if keyword:
+            filtered_strategies = [s for s in filtered_strategies if keyword.lower() in s.get("name", "").lower() or keyword.lower() in s.get("description", "").lower()]
+        
+        if strategy_type:
+            filtered_strategies = [s for s in filtered_strategies if s.get("type") == strategy_type]
+        
+        if status:
+            filtered_strategies = [s for s in filtered_strategies if s.get("status") == status]
+        
+        # 计算分页
+        total = len(filtered_strategies)
+        start_idx = (page - 1) * page_size
+        end_idx = start_idx + page_size
+        paginated_strategies = filtered_strategies[start_idx:end_idx]
         
         return success_response(
             data={
-                "items": strategies,
+                "items": paginated_strategies,
                 "total": total,
                 "page": page,
                 "page_size": page_size,
@@ -83,16 +89,23 @@ async def get_strategies(
         return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
 
-@router.get("/my", response_model=List[StrategyListResponse], summary="获取我的策略")
+@router.get("/my", summary="获取我的策略")
 async def get_my_strategies(
-    status: Optional[StrategyStatus] = Query(None, description="策略状态"),
+    status: Optional[str] = Query(None, description="策略状态"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """获取当前用户的策略列表"""
     try:
-        strategies = strategy_service.get_user_strategies(db, current_user.id, status)
-        return success_response(data=strategies)
+        strategies = await strategy_service.get_strategy_list(str(current_user.id))
+        
+        # 筛选用户自己的策略（排除内置策略）
+        user_strategies = [s for s in strategies if not s.get("is_built_in", False)]
+        
+        if status:
+            user_strategies = [s for s in user_strategies if s.get("status") == status]
+        
+        return success_response(data=user_strategies)
     except Exception as e:
         return error_response(error_code="STRATEGY_ERROR", message=str(e))
 
