@@ -276,8 +276,8 @@ const selectedData = ref<HistoricalDataInfo[]>([])
 // 模拟历史数据信息
 const historicalData = ref<HistoricalDataInfo[]>([
   {
-    symbol: 'SHFE.cu2401',
-    name: '沪铜2401',
+    symbol: 'SHFE.cu2601',
+    name: '沪铜2601',
     exchange: 'SHFE',
     category: '有色金属',
     start_date: '2020-01-01',
@@ -288,8 +288,8 @@ const historicalData = ref<HistoricalDataInfo[]>([
     data_quality: 0.98
   },
   {
-    symbol: 'DCE.i2401',
-    name: '铁矿石2401',
+    symbol: 'DCE.i2601',
+    name: '铁矿石2601',
     exchange: 'DCE',
     category: '黑色金属',
     start_date: '2020-01-01',
@@ -300,8 +300,8 @@ const historicalData = ref<HistoricalDataInfo[]>([
     data_quality: 1.0
   },
   {
-    symbol: 'CZCE.MA401',
-    name: '甲醇401',
+    symbol: 'CZCE.MA2601',
+    name: '甲醇2601',
     exchange: 'CZCE',
     category: '化工',
     start_date: '2020-01-01',
@@ -312,8 +312,8 @@ const historicalData = ref<HistoricalDataInfo[]>([
     data_quality: 0.97
   },
   {
-    symbol: 'CFFEX.IF2401',
-    name: '沪深300股指2401',
+    symbol: 'CFFEX.IF2601',
+    name: '沪深300股指2601',
     exchange: 'CFFEX',
     category: '股指期货',
     start_date: '2020-01-01',

@@ -305,7 +305,7 @@ const loadLogs = async () => {
         level: 'DEBUG',
         message: '接收到新的K线数据',
         timestamp: new Date(Date.now() - 60000).toISOString(),
-        metadata: { symbol: 'SHFE.cu2401', price: 72500 }
+        metadata: { symbol: 'SHFE.cu2601', price: 72500 }
       },
       {
         id: 3,

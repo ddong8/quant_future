@@ -253,8 +253,8 @@ const pendingOrder = ref<{
 // 快速交易合约
 const quickSymbols = ref([
   {
-    code: 'SHFE.cu2401',
-    name: '沪铜2401',
+    code: 'SHFE.cu2601',
+    name: '沪铜2601',
     last_price: 68500,
     change: 150,
     change_percent: 0.22,
@@ -264,8 +264,8 @@ const quickSymbols = ref([
     margin_ratio: 0.08
   },
   {
-    code: 'DCE.i2401',
-    name: '铁矿石2401',
+    code: 'DCE.i2601',
+    name: '铁矿石2601',
     last_price: 850,
     change: -5,
     change_percent: -0.58,

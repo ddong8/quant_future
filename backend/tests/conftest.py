@@ -167,7 +167,7 @@ def test_order(db_session, test_user):
     """创建测试订单"""
     order = Order(
         user_id=test_user.id,
-        symbol="SHFE.cu2401",
+        symbol="SHFE.cu2601",
         side="buy",
         order_type="limit",
         quantity=1,
@@ -185,7 +185,7 @@ def test_position(db_session, test_user):
     """创建测试持仓"""
     position = Position(
         user_id=test_user.id,
-        symbol="SHFE.cu2401",
+        symbol="SHFE.cu2601",
         quantity=1,
         avg_price=70000.0,
         current_price=70500.0
@@ -308,7 +308,7 @@ def mock_influxdb():
                     "_value": 70000.0,
                     "_field": "close",
                     "_measurement": "kline",
-                    "symbol": "SHFE.cu2401"
+                    "symbol": "SHFE.cu2601"
                 }
             ]
     
@@ -316,7 +316,7 @@ def mock_influxdb():
 
 
 # 测试数据
-TEST_SYMBOLS = ["SHFE.cu2401", "DCE.i2401", "CZCE.MA401"]
+TEST_SYMBOLS = ["SHFE.cu2601", "DCE.i2601", "CZCE.MA2601"]
 
 TEST_KLINE_DATA = [
     {
@@ -338,7 +338,7 @@ TEST_KLINE_DATA = [
 ]
 
 TEST_QUOTE_DATA = {
-    "symbol": "SHFE.cu2401",
+    "symbol": "SHFE.cu2601",
     "last_price": 70000.0,
     "bid_price1": 69990.0,
     "ask_price1": 70010.0,

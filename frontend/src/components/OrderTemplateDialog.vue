@@ -254,7 +254,7 @@ const loadTemplates = async () => {
         id: 1,
         name: '沪铜买入模板',
         description: '沪铜期货买入限价单模板',
-        symbol: 'SHFE.cu2401',
+        symbol: 'SHFE.cu2601',
         side: 'buy',
         order_type: 'limit',
         quantity: 1,

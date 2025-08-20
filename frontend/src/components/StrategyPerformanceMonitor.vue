@@ -432,9 +432,9 @@ const updatePositionChart = () => {
       type: 'pie',
       radius: '60%',
       data: [
-        { value: 35, name: 'SHFE.cu2401' },
-        { value: 25, name: 'DCE.i2401' },
-        { value: 20, name: 'CZCE.MA401' },
+        { value: 35, name: 'SHFE.cu2601' },
+        { value: 25, name: 'DCE.i2601' },
+        { value: 20, name: 'CZCE.MA2601' },
         { value: 20, name: '现金' }
       ],
       emphasis: {

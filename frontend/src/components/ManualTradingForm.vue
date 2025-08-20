@@ -410,8 +410,8 @@ const searchSymbols = async (query: string) => {
     // 模拟数据
     symbolOptions.value = [
       {
-        code: 'SHFE.cu2401',
-        name: '沪铜2401',
+        code: 'SHFE.cu2601',
+        name: '沪铜2601',
         last_price: 68500,
         multiplier: 5,
         margin_ratio: 0.08,
@@ -420,8 +420,8 @@ const searchSymbols = async (query: string) => {
         price_step: 10
       },
       {
-        code: 'DCE.i2401',
-        name: '铁矿石2401',
+        code: 'DCE.i2601',
+        name: '铁矿石2601',
         last_price: 850,
         multiplier: 100,
         margin_ratio: 0.1,

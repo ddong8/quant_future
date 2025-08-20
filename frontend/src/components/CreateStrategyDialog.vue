@@ -333,13 +333,13 @@ const commonTags = ref([
 
 // 可用交易品种
 const availableSymbols = ref([
-  'SHFE.cu2401',
-  'SHFE.al2401',
-  'DCE.i2401',
-  'CZCE.MA401',
-  'CFFEX.IF2401',
-  'CFFEX.IC2401',
-  'CFFEX.IH2401'
+  'SHFE.cu2601',
+  'SHFE.al2601',
+  'DCE.i2601',
+  'CZCE.MA2601',
+  'CFFEX.IF2601',
+  'CFFEX.IC2601',
+  'CFFEX.IH2601'
 ])
 
 // 方法

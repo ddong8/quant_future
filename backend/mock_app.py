@@ -72,7 +72,7 @@ mock_strategies = [
 ]
 
 mock_quotes = [
-    {"symbol": "SHFE.cu2401", "last_price": 68500.0, "bid_price": 68490.0, "ask_price": 68510.0, "volume": 12345, "timestamp": datetime.now().isoformat()},
+    {"symbol": "SHFE.cu2601", "last_price": 68500.0, "bid_price": 68490.0, "ask_price": 68510.0, "volume": 12345, "timestamp": datetime.now().isoformat()},
     {"symbol": "SHFE.au2312", "last_price": 450.5, "bid_price": 450.0, "ask_price": 451.0, "volume": 8765, "timestamp": datetime.now().isoformat()},
 ]
 
@@ -233,9 +233,9 @@ async def get_instruments():
     return {
         "success": True,
         "data": [
-            {"symbol": "SHFE.cu2401", "name": "沪铜2401", "exchange": "SHFE"},
+            {"symbol": "SHFE.cu2601", "name": "沪铜2601", "exchange": "SHFE"},
             {"symbol": "SHFE.au2312", "name": "沪金2312", "exchange": "SHFE"},
-            {"symbol": "DCE.i2401", "name": "铁矿石2401", "exchange": "DCE"},
+            {"symbol": "DCE.i2601", "name": "铁矿石2601", "exchange": "DCE"},
         ]
     }
 
@@ -449,7 +449,7 @@ async def search_transactions():
                     "balance_before": 101000.0,
                     "balance_after": 100000.0,
                     "currency": "CNY",
-                    "description": "买入SHFE.cu2401",
+                    "description": "买入SHFE.cu2601",
                     "reference_id": "order_001",
                     "status": "COMPLETED",
                     "created_at": "2024-01-01T10:00:00Z",
@@ -487,7 +487,7 @@ async def create_order():
         "success": True,
         "data": {
             "id": "order_" + str(int(datetime.now().timestamp())),
-            "symbol": "SHFE.cu2401",
+            "symbol": "SHFE.cu2601",
             "direction": "BUY",
             "volume": 1,
             "price": 68500.0,
@@ -504,7 +504,7 @@ async def get_orders():
             "items": [
                 {
                     "id": "order_001",
-                    "symbol": "SHFE.cu2401",
+                    "symbol": "SHFE.cu2601",
                     "direction": "BUY",
                     "volume": 1,
                     "price": 68500.0,

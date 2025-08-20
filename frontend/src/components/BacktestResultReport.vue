@@ -528,10 +528,10 @@ const updatePositionAnalysisChart = () => {
   
   // 模拟持仓分析数据
   const positionData = [
-    { name: 'SHFE.cu2401', value: 35, weight: 0.35 },
-    { name: 'DCE.i2401', value: 25, weight: 0.25 },
-    { name: 'CZCE.MA401', value: 20, weight: 0.20 },
-    { name: 'CFFEX.IF2401', value: 20, weight: 0.20 }
+    { name: 'SHFE.cu2601', value: 35, weight: 0.35 },
+    { name: 'DCE.i2601', value: 25, weight: 0.25 },
+    { name: 'CZCE.MA2601', value: 20, weight: 0.20 },
+    { name: 'CFFEX.IF2601', value: 20, weight: 0.20 }
   ]
   
   const option = {

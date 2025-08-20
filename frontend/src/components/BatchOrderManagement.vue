@@ -439,10 +439,10 @@ const submitProgress = ref({
 
 // 合约选项
 const symbolOptions = ref([
-  { code: 'SHFE.cu2401', name: '沪铜2401' },
-  { code: 'DCE.i2401', name: '铁矿石2401' },
-  { code: 'CZCE.MA401', name: '甲醇2401' },
-  { code: 'CFFEX.IF2401', name: '沪深300' }
+  { code: 'SHFE.cu2601', name: '沪铜2601' },
+  { code: 'DCE.i2601', name: '铁矿石2601' },
+  { code: 'CZCE.MA2601', name: '甲醇2601' },
+  { code: 'CFFEX.IF2601', name: '沪深300' }
 ])
 
 // 计算属性
@@ -593,8 +593,8 @@ const exportTemplate = () => {
   // 创建模板数据
   const template = [
     ['合约代码', '交易方向', '订单类型', '交易数量', '委托价格', '有效期'],
-    ['SHFE.cu2401', 'buy', 'limit', '1', '68500', 'day'],
-    ['DCE.i2401', 'sell', 'market', '2', '', 'ioc']
+    ['SHFE.cu2601', 'buy', 'limit', '1', '68500', 'day'],
+    ['DCE.i2601', 'sell', 'market', '2', '', 'ioc']
   ]
   
   // 转换为CSV格式
@@ -630,7 +630,7 @@ const processImport = async () => {
     const importedOrders = [
       {
         id: Date.now().toString(),
-        symbol: 'SHFE.cu2401',
+        symbol: 'SHFE.cu2601',
         side: 'buy' as OrderSide,
         order_type: 'limit' as OrderType,
         quantity: 1,

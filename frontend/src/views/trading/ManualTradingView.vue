@@ -132,7 +132,7 @@ const networkStatus = ref<'online' | 'offline' | 'checking'>('checking')
 const watchedSymbols = ref([
   'SHFE.cu2601',
   'DCE.i2601',
-  'CZCE.MA601',
+  'CZCE.MA2601',
   'CFFEX.IF2601'
 ])
 
