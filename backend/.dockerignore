@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv
+venv
+env
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+
+# Tests
+tests/
+pytest.ini
+.pytest_cache/
+
+# Documentation
+docs/
+*.md
+
+# Logs
+logs/
+*.log
+
+# Local instance data
+instance/
+*.db
+*.sqlite3
+
+# Config files
+.env
+.env.*
+!.env.example
+
+# Uploads
+uploads/
+
+# Backups
+backups/

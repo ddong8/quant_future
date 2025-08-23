@@ -56,7 +56,7 @@ async def get_strategies(
     """获取策略列表"""
     try:
         # 获取策略列表
-        strategies = await strategy_service.get_strategy_list(str(current_user.id))
+        strategies = await strategy_service.get_strategy_list(db, str(current_user.id))
         
         # 应用筛选条件
         filtered_strategies = strategies
@@ -97,7 +97,7 @@ async def get_my_strategies(
 ):
     """获取当前用户的策略列表"""
     try:
-        strategies = await strategy_service.get_strategy_list(str(current_user.id))
+        strategies = await strategy_service.get_strategy_list(db, str(current_user.id))
         
         # 筛选用户自己的策略（排除内置策略）
         user_strategies = [s for s in strategies if not s.get("is_built_in", False)]
